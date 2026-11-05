@@ -17,7 +17,8 @@
     "typescript": "~6.0.3"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/api-gateway"
   ],
   "packageManager": "npm@10.9.7"
 }

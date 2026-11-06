@@ -33,8 +33,19 @@ describe('loadConfig', () => {
     expect(loadConfig(env({ GATEWAY_PROJECT: 'demo' }))).toMatchObject({
       rpcTimeoutMs: 10_000,
       bodyLimit: 1024 * 1024,
+      failoverMaxAttempts: 3,
       port: 3000,
     });
+  });
+
+  it('reads GATEWAY_FAILOVER_MAX_ATTEMPTS (1 disables failover, max 10)', () => {
+    expect(loadConfig(env({ GATEWAY_PROJECT: 'demo', GATEWAY_FAILOVER_MAX_ATTEMPTS: '1' })).failoverMaxAttempts).toBe(1);
+    expect(() => loadConfig(env({ GATEWAY_PROJECT: 'demo', GATEWAY_FAILOVER_MAX_ATTEMPTS: '0' }))).toThrow(
+      /GATEWAY_FAILOVER_MAX_ATTEMPTS must be an integer between 1 and 10/,
+    );
+    expect(() => loadConfig(env({ GATEWAY_PROJECT: 'demo', GATEWAY_FAILOVER_MAX_ATTEMPTS: '11' }))).toThrow(
+      /GATEWAY_FAILOVER_MAX_ATTEMPTS/,
+    );
   });
 
   it('reads numeric settings from env', () => {

@@ -26,12 +26,12 @@
 | 6 | Protocol translation (HTTP → RPC) và reverse proxy | 2 | ✅ |
 | 7 | Service discovery | 2, 7 | ✅ phía client (StaticDiscovery); registry ở Bước 7 |
 | 8 | Caching, TTL, stale-on-error | 3 | ⬜ |
-| 9 | Load balancing | 3 | ⬜ |
+| 9 | Load balancing | 3 | ✅ round-robin + failover |
 | 10 | Authentication / Authorization | 4 | ⬜ |
 | 11 | Rate limiting | 4 | ⬜ |
 | 12 | Request validation | 4 | ⬜ |
 | 13 | Observability | 5 | ⬜ |
-| 14 | Resilience: timeout, retry, circuit breaker | 5 | ⬜ |
+| 14 | Resilience: timeout, retry, circuit breaker | 3, 5 | 📖 (timeout + failover an toàn: ✅) |
 | 15 | Đóng gói và triển khai | 6 | ⬜ |
 | 16 | Service registry (heartbeat, TTL, CAP) | 7 | ⬜ |
 | 17 | Gateway trade-offs và so sánh sản phẩm | tổng kết | 📖 |
@@ -347,8 +347,20 @@ Ban đầu dùng `StaticDiscovery`, sau thay bằng `HttpRegistryAdapter` mà kh
 | Random / power of two choices | Chọn ngẫu nhiên 2, lấy cái ít tải hơn | Tải lớn, tránh dồn cục |
 | Consistent hashing | Cùng key luôn tới cùng instance | Cần sticky / cache cục bộ |
 
+**Trong code (Bước 3):** `src/gateway/load-balancer.ts`, vòng lặp `sendWithFailover` trong `src/gateway/gateway-handler.ts`.
+- Load balancer trả về **thứ tự thử** chứ không chỉ một instance: `[A, B, C]` → `[B, C, A]` → `[C, A, B]`. Phần tử đầu là lựa chọn chính, phần còn lại để failover. Chọn instance và failover dùng chung một thứ tự nên không cần thêm logic.
+- **Bộ đếm theo từng `project|pattern`**: bộ đếm chung cho mọi pattern sẽ lệch. Ví dụ request xen kẽ `user.getById`, `user.list` với 2 instance: bộ đếm chung khiến mỗi pattern luôn rơi vào một instance.
+- **Sắp theo `id` trước khi xoay**: thứ tự không phụ thuộc thứ tự registry trả về.
+- Bộ đếm lưu phần dư (`% n`) để không tăng vô hạn.
+- Kiểm chứng thật: 2 echo → mỗi echo nhận 2/4 request.
+
+**Bẫy thực tế:**
+- **Round-robin không biết instance nào đã chết.** Tắt một echo thì nó vẫn được chọn làm lựa chọn chính mỗi lượt thứ hai, rồi mới failover (log có cảnh báo cho 2/4 request). Nhanh vì `ECONNREFUSED` trả về tức thì, nhưng vẫn là một lần thử thừa. Giải pháp: **outlier detection / passive health check** (tạm loại instance lỗi liên tiếp), làm ở Bước 5.
+
 **Câu hỏi phỏng vấn**
 - Round-robin có nhược điểm gì? Khi nào dùng least-connections?
+- Vì sao bộ đếm round-robin nên tách theo từng pattern/route?
+- Load balancer biết instance chết bằng cách nào? (health check chủ động / thụ động, outlier detection)
 - Sticky session là gì, có nên dùng không?
 - Layer 4 và Layer 7 load balancing khác nhau thế nào?
 
@@ -488,7 +500,24 @@ Ba trụ cột:
 - Timeout **không huỷ** việc service đang làm: service vẫn có thể xử lý xong sau khi gateway đã trả 504. Vì vậy thao tác ghi cần idempotency để client retry an toàn.
 - Kết nối TCP tới instance đã chết phải được đóng và bỏ khỏi pool, nếu không gateway giữ socket rác và rò rỉ tài nguyên.
 
+**Failover an toàn (dự án này, Bước 3):** chuyển request sang instance khác **chỉ khi chắc chắn service chưa nhận được nó**.
+
+| Lỗi | Request đã tới service chưa? | Failover? |
+|---|---|---|
+| `ECONNREFUSED`, `EHOSTUNREACH`, `ENETUNREACH`, `ENOTFOUND`, `EAI_AGAIN` | **Chắc chắn chưa** (chưa mở được kết nối) | **Có**, kể cả POST |
+| `ECONNRESET`, `EPIPE`, `ETIMEDOUT`, "Connection closed" | Không biết (có thể đã xử lý) | Không → 502 |
+| Timeout | Không biết | Không → 504 |
+| Lỗi từ service, không có handler | Đã tới | Không |
+
+- `RpcConnectionError.delivered` mang thông tin này: transport **phân loại**, handler **quyết định** có thử lại không.
+- Vì sao an toàn cả với POST: service chưa hề thấy request nên không thể tạo trùng. Đây khác với **retry** (Bước 5) cho trường hợp "không biết", chỉ được làm với method idempotent hoặc có `Idempotency-Key`.
+- Giới hạn `GATEWAY_FAILOVER_MAX_ATTEMPTS` (mặc định 3; 1 = tắt) để nhiều instance chết không làm request chậm vô hạn.
+- Các lần thử dùng **cùng payload và cùng `requestId`**: log của mọi lần thử gom được về một mã.
+- **Hạn chế:** host "nuốt gói" (không trả `ECONNREFUSED` mà treo) sẽ thành timeout → 504, không failover. Cần tách connect timeout khỏi response timeout (Bước 5).
+
 **Câu hỏi phỏng vấn**
+- Khi nào gateway được phép gửi lại request sang instance khác? Vì sao POST cũng được trong trường hợp `ECONNREFUSED`?
+- Failover khác retry thế nào?
 - Gateway trả 504 rồi, service có dừng xử lý không? Hệ quả là gì?
 - Circuit breaker hoạt động thế nào? Ba trạng thái là gì?
 - Vì sao retry có thể làm hệ thống tệ hơn?
@@ -876,3 +905,4 @@ Lần 2: POST /orders  Idempotency-Key: a1b2c3 → đã có a1b2c3 → trả l�
 |---|---|---|---|
 | 2026-11-06 | Chốt kiến trúc (operationId = MessagePattern, TCP + discovery, Keycloak + auth worker). Bước 0: bỏ lockfile thừa, sửa `rootDir`. Bước 1: config, spec-loader, route-table + unit test | Control plane gom hết việc nặng và lỗi về lúc khởi động; trie + backtrack theo method; decode sau khi match | |
 | 2026-11-06 | Bước 2: catch-all + StaticDiscovery + TcpTransport + RFC 9457 + echo-service; chạy thật end-to-end | Lỗi qua TCP mất kiểu, phải phân loại theo hình dạng; client TCP hỏng phải bỏ khỏi pool; NestJS ghi đè error handler của Fastify | |
+| 2026-11-06 | Bước 3: round-robin theo pattern + failover khi chưa gửi được; chạy thật với 2 echo | Failover chỉ an toàn khi chắc chắn chưa gửi; round-robin cần health check mới tránh được instance chết | |

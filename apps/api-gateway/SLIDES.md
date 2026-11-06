@@ -155,6 +155,23 @@ Note: Câu hỏi bẫy hay gặp: "retry thì dùng lại request id được kh
 
 ---
 
+## Load balancing + failover an toàn
+
+```
+round-robin theo pattern:  [echo-1, echo-2] → [echo-2, echo-1] → …
+echo-2 chết:  thử echo-2 → ECONNREFUSED → thử echo-1 → 200
+```
+
+| Lỗi | Đã tới service? | Gửi sang instance khác? |
+|---|---|---|
+| `ECONNREFUSED` (chưa kết nối) | **Chắc chắn chưa** | **Có**, kể cả POST |
+| Đứt giữa chừng, timeout | Không biết | Không (502 / 504) |
+| Lỗi từ service | Đã tới | Không |
+
+Note: Câu chốt: chỉ failover khi chắc chắn service chưa thấy request, nên không thể tạo trùng. "Không biết" là chuyện của retry (Bước 5), cần idempotency. Kiểm chứng thật: 2 echo nhận 2/4 request; tắt một echo vẫn 4/4 là 200. Hạn chế: round-robin chưa biết instance nào chết, mỗi lượt thứ hai vẫn thử nó trước; cần outlier detection.
+
+---
+
 ## Bẫy thực tế
 
 - **Lỗi qua TCP mất kiểu**: `RpcException` thành object thường, thiếu handler thành chuỗi, mất kết nối là `Error` có `code`

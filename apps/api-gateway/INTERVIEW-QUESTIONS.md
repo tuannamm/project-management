@@ -103,6 +103,10 @@ Mức độ: 🟢 cơ bản · 🟡 trung bình · 🔴 nâng cao
   *Ý chính:* không tính tải thực / thời gian xử lý khác nhau. · 📚 #9
 - [ ] 🟡 **Layer 4 vs Layer 7 load balancing?**
   *Ý chính:* theo TCP/IP vs theo nội dung HTTP. · 📚 #9
+- [ ] 🟡 **Vì sao bộ đếm round-robin nên tách theo từng pattern?**
+  *Ý chính:* bộ đếm chung + request xen kẽ nhiều pattern làm mỗi pattern luôn rơi vào một instance. · 📚 #9
+- [ ] 🟡 **Load balancer biết instance chết bằng cách nào?**
+  *Ý chính:* health check chủ động (gọi định kỳ) / thụ động (theo lỗi thực tế), outlier detection, registry gỡ instance hết TTL. · 📚 #9, #16
 - [ ] 🟡 **Sticky session là gì, nên dùng không?**
   *Ý chính:* gắn client với một instance; cản scale/failover; thay bằng stateless + store chung. · 📚 #9
 
@@ -142,6 +146,10 @@ Mức độ: 🟢 cơ bản · 🟡 trung bình · 🔴 nâng cao
 - [ ] 🟢 **Timeout, retry, circuit breaker, bulkhead là gì?** · 📚 #14
 - [ ] 🟡 **Circuit breaker có mấy trạng thái, chuyển thế nào?**
   *Ý chính:* closed → open (quá ngưỡng lỗi) → half-open (thử lại) → closed/open. · 📚 #14
+- [ ] 🔴 **Khi nào gateway được phép gửi request sang instance khác? Vì sao POST cũng được khi gặp `ECONNREFUSED`?**
+  *Ý chính:* chỉ khi chắc chắn chưa gửi được (chưa mở kết nối); service chưa thấy request nên không thể tạo trùng; mất kết nối giữa chừng / timeout thì không biết → không gửi lại. · 📚 #14
+- [ ] 🟡 **Failover khác retry thế nào?**
+  *Ý chính:* failover = chưa gửi được, an toàn mọi method; retry = có thể đã xử lý, chỉ cho method idempotent hoặc có Idempotency-Key. · 📚 #14, #27
 - [ ] 🟡 **Vì sao retry có thể làm hệ thống tệ hơn?**
   *Ý chính:* retry storm, nhân tải; backoff + jitter + giới hạn; chỉ retry idempotent. · 📚 #14
 - [ ] 🟢 **Idempotency là gì? Method nào idempotent?** · 📚 #19, #27
@@ -226,6 +234,8 @@ Phỏng vấn viên sẽ hỏi "vì sao" cho mọi quyết định. Trả lời 
 - [ ] 🟡 **Vì sao tách core khỏi NestJS?**
   *Ý chính:* test không cần framework; đổi framework/transport dễ; hexagonal. · 📚 #26
 - [ ] 🟡 **Route trie của bạn hoạt động thế nào? Độ phức tạp?** · 📚 #4
+- [ ] 🟡 **Load balancer của bạn trả về gì và vì sao?**
+  *Ý chính:* trả về thứ tự thử thay vì một instance: phần tử đầu là lựa chọn chính, phần còn lại dùng luôn cho failover. · 📚 #9
 - [ ] 🟡 **Bạn test gateway thế nào?** · 📚 #25
 - [ ] 🟡 **Vì sao lỗi được chuẩn hoá theo RFC 9457?**
   *Ý chính:* một định dạng cho mọi lỗi; `code` ổn định cho client; `requestId` để truy vết. · 📚 #19

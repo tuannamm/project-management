@@ -71,11 +71,12 @@ describe('TcpTransport', () => {
     );
   });
 
-  it('reports an unreachable instance and evicts it from the pool', async () => {
+  it('reports an unreachable instance as NOT delivered and evicts it from the pool', async () => {
     const dead: Instance = { ...instance, id: 'dead', port: await getFreePort() };
-    await expect(transport.send(dead, 'user.getById', payload('1'), 1_000)).rejects.toBeInstanceOf(
-      RpcConnectionError,
-    );
+    const error = await transport.send(dead, 'user.getById', payload('1'), 1_000).catch((e) => e);
+    expect(error).toBeInstanceOf(RpcConnectionError);
+    // ECONNREFUSED: chưa mở được kết nối, request chắc chắn chưa tới service → được phép failover.
+    expect((error as RpcConnectionError).delivered).toBe(false);
     expect(transport.poolSize).toBe(0);
   });
 });

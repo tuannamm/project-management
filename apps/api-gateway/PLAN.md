@@ -47,7 +47,8 @@ Cột "Nguồn cấu hình" cho thấy tính năng nào được điều khiển
 |---|---|---|---|
 | **Routing** | Khớp `method + path` với route trong spec; tự trả 404/405 | `paths` | 1 |
 | **Pattern resolution** | Hỏi registry: instance nào xử lý `operationId` này trong project (có cache) | `operationId` | 2, 3 |
-| **Load balancing** | Chọn 1 instance | env | 3 |
+| **Load balancing** | Round-robin theo từng `project\|pattern` | - | 3 ✅ |
+| **Failover** | Instance chắc chắn chưa nhận request (`ECONNREFUSED`…) thì thử instance kế | `GATEWAY_FAILOVER_MAX_ATTEMPTS` | 3 ✅ |
 | **Protocol translation** | Dựng payload từ HTTP, gửi `send(pattern, payload)` qua TCP, map kết quả về HTTP | `responses` (status 2xx) | 2 |
 | **Connection pool** | Giữ kết nối TCP theo `host:port`, đóng khi instance biến mất | - | 2, 3 |
 
@@ -67,7 +68,7 @@ Cột "Nguồn cấu hình" cho thấy tính năng nào được điều khiển
 | **Timeout RPC** | Không chờ service vô hạn (504) | env, `x-timeout` | 2 |
 | **Retry** | Chỉ với thao tác idempotent, có backoff + jitter | `x-retry` | 5 |
 | **Circuit breaker** | Ngừng gọi service đang hỏng, phục hồi từ từ | env | 5 |
-| **Stale-on-error** | Registry chết thì dùng cache instance cũ | - | 3 |
+| **Stale-on-error** | Registry chết thì dùng cache instance cũ | - | 7 |
 
 ### Nhóm 4: Quan sát và vận hành
 | Chức năng | Làm gì | Bước |
@@ -148,8 +149,10 @@ Client: GET /users/42?active=true   (Authorization: Bearer ...)
  3. (Bước 4) Auth theo `security`, validate, rate limit
  4. Dựng payload GatewayRequest (allowlist, mục 7)
  5. Discovery: ai xử lý ("shop", "user.getById")? → [10.0.0.5:4001, ...] (cache); rỗng → 503
- 6. LoadBalancer chọn 1 instance
+ 6. Round-robin (theo project|pattern) cho ra thứ tự thử [A, B, C]
  7. ClientTCP(host:port).send("user.getById", payload) với timeout
+      chưa kết nối được (ECONNREFUSED…) → thử instance kế (failover), tối đa GATEWAY_FAILOVER_MAX_ATTEMPTS
+      lỗi khác (timeout, đứt giữa chừng, lỗi service) → KHÔNG thử lại
  8. Map kết quả:
       thành công → status 2xx lấy từ spec + body
       service ném RpcException({statusCode,...}) → problem+json với statusCode đó
@@ -307,6 +310,7 @@ Logout:  Client ─POST /auth/logout─► Gateway ─TCP 'auth.logout'─► au
 |---|---|---|---|
 | Kích thước body | 1 MB | `GATEWAY_BODY_LIMIT` | 413 |
 | Timeout gọi RPC | 10 s (ghi đè bằng `x-timeout`) | `GATEWAY_RPC_TIMEOUT_MS` | 504 |
+| Số instance thử khi failover | 3 (1 = tắt, tối đa 10) | `GATEWAY_FAILOVER_MAX_ATTEMPTS` | 502 khi hết lượt |
 | `x-request-id` từ client | ≤ 128 ký tự, `[A-Za-z0-9._-]`; sai thì sinh mới | - | - |
 | Payload xuống service | Chỉ allowlist (mục 7) | - | - |
 | Content-Type có body | `application/json` | - | 415 |
@@ -369,11 +373,11 @@ specs/
 | 0 ✅ | Dọn repo: một lockfile ở root, sửa `rootDir` cho TypeScript 6 | npm workspaces, Nx project |
 | 1 ✅ | Config theo project + SpecLoader + RouteTable (unit test) | Contract-first, trie routing, fail-fast, path traversal |
 | 2 ✅ | Catch-all handler + `StaticDiscovery` + TCP transport + request id + timeout + body limit + lỗi RFC 9457; `apps/echo-service` (chạy local, Docker ở Bước 6) | Protocol translation, RPC, connection pool, mã lỗi gateway |
-| 3 | Cache instance + LoadBalancer | TTL cache, stale-on-error, round-robin |
+| 3 ✅ | Load balancing (round-robin theo pattern) + failover an toàn (`delivered`) | Round-robin, khi nào retry sang instance khác là an toàn |
 | 4 | Auth (Keycloak JWKS), validate, rate limit, giới hạn an toàn | JWT, JWKS, token bucket, Redis |
 | 5 | Observability + resilience | Log/metrics, retry, circuit breaker |
 | 6 | Đóng gói Docker + README "dùng cho project mới" | Cấu hình bằng env, graceful shutdown |
-| 7 | Service Registry (project riêng) + `HttpRegistryAdapter` | Heartbeat, TTL, CAP |
+| 7 | Service Registry (project riêng) + `HttpRegistryAdapter` + **cache discovery** (TTL, stale-on-error, single-flight; dời từ Bước 3 vì chỉ có ý nghĩa khi gọi registry ở xa) | Heartbeat, TTL, CAP, cache stampede |
 
 Mỗi bước có plan riêng để duyệt trước khi code.
 

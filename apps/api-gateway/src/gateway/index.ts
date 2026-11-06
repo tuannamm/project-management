@@ -12,6 +12,7 @@ export type { Instance, ServiceDiscovery } from './discovery/types';
 export { StaticDiscovery, type StaticInstanceEntry } from './discovery/static-discovery';
 export * from './transport/types';
 export { TcpTransport } from './transport/tcp-transport';
+export { RoundRobinBalancer, type LoadBalancer } from './load-balancer';
 export {
   GatewayHandler,
   type GatewayHandlerOptions,

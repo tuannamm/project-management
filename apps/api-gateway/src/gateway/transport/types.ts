@@ -28,11 +28,19 @@ export class RpcTimeoutError extends Error {
   }
 }
 
-/** Không kết nối được hoặc mất kết nối giữa chừng → 502. */
+/**
+ * Không kết nối được hoặc mất kết nối giữa chừng → 502.
+ *
+ * `delivered` cho biết request CÓ THỂ đã tới service hay chưa:
+ * - false: chắc chắn chưa (VD ECONNREFUSED: chưa mở được kết nối) → gửi sang instance khác là AN TOÀN,
+ *   kể cả với POST, vì service chưa hề thấy request.
+ * - true: không biết (VD mất kết nối sau khi đã gửi) → service có thể đã xử lý; gửi lại có thể tạo trùng.
+ */
 export class RpcConnectionError extends Error {
   constructor(
     readonly instance: Instance,
     override readonly cause: unknown,
+    readonly delivered: boolean,
   ) {
     super(`Cannot reach ${describe(instance)}: ${(cause as Error)?.message ?? String(cause)}`);
     this.name = 'RpcConnectionError';

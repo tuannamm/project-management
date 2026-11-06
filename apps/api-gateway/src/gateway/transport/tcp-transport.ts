@@ -17,17 +17,19 @@ import {
 /** Chuỗi NestJS server trả về khi không có @MessagePattern khớp (constants.js: NO_MESSAGE_HANDLER). */
 const NO_MESSAGE_HANDLER = 'There is no matching message handler defined in the remote service.';
 
-/** Mã lỗi socket của Node nghĩa là "không tới được / mất kết nối". */
-const CONNECTION_ERROR_CODES = new Set([
-  'ECONNREFUSED',
-  'ECONNRESET',
-  'EHOSTUNREACH',
-  'ENETUNREACH',
-  'ENOTFOUND',
-  'EAI_AGAIN',
-  'ETIMEDOUT',
-  'EPIPE',
-]);
+/**
+ * Mã lỗi xảy ra TRƯỚC khi kết nối được mở: request chắc chắn chưa tới service.
+ * (ECONNREFUSED: không ai nghe ở cổng; EHOSTUNREACH/ENETUNREACH: không có đường tới máy;
+ *  ENOTFOUND/EAI_AGAIN: không phân giải được tên miền.)
+ */
+const NOT_DELIVERED_CODES = new Set(['ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'ENOTFOUND', 'EAI_AGAIN']);
+
+/**
+ * Mã lỗi khi kết nối đứt giữa chừng: request CÓ THỂ đã tới và đã được xử lý.
+ * ETIMEDOUT ở đây là timeout của socket, không phân biệt được lúc kết nối hay sau khi gửi,
+ * nên xếp vào nhóm "không chắc" cho an toàn.
+ */
+const MAYBE_DELIVERED_CODES = new Set(['ECONNRESET', 'EPIPE', 'ETIMEDOUT']);
 
 export class TcpTransport implements RpcTransport {
   /**
@@ -51,11 +53,12 @@ export class TcpTransport implements RpcTransport {
       if (error instanceof TimeoutError) {
         throw new RpcTimeoutError(pattern, instance, timeoutMs);
       }
-      if (isConnectionError(error)) {
+      const connection = classifyConnectionError(error);
+      if (connection) {
         // ClientTCP cache cả promise kết nối THẤT BẠI; giữ client này thì mọi lần sau đều lỗi.
         // Bỏ khỏi pool để lần sau tạo client mới và kết nối lại.
         await this.evict(key);
-        throw new RpcConnectionError(instance, error);
+        throw new RpcConnectionError(instance, error, connection === 'maybe-delivered');
       }
       if (error === NO_MESSAGE_HANDLER) {
         throw new RpcPatternNotHandledError(pattern, instance);
@@ -99,8 +102,13 @@ export class TcpTransport implements RpcTransport {
   }
 }
 
-function isConnectionError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
+/** Phân loại lỗi kết nối; undefined nghĩa là không phải lỗi kết nối. */
+function classifyConnectionError(error: unknown): 'not-delivered' | 'maybe-delivered' | undefined {
+  if (!(error instanceof Error)) return undefined;
   const code = (error as NodeJS.ErrnoException).code;
-  return (code !== undefined && CONNECTION_ERROR_CODES.has(code)) || error.message === 'Connection closed';
+  if (code !== undefined && NOT_DELIVERED_CODES.has(code)) return 'not-delivered';
+  if (code !== undefined && MAYBE_DELIVERED_CODES.has(code)) return 'maybe-delivered';
+  // ClientTCP báo "Connection closed" cho request đang chờ khi socket đóng: có thể đã gửi.
+  if (error.message === 'Connection closed') return 'maybe-delivered';
+  return undefined;
 }

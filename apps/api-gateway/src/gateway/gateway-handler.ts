@@ -1,5 +1,6 @@
 import type { GatewayRequest } from './contracts';
-import type { ServiceDiscovery } from './discovery/types';
+import type { Instance, ServiceDiscovery } from './discovery/types';
+import type { LoadBalancer } from './load-balancer';
 import { GatewayError, PROBLEM_CONTENT_TYPE, toProblem } from './problem';
 import { REQUEST_ID_HEADER, resolveRequestId } from './request-id';
 import type { RouteTable } from './route-table';
@@ -45,7 +46,10 @@ export interface GatewayHandlerOptions {
   routeTable: RouteTable;
   discovery: ServiceDiscovery;
   transport: RpcTransport;
+  balancer: LoadBalancer;
   rpcTimeoutMs: number;
+  /** Số instance tối đa được thử cho một request (1 = tắt failover). */
+  maxAttempts: number;
   logger?: GatewayLogger;
 }
 
@@ -105,16 +109,8 @@ export class GatewayHandler {
           `No service instance is available for "${route.operationId}"`,
         );
       }
-      // Bước 3 sẽ thay bằng load balancer.
-      const instance = instances[0];
-
-      // 4. Gửi message và chờ kết quả.
-      const result = await this.options.transport.send(
-        instance,
-        route.operationId,
-        payload,
-        this.options.rpcTimeoutMs,
-      );
+      // 4. Chọn instance (round-robin) và gửi, failover khi chắc chắn chưa gửi được.
+      const result = await this.sendWithFailover(instances, route.operationId, payload, requestId);
 
       // 5. Thành công: status lấy từ spec, vì message RPC không có khái niệm HTTP status.
       const headers: Record<string, string> = { [REQUEST_ID_HEADER]: requestId };
@@ -133,6 +129,42 @@ export class GatewayHandler {
         body: toProblem(gatewayError, requestId, pathname),
       };
     }
+  }
+
+  /**
+   * Thử lần lượt theo thứ tự load balancer trả về.
+   * CHỈ chuyển sang instance kế khi lỗi là RpcConnectionError với delivered === false:
+   * request chắc chắn chưa tới service nên gửi lại không thể tạo trùng (kể cả POST).
+   * Mọi lỗi khác (timeout, mất kết nối giữa chừng, lỗi từ service) ném ngay: service có thể đã xử lý.
+   */
+  private async sendWithFailover(
+    instances: readonly Instance[],
+    pattern: string,
+    payload: GatewayRequest,
+    requestId: string,
+  ): Promise<unknown> {
+    const key = `${this.options.project}|${pattern}`;
+    const candidates = this.options.balancer.order(key, instances).slice(0, this.options.maxAttempts);
+    const failed: string[] = [];
+
+    for (const instance of candidates) {
+      try {
+        return await this.options.transport.send(instance, pattern, payload, this.options.rpcTimeoutMs);
+      } catch (error) {
+        const safeToRetry = error instanceof RpcConnectionError && !error.delivered;
+        if (!safeToRetry) throw error;
+        failed.push(instance.id);
+        if (failed.length < candidates.length) {
+          this.logger.warn(`[${requestId}] ${error.message}; failing over to the next instance`);
+        } else {
+          // Hết lượt thử: ném lỗi cuối, toGatewayError sẽ dịch thành 502.
+          this.logger.warn(`[${requestId}] all ${failed.length} instance(s) unreachable: ${failed.join(', ')}`);
+          throw error;
+        }
+      }
+    }
+    // Không tới được đây: candidates luôn có ít nhất một phần tử (đã kiểm tra instances rỗng ở trên).
+    throw new GatewayError(500, 'INTERNAL_ERROR', 'No instance attempted');
   }
 
   /** Dịch MỌI lỗi về GatewayError. Đây là chỗ duy nhất quyết định mã HTTP của lỗi. */

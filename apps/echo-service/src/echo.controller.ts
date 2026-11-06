@@ -4,6 +4,7 @@ import type { GatewayRequest, GatewayRpcError } from './contracts';
 
 /** Đủ lâu để vượt timeout mặc định của gateway (10s), để thử 504. */
 const SLOW_MS = Number(process.env.ECHO_SLOW_MS ?? 12_000);
+const INSTANCE_PORT = process.env.ECHO_PORT ?? '4001';
 
 /**
  * Service mẫu: mỗi @MessagePattern khớp CHÍNH XÁC một operationId trong
@@ -50,8 +51,13 @@ export class EchoController {
 
   // Cố ý KHÔNG có 'auth.logout' (gateway: không ai đăng ký → 503).
 
-  /** Log kèm requestId: cùng mã với log của gateway, tìm một mã là thấy cả hành trình. */
+  /**
+   * Log kèm requestId (cùng mã với log của gateway, tìm một mã là thấy cả hành trình)
+   * và cổng của instance (chạy nhiều instance thì thấy được request được chia về đâu).
+   */
   private log(req: GatewayRequest): void {
-    this.logger.log(`[${req.meta.requestId}] ${req.meta.operationId} params=${JSON.stringify(req.params)}`);
+    this.logger.log(
+      `[echo:${INSTANCE_PORT}] [${req.meta.requestId}] ${req.meta.operationId} params=${JSON.stringify(req.params)}`,
+    );
   }
 }

@@ -5,6 +5,7 @@ import { createGatewayApp } from '../src/create-app';
 import {
   GatewayHandler,
   loadSpec,
+  RoundRobinBalancer,
   RouteTable,
   StaticDiscovery,
   TcpTransport,
@@ -33,6 +34,11 @@ describe('Gateway (e2e)', () => {
           patterns: ['user.getById', 'user.create', 'user.remove', 'user.list', 'user.getMe'],
         },
         {
+          // Instance đã chết của cùng service: round-robin sẽ chọn nó mỗi lượt thứ hai, failover phải cứu.
+          project: 'demo', service: 'echo', id: 'echo-2-dead', host: '127.0.0.1', port: deadPort,
+          patterns: ['user.getById', 'user.create', 'user.remove', 'user.list', 'user.getMe'],
+        },
+        {
           project: 'demo', service: 'order', id: 'order-1', host: '127.0.0.1', port: deadPort,
           patterns: ['listOrdersOfUser'],
         },
@@ -42,7 +48,7 @@ describe('Gateway (e2e)', () => {
     const transport = new TcpTransport();
     const config = {
       project: 'demo', specsDir: '', specPath: '', discoveryFile: '',
-      rpcTimeoutMs: 300, bodyLimit: 1024, port: 0,
+      rpcTimeoutMs: 300, bodyLimit: 1024, failoverMaxAttempts: 3, port: 0,
     };
     const gateway: Gateway = {
       config,
@@ -54,7 +60,9 @@ describe('Gateway (e2e)', () => {
         routeTable: RouteTable.from(spec.routes),
         discovery,
         transport,
+        balancer: new RoundRobinBalancer(),
         rpcTimeoutMs: config.rpcTimeoutMs,
+        maxAttempts: config.failoverMaxAttempts,
       }),
     };
 
@@ -81,6 +89,13 @@ describe('Gateway (e2e)', () => {
     expect(received.meta).toMatchObject({ operationId: 'user.getById', project: 'demo' });
     expect(received.meta.requestId).toBe(res.headers['x-request-id']);
     expect(JSON.stringify(received)).not.toContain('x-evil'); // header lạ không lọt xuống service
+  });
+
+  it('fails over from a dead instance: every request still succeeds', async () => {
+    for (let n = 0; n < 4; n++) {
+      const res = await inject({ method: 'GET', url: `/users/${n}` });
+      expect(res.statusCode).toBe(200);
+    }
   });
 
   it('keeps a valid x-request-id sent by the client', async () => {

@@ -1,6 +1,7 @@
 import type { GatewayConfig } from './config';
 import { StaticDiscovery } from './discovery/static-discovery';
 import { GatewayHandler, type GatewayLogger } from './gateway-handler';
+import { RoundRobinBalancer } from './load-balancer';
 import { RouteTable } from './route-table';
 import { loadSpec, type LoadedSpec } from './spec-loader';
 import { TcpTransport } from './transport/tcp-transport';
@@ -33,7 +34,9 @@ export async function buildGateway(config: GatewayConfig, logger?: GatewayLogger
     routeTable,
     discovery,
     transport,
+    balancer: new RoundRobinBalancer(),
     rpcTimeoutMs: config.rpcTimeoutMs,
+    maxAttempts: config.failoverMaxAttempts,
     logger,
   });
 

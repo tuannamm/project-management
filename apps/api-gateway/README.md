@@ -24,6 +24,20 @@ GATEWAY_PROJECT=example GATEWAY_DISCOVERY_FILE=discovery.local.json \
 curl -i localhost:3000/users/42
 ```
 
+Thử load balancing và failover với instance thứ hai (đã khai báo sẵn trong `discovery.local.json`):
+
+```bash
+# Terminal 4: instance thứ hai (TCP :4002)
+ECHO_PORT=4002 npm exec nx run echo-service:start:dev
+
+# Gọi nhiều lần: log của hai echo nhận lần lượt ([echo:4001] / [echo:4002])
+for i in 1 2 3 4; do curl -s localhost:3000/users/$i > /dev/null; done
+
+# Tắt một echo: mọi request vẫn 200 nhờ failover (log gateway có cảnh báo "failing over")
+```
+
+Khi chỉ chạy một echo, request đến lượt `echo-2` vẫn thành công nhờ failover.
+
 Thử các nhánh lỗi:
 
 ```bash
@@ -44,6 +58,7 @@ curl -i -X POST localhost:3000/auth/logout           # 503 NO_INSTANCE
 | `GATEWAY_SPEC_FILE` | Không | `openapi.yml` | Tên file spec |
 | `GATEWAY_RPC_TIMEOUT_MS` | Không | `10000` | Timeout chờ service (504) |
 | `GATEWAY_BODY_LIMIT` | Không | `1048576` | Body tối đa, byte (413) |
+| `GATEWAY_FAILOVER_MAX_ATTEMPTS` | Không | `3` | Số instance tối đa thử cho một request (`1` = tắt failover) |
 | `PORT` | Không | `3000` | Cổng HTTP |
 
 ## Thêm một project mới

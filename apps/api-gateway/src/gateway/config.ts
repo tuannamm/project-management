@@ -17,6 +17,8 @@ export interface GatewayConfig {
   rpcTimeoutMs: number;
   /** Kích thước body tối đa (byte). Quá thì 413. */
   bodyLimit: number;
+  /** Số instance tối đa được thử cho một request khi failover (1 = tắt failover). */
+  failoverMaxAttempts: number;
   port: number;
 }
 
@@ -24,6 +26,7 @@ const DEFAULT_SPECS_DIR = './specs';
 const DEFAULT_SPEC_FILE = 'openapi.yml';
 const DEFAULT_RPC_TIMEOUT_MS = 10_000;
 const DEFAULT_BODY_LIMIT = 1024 * 1024; // 1 MB
+const DEFAULT_FAILOVER_MAX_ATTEMPTS = 3;
 const DEFAULT_PORT = 3000;
 
 /** Chỉ chữ thường, số, `_`, `-`. Không có `/`, `.` nên không thể viết `../`. */
@@ -91,6 +94,7 @@ export function loadConfig(
     discoveryFile,
     rpcTimeoutMs: positiveInt(env, 'GATEWAY_RPC_TIMEOUT_MS', DEFAULT_RPC_TIMEOUT_MS),
     bodyLimit: positiveInt(env, 'GATEWAY_BODY_LIMIT', DEFAULT_BODY_LIMIT),
+    failoverMaxAttempts: positiveInt(env, 'GATEWAY_FAILOVER_MAX_ATTEMPTS', DEFAULT_FAILOVER_MAX_ATTEMPTS, 10),
     port: positiveInt(env, 'PORT', DEFAULT_PORT, 65_535),
   };
 }

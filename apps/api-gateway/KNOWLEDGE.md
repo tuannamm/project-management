@@ -2,6 +2,7 @@
 
 > File theo dõi kiến thức để ôn phỏng vấn. Cập nhật sau mỗi bước trong [PLAN.md](./PLAN.md).
 > Luyện trả lời: [INTERVIEW-QUESTIONS.md](./INTERVIEW-QUESTIONS.md) (ngân hàng câu hỏi, có ý chính để tự đối chiếu).
+> Bản trực quan: mở `knowledge.html` trong trình duyệt. Sau khi sửa file markdown, chạy `npm exec nx run api-gateway:docs:knowledge` để sinh lại.
 > Quy ước trạng thái: ✅ đã học và đã làm · 📖 đã học lý thuyết, chưa code · ⬜ chưa học
 
 ## Cách dùng file này

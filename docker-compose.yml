@@ -1,0 +1,92 @@
+name: project-management
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: pm-mongodb
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-admin123}
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pm-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: pm-rabbitmq
+    restart: unless-stopped
+    ports:
+      - '5672:5672' # AMQP
+      - '15672:15672' # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - pm-network
+
+  keycloak-db:
+    image: postgres:16-alpine
+    container_name: pm-keycloak-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${KEYCLOAK_DB_USER:-keycloak} -d keycloak']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pm-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: pm-keycloak
+    restart: unless-stopped
+    # start-dev: chỉ dùng cho môi trường dev (HTTP, không cache theme).
+    command: start-dev
+    ports:
+      - '8081:8080' # 8080 để dành cho app
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      KC_HEALTH_ENABLED: 'true'
+      KC_HTTP_ENABLED: 'true'
+      KC_HOSTNAME_STRICT: 'false'
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    networks:
+      - pm-network
+
+volumes:
+  mongodb_data:
+  rabbitmq_data:
+  keycloak_db_data:
+
+networks:
+  pm-network:
+    driver: bridge

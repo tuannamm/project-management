@@ -5,6 +5,9 @@
   "references": [
     {
       "path": "./libs/service-discovery-client"
+    },
+    {
+      "path": "./libs/health"
     }
   ],
   "compilerOptions": {}

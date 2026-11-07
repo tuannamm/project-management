@@ -8,6 +8,9 @@
   "references": [
     {
       "path": "../../libs/service-discovery-client/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/health/tsconfig.lib.json"
     }
   ]
 }

@@ -8,6 +8,7 @@ function make(
   over: Partial<ResolvedHealthOptions> = {},
 ) {
   return new HealthService({
+    port: 9001,
     host: '0.0.0.0',
     service: 'svc',
     timeoutMs: 50,

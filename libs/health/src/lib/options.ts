@@ -7,11 +7,11 @@ import type { HealthIndicator } from './types';
 
 /**
  * Cấu hình của module. TẤT CẢ đều tuỳ chọn: thiếu thì lấy từ biến môi trường, rồi từ mặc định.
- * Không có `HEALTH_PORT` (hoặc option `port`) thì module TẮT: service chạy như thường, không mở cổng phụ.
+ * Khi đăng ký module, health server mặc định mở cổng `9001`, không cần khai báo `HEALTH_PORT`.
  *
  * | Option       | Env                 | Mặc định                                          |
  * |--------------|---------------------|---------------------------------------------------|
- * | `port`       | `HEALTH_PORT`       | không có → tắt                                    |
+ * | `port`       | `HEALTH_PORT`       | 9001                                              |
  * | `host`       | `HEALTH_HOST`       | `0.0.0.0` (để Docker/k8s probe được)              |
  * | `service`    | `SERVICE_NAME`      | `name` trong package.json (bỏ phần `@scope/`)     |
  * | `timeoutMs`  | `HEALTH_TIMEOUT_MS` | 2000 (mỗi indicator)                              |
@@ -39,8 +39,7 @@ export interface HealthModuleAsyncOptions
 }
 
 export interface ResolvedHealthOptions {
-  /** `undefined` = module tắt. */
-  port?: number;
+  port: number;
   host: string;
   service: string;
   timeoutMs: number;
@@ -72,7 +71,7 @@ export function resolveHealthOptions(
   const rawPort = options.port ?? env.HEALTH_PORT;
   const port =
     rawPort === undefined || String(rawPort).trim() === ''
-      ? undefined
+      ? 9001
       : parseInteger('HEALTH_PORT', rawPort, 1, 65_535);
 
   const userIndicators = options.indicators ?? [];

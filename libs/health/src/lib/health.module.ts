@@ -16,7 +16,7 @@ import { RAW_OPTIONS, RESOLVED_OPTIONS } from './tokens';
  * export class AppModule {}
  * ```
  *
- * Cấu hình qua biến môi trường (xem `HealthModuleOptions`): chủ yếu `HEALTH_PORT`.
+ * Mặc định mở cổng `9001`; có thể ghi đè qua option `port` hoặc `HEALTH_PORT`.
  * Cần `app.enableShutdownHooks()` ở main.ts để readiness chuyển down khi nhận SIGTERM.
  */
 @Module({})

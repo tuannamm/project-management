@@ -12,7 +12,7 @@ async function start(imports: unknown[]) {
   return app;
 }
 const get = (port: number, path: string) =>
-  fetch(`http://127.0.0.1:${port}${path}`).then(async (r) => ({
+  fetch(`http://127.0.0.1:${port}${path}`, { headers: { connection: 'close' } }).then(async (r) => ({
     status: r.status,
     body: (await r.json()) as any,
   }));
@@ -67,9 +67,21 @@ describe('HealthModule (real HTTP)', () => {
     expect((await get(port, '/health/ready')).body.checks.custom.status).toBe('up');
   });
 
-  it('is disabled without a port: opens nothing and still starts', async () => {
-    app = await start([HealthModule.forRoot({})]);
-    expect(app).toBeDefined();
+  it.each(['sync', 'async'])('serves health on port 9001 without configuration (%s)', async (mode) => {
+    const previousPort = process.env.HEALTH_PORT;
+    delete process.env.HEALTH_PORT;
+    try {
+      app = await start([
+        mode === 'sync'
+          ? HealthModule.forRoot()
+          : HealthModule.forRootAsync({ useFactory: async () => ({}) }),
+      ]);
+      expect((await get(9001, '/health/live')).status).toBe(200);
+      expect((await get(9001, '/health/ready')).status).toBe(200);
+    } finally {
+      if (previousPort === undefined) delete process.env.HEALTH_PORT;
+      else process.env.HEALTH_PORT = previousPort;
+    }
   });
 
   it('flips ready to 503 while closing, then releases the port', async () => {

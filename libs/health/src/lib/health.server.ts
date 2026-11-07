@@ -41,12 +41,6 @@ export class HealthServer
 
   async onApplicationBootstrap(): Promise<void> {
     const { port, host, basePath } = this.options;
-    if (port === undefined) {
-      this.logger.log(
-        'Health endpoint disabled (HEALTH_PORT not set): no liveness/readiness probe available.',
-      );
-      return;
-    }
     const server = createServer((req, res) => void this.handle(req, res));
     try {
       await new Promise<void>((resolve, reject) => {
@@ -60,7 +54,7 @@ export class HealthServer
       // Cổng health bị chiếm không nên làm sập service đang chạy tốt; chỉ báo rõ để người vận hành sửa.
       this.logger.error(
         `Cannot listen on ${host}:${port} for health: ${error instanceof Error ? error.message : error}. ` +
-          `Each instance needs its own HEALTH_PORT.`,
+          `Instances sharing a host need distinct health ports (option port or HEALTH_PORT).`,
       );
       return;
     }

@@ -19,7 +19,7 @@ import { HealthModule, TcpIndicator } from '@org/health';
 export class AppModule {}
 ```
 
-**2.** `.env`: `HEALTH_PORT=9001` (không đặt = module tắt). `main.ts` cần `app.enableShutdownHooks()`.
+**2.** Trong `main.ts`, gọi `app.enableShutdownHooks()`. Health server mặc định mở cổng `9001`, không cần khai báo `HEALTH_PORT` trong `.env`.
 
 Thêm dependency `"@org/health": "*"` rồi `npm install --legacy-peer-deps` ở root.
 
@@ -27,12 +27,14 @@ Thêm dependency `"@org/health": "*"` rồi `npm install --legacy-peer-deps` ở
 
 | Env | Option | Mặc định |
 |---|---|---|
-| `HEALTH_PORT` | `port` | không có → tắt |
+| `HEALTH_PORT` | `port` | `9001` |
 | `HEALTH_HOST` | `host` | `0.0.0.0` |
 | `SERVICE_NAME` | `service` | `name` trong package.json |
 | `HEALTH_TIMEOUT_MS` | `timeoutMs` | 2000 (mỗi indicator) |
 | `HEALTH_CACHE_MS` | `cacheMs` | 1000 |
 | `HEALTH_PATH` | `basePath` | `/health` |
+
+Khi nhiều instance dùng chung host, đặt cổng khác nhau qua option `port` hoặc `HEALTH_PORT` để tránh trùng cổng.
 
 ## Indicator
 

@@ -6,14 +6,16 @@ const env = (e: Record<string, string> = {}) => ({
 });
 
 describe('resolveHealthOptions', () => {
-  it('is disabled (no port) when HEALTH_PORT is unset', () => {
-    expect(resolveHealthOptions({}, env()).port).toBeUndefined();
+  it.each([undefined, '', '   '])('defaults to port 9001 when HEALTH_PORT is %s', (value) => {
+    const options = resolveHealthOptions({}, { ...env(), env: { HEALTH_PORT: value } });
+    expect(options.port).toBe(9001);
+    options.indicators.forEach((i) => i.destroy?.());
   });
 
   it('reads env, with defaults and the package.json name', () => {
-    const r = resolveHealthOptions({}, env({ HEALTH_PORT: '9001' }));
+    const r = resolveHealthOptions({}, env({ HEALTH_PORT: '9002' }));
     expect(r).toMatchObject({
-      port: 9001,
+      port: 9002,
       host: '0.0.0.0',
       service: 'echo-service',
       timeoutMs: 2000,

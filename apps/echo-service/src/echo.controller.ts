@@ -4,7 +4,7 @@ import type { GatewayRequest, GatewayRpcError } from './contracts';
 
 /** Đủ lâu để vượt timeout mặc định của gateway (10s), để thử 504. */
 const SLOW_MS = Number(process.env.ECHO_SLOW_MS ?? 12_000);
-const INSTANCE_PORT = process.env.ECHO_PORT ?? '4001';
+const INSTANCE_PORT = process.env.PORT ?? '4001';
 
 /**
  * Service mẫu: mỗi @MessagePattern khớp CHÍNH XÁC một operationId trong

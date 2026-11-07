@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Knowledge Base dự án</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Vỏ knowledge base: thanh project cố định trên cùng + trang chủ tổng hợp.
+   Nội dung mỗi project là sổ tay gốc (apps/<project>/knowledge.html) nhúng nguyên văn trong iframe. */
+:root {
+  --bg: #f3f5f8; --surface: #ffffff; --surface-2: #e9edf2; --ink: #17202b; --muted: #5a6574; --line: #d6dce4;
+  --accent: #c2410c; --accent-soft: #fbe5d8; --control: #4352c9; --control-soft: #e3e6fb; --data: #0d7d72; --data-soft: #d6f0ec;
+  --ok: #2b7a3f; --ok-soft: #dcf0e1; --learn: #2559c7; --learn-soft: #dfe8fb; --todo: #6b7482; --todo-soft: #e6e9ee;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --bar-h: 48px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+    --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+    --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+  --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+  --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 var(--font-body); -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { margin: 0; line-height: 1.2; text-wrap: balance; }
+.eyebrow { font: 600 11px/1 var(--font-mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- Thanh project ---------- */
+.kb-bar {
+  flex: none; min-height: var(--bar-h); display: flex; align-items: center; gap: 14px;
+  padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
+  background: var(--bg); color: var(--ink); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none;
+}
+.kb-bar::-webkit-scrollbar { display: none; }
+.kb-brand { font: 700 12px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; color: var(--accent); text-decoration: none; }
+.kb-tabs { display: flex; gap: 2px; }
+.kb-tabs a {
+  white-space: nowrap; text-decoration: none; color: var(--muted); font-weight: 600; font-size: 13.5px;
+  padding: 5px 12px; border-radius: 8px; border: 1px solid transparent;
+}
+.kb-tabs a:hover { color: var(--ink); background: var(--surface-2); }
+.kb-tabs a[aria-current="page"] { color: var(--ink); background: var(--surface); border-color: var(--line); }
+
+/* ---------- Khung project ---------- */
+#frames { flex: 1; min-height: 0; position: relative; }
+#frames iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--bg); }
+
+/* ---------- Trang chủ ---------- */
+#home { flex: 1; overflow-y: auto; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 36px max(16px, env(safe-area-inset-right, 0px)) 64px max(16px, env(safe-area-inset-left, 0px)); }
+.hero h1 { font-size: clamp(28px, 4.4vw, 42px); font-weight: 800; letter-spacing: -0.025em; margin-top: 10px; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero p { font-size: 16.5px; color: var(--muted); max-width: 64ch; margin: 12px 0 0; }
+.totals { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+.total { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; min-width: 120px; }
+.total b { display: block; font: 700 22px/1.1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.total span { font-size: 12.5px; color: var(--muted); }
+
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 40px 0 14px; }
+.section-head h2 { font-size: 20px; font-weight: 700; }
+.section-head p { margin: 0; color: var(--muted); font-size: 14px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--accent); border-radius: 10px; padding: 20px; display: grid; gap: 14px; align-content: start; }
+.card:nth-child(2n) { border-top-color: var(--control); }
+.card:nth-child(3n) { border-top-color: var(--data); }
+.card h3 { font-size: 21px; font-weight: 800; letter-spacing: -0.01em; }
+.card .tag { font: 500 12.5px var(--font-mono); color: var(--muted); }
+.row { display: grid; gap: 6px; }
+.row .label { display: flex; justify-content: space-between; gap: 8px; font-size: 13.5px; flex-wrap: wrap; }
+.row .label b { font: 600 12.5px var(--font-mono); font-variant-numeric: tabular-nums; }
+.bar { height: 8px; border-radius: 999px; background: var(--surface-2); display: flex; overflow: hidden; }
+.bar i { display: block; height: 100%; }
+.b-done, .b-known { background: var(--ok); } .b-theory { background: var(--learn); } .b-review { background: var(--accent); }
+.facts { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.facts b { color: var(--ink); font-family: var(--font-mono); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 13.5px var(--font-body); padding: 7px 13px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+
+.topics { columns: 2 320px; column-gap: 28px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+.topics h3 { font-size: 13px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 8px; break-after: avoid; }
+.topics ol { list-style: none; margin: 0 0 18px; padding: 0; break-inside: auto; }
+.topics li a { display: grid; grid-template-columns: 24px minmax(0, 1fr) 10px; gap: 6px; align-items: center; text-decoration: none; color: var(--ink); padding: 4px 6px; border-radius: 6px; font-size: 13.5px; line-height: 1.35; break-inside: avoid; }
+.topics li a:hover { background: var(--surface-2); }
+.topics .num { font: 600 11.5px var(--font-mono); color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.done { background: var(--ok); } .dot.theory { background: var(--learn); } .dot.todo { box-shadow: inset 0 0 0 1.5px var(--todo); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+.howto { margin-top: 40px; padding: 16px 18px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); font-size: 14px; }
+.howto ol { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; }
+.howto code { font: 0.86em var(--font-mono); background: var(--surface-2); padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+</style>
+</head>
+<body>
+<nav class="kb-bar" aria-label="Project">
+  <a class="kb-brand" href="#home">Knowledge Base</a>
+  <div class="kb-tabs" id="kb-tabs"></div>
+</nav>
+
+<main id="home" hidden>
+  <div class="wrap">
+    <section class="hero">
+      <span class="eyebrow">Ôn phỏng vấn · Thuyết trình project</span>
+      <h1>Mọi project, <em>một chỗ</em> để học lại.</h1>
+      <p>Mỗi project có đủ 5 phần: tổng quan kiến trúc, kiến thức theo chủ đề, luyện câu hỏi phỏng vấn, từ điển và slide thuyết trình. Tiến độ "đã thuộc" được lưu trong trình duyệt này.</p>
+      <div class="totals" id="totals"></div>
+    </section>
+
+    <div class="section-head"><h2>Project</h2><p>Chọn một project để mở sổ tay của nó.</p></div>
+    <div class="cards" id="cards"></div>
+
+    <div class="section-head">
+      <h2>Tất cả chủ đề</h2>
+      <div class="legend"><span><i class="dot done"></i>Đã làm</span><span><i class="dot theory"></i>Lý thuyết</span><span><i class="dot todo"></i>Chưa học</span></div>
+    </div>
+    <div class="topics" id="topics"></div>
+
+    <div class="howto">
+      <span class="eyebrow">Thêm project mới</span>
+      <ol>
+        <li>Trong <code>apps/&lt;project&gt;</code>: viết <code>documents/KNOWLEDGE.md</code>, <code>INTERVIEW-QUESTIONS.md</code>, <code>SLIDES.md</code> và copy <code>scripts/</code> từ api-gateway (sửa phần tổng quan trong template).</li>
+        <li>Thêm một dòng vào <code>knowledge-base/projects.json</code>.</li>
+        <li>Chạy <code>npm run docs:knowledge-base</code> ở thư mục gốc.</li>
+      </ol>
+      <p id="built-at" style="margin:10px 0 0"></p>
+    </div>
+  </div>
+</main>
+
+<div id="frames" hidden></div>
+
+<script id="kb-data" type="application/json">__KB_DATA__</script>
+<script>
+(() => {
+  const raw = document.getElementById('kb-data').textContent.trim();
+  if (!raw.startsWith('{')) {
+    document.getElementById('home').hidden = false;
+    document.querySelector('#home .wrap').innerHTML = '<h2>Đây là file template</h2><p>Chạy <code>npm run docs:knowledge-base</code> rồi mở <code>knowledge-base/index.html</code>.</p>';
+    return;
+  }
+  const KB = JSON.parse(raw);
+  const byId = new Map(KB.projects.map((p) => [p.id, p]));
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const readMarks = (key) => { try { return key ? JSON.parse(localStorage.getItem(key) || '{}') : {}; } catch { return {}; } };
+  const pct = (n, of) => (of ? (n / of) * 100 : 0) + '%';
+
+  // ---------- Thanh project ----------
+  $('#kb-tabs').innerHTML = [['home', 'Trang chủ'], ...KB.projects.map((p) => [p.id, p.name])]
+    .map(([id, name]) => `<a href="#${id}" data-id="${id}">${esc(name)}</a>`).join('');
+
+  // ---------- Trang chủ ----------
+  function progressOf(p) {
+    const s = p.stats;
+    const c = { done: 0, theory: 0, todo: 0 };
+    s.topics.forEach((t) => { c[t.status] = (c[t.status] ?? 0) + 1; });
+    const marks = readMarks(s.marksKey);
+    const known = s.questionIds.filter((id) => marks[id] === 'known').length;
+    const review = s.questionIds.filter((id) => marks[id] === 'review').length;
+    return { c, known, review };
+  }
+  function renderHome() {
+    let tTopics = 0, tQuestions = 0, tKnown = 0, tSlides = 0;
+    $('#cards').innerHTML = KB.projects.map((p) => {
+      const s = p.stats;
+      const { c, known, review } = progressOf(p);
+      tTopics += s.topics.length; tQuestions += s.questionIds.length; tKnown += known; tSlides += s.slides;
+      return `<article class="card">
+        <div><h3>${esc(p.name)}</h3><div class="tag">${esc(p.tagline ?? '')}</div></div>
+        <div class="row">
+          <div class="label"><span>Chủ đề</span><b>${c.done} đã làm · ${c.theory} lý thuyết · ${c.todo} chưa học</b></div>
+          <div class="bar"><i class="b-done" style="width:${pct(c.done, s.topics.length)}"></i><i class="b-theory" style="width:${pct(c.theory, s.topics.length)}"></i></div>
+        </div>
+        <div class="row">
+          <div class="label"><span>Câu hỏi luyện</span><b>${known}/${s.questionIds.length} đã thuộc · ${review} cần ôn</b></div>
+          <div class="bar"><i class="b-known" style="width:${pct(known, s.questionIds.length)}"></i><i class="b-review" style="width:${pct(review, s.questionIds.length)}"></i></div>
+        </div>
+        <div class="facts"><span><b>${s.slides}</b> slide</span><span><b>${s.glossary}</b> thuật ngữ</span><span>cập nhật ${new Date(s.generatedAt).toLocaleDateString('vi-VN')}</span></div>
+        <div class="actions">
+          <a class="btn primary" href="#${p.id}/overview">Mở sổ tay</a>
+          <a class="btn" href="#${p.id}/practice">Luyện câu hỏi</a>
+          <a class="btn" href="#${p.id}/slides">Thuyết trình</a>
+          <a class="btn" href="#${p.id}/topic-0">Giới thiệu 2 phút</a>
+        </div>
+      </article>`;
+    }).join('');
+    $('#totals').innerHTML = [
+      [KB.projects.length, 'project'], [tTopics, 'chủ đề'], [`${tKnown}/${tQuestions}`, 'câu đã thuộc'], [tSlides, 'slide'],
+    ].map(([n, l]) => `<div class="total"><b>${n}</b><span>${l}</span></div>`).join('');
+    $('#topics').innerHTML = KB.projects.map((p) => `<h3>${esc(p.name)}</h3><ol>${p.stats.topics.map((t) =>
+      `<li><a href="#${p.id}/topic-${t.n}"><span class="num">${String(t.n).padStart(2, '0')}</span><span>${esc(t.title)}</span><i class="dot ${t.status}"></i></a></li>`).join('')}</ol>`).join('');
+    $('#built-at').textContent = 'Gộp lúc ' + new Date(KB.builtAt).toLocaleString('vi-VN') + ' từ knowledge-base/projects.json.';
+  }
+
+  // ---------- Iframe từng project (tạo khi cần, giữ lại để không mất trạng thái) ----------
+  const frames = new Map();
+  let themeObserver = null;
+  function frameFor(id) {
+    if (frames.has(id)) return frames.get(id);
+    const f = document.createElement('iframe');
+    f.title = 'Sổ tay ' + byId.get(id).name;
+    f.setAttribute('allow', 'fullscreen');
+    f.setAttribute('allowfullscreen', '');
+    f.hidden = true;
+    const entry = { el: f, ready: new Promise((resolve) => f.addEventListener('load', resolve, { once: true })) };
+    f.srcdoc = byId.get(id).html;
+    $('#frames').appendChild(f);
+    frames.set(id, entry);
+    return entry;
+  }
+  // Điều hướng bên trong sổ tay bằng chính cơ chế click link của nó (#overview, #topic-3, #practice, #slides…).
+  function innerGo(entry, hash) {
+    entry.ready.then(() => {
+      const doc = entry.el.contentDocument;
+      if (!doc?.body) return;
+      const a = doc.createElement('a');
+      a.href = '#' + hash;
+      doc.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+  }
+  // Thanh trên cùng theo giao diện sáng/tối mà người dùng chọn trong sổ tay đang mở.
+  function mirrorTheme(entry) {
+    themeObserver?.disconnect();
+    const apply = () => {
+      const t = entry?.el.contentDocument?.documentElement.getAttribute('data-theme');
+      if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
+    };
+    if (!entry) { document.documentElement.removeAttribute('data-theme'); return; }
+    entry.ready.then(() => {
+      apply();
+      themeObserver = new MutationObserver(apply);
+      themeObserver.observe(entry.el.contentDocument.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    });
+  }
+
+  // ---------- Routing: #home | #<project> | #<project>/<hash trong sổ tay> ----------
+  function route(hash) {
+    const [id, ...rest] = hash.split('/');
+    const project = byId.has(id) ? id : null;
+    document.querySelectorAll('#kb-tabs a').forEach((a) => {
+      if (a.dataset.id === (project ?? 'home')) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    $('#home').hidden = !!project;
+    $('#frames').hidden = !project;
+    frames.forEach((e, k) => { e.el.hidden = k !== project; });
+    if (!project) { renderHome(); mirrorTheme(null); document.title = 'Knowledge Base dự án'; return; }
+    const entry = frameFor(project);
+    entry.el.hidden = false;
+    document.title = byId.get(project).name + ' · Knowledge Base';
+    if (rest.length) innerGo(entry, rest.join('/'));
+    mirrorTheme(entry);
+  }
+  function go(hash) {
+    route(hash);
+    try { if (location.hash !== '#' + hash) history.pushState(null, '', '#' + hash); } catch { /* trình xem chặn đổi URL */ }
+  }
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    go(a.getAttribute('href').slice(1));
+  });
+  const fromUrl = () => route(location.hash.slice(1) || 'home');
+  window.addEventListener('hashchange', fromUrl);
+  window.addEventListener('popstate', fromUrl);
+  fromUrl();
+})();
+</script>
+</body>
+</html>

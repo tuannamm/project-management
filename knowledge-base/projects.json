@@ -1,0 +1,14 @@
+[
+  {
+    "id": "api-gateway",
+    "name": "API Gateway",
+    "app": "apps/api-gateway",
+    "tagline": "Contract-first · HTTP → TCP RPC · NestJS + Fastify"
+  },
+  {
+    "id": "service-discovery",
+    "name": "Service Registry",
+    "app": "apps/service-discovery",
+    "tagline": "Service discovery · HTTP + JSON · NestJS · in-memory"
+  }
+]

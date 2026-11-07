@@ -21,5 +21,28 @@
       }
     }
   ],
-  "analytics": false
+  "analytics": false,
+  "targetDefaults": {
+    "build": {
+      "dependsOn": ["^build"]
+    },
+    "start": {
+      "dependsOn": ["^build"]
+    },
+    "start:dev": {
+      "dependsOn": ["^build"]
+    },
+    "start:debug": {
+      "dependsOn": ["^build"]
+    },
+    "start:prod": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    }
+  }
 }

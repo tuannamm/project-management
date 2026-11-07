@@ -2,7 +2,9 @@
   "name": "@org/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "docs:knowledge-base": "node knowledge-base/build.mjs"
+  },
   "private": true,
   "dependencies": {},
   "devDependencies": {
@@ -18,7 +20,8 @@
   },
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "libs/*"
   ],
   "packageManager": "npm@10.9.7"
 }

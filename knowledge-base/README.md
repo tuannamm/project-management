@@ -17,6 +17,14 @@ node knowledge-base/build.mjs --no-rebuild   # chỉ gộp các knowledge.html �
 Mở `knowledge-base/index.html` trong trình duyệt. Link trực tiếp:
 `#home`, `#api-gateway`, `#api-gateway/topic-3`, `#service-discovery/practice`, `#api-gateway/slides`.
 
+## Clean Architecture
+
+Mục `#clean-architecture` gồm 14 bài học, 26 câu hỏi có ý chính, 12 thuật ngữ và 6 slide.
+Nguồn đặt trong `apps/w-identity/documents/`: `KNOWLEDGE.md`, `INTERVIEW-QUESTIONS.md`, `SLIDES.md`.
+Ví dụ dựa trên thiết kế và code w-identity đã có kiểm thử local; không đại diện cho kinh nghiệm vận hành production.
+Luyện câu hỏi ở `#clean-architecture/practice`; đánh dấu đã thuộc/cần ôn được lưu riêng trên trình duyệt.
+Sinh lại riêng sổ tay: `npm exec nx run w-identity:docs:knowledge`; sinh lại toàn bộ bằng lệnh build ở trên.
+
 ## Thêm project mới
 
 1. Trong `apps/<project>/`: viết `documents/KNOWLEDGE.md`, `INTERVIEW-QUESTIONS.md`, `SLIDES.md`

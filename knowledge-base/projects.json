@@ -10,5 +10,11 @@
     "name": "Service Registry",
     "app": "apps/service-discovery",
     "tagline": "Service discovery · HTTP + JSON · NestJS · in-memory"
+  },
+  {
+    "id": "clean-architecture",
+    "name": "Clean Architecture",
+    "app": "apps/w-identity",
+    "tagline": "Dependency Rule · Ports & Adapters · Ôn phỏng vấn với w-identity"
   }
 ]

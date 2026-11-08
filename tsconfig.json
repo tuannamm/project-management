@@ -4,10 +4,13 @@
   "files": [],
   "references": [
     {
-      "path": "./libs/service-discovery-client"
+      "path": "./apps/lib-infrastructure/libs/service-discovery-client"
     },
     {
-      "path": "./libs/health"
+      "path": "./apps/lib-infrastructure/libs/health"
+    },
+    {
+      "path": "./apps/w-identity"
     }
   ],
   "compilerOptions": {}

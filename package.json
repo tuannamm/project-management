@@ -21,7 +21,8 @@
   "workspaces": [
     "packages/*",
     "apps/*",
-    "libs/*"
+    "libs/*",
+    "apps/lib-infrastructure/libs/*"
   ],
   "packageManager": "npm@10.9.7"
 }

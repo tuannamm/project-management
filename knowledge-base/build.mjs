@@ -2,7 +2,7 @@
 // Chạy: npm run docs:knowledge-base           (sinh lại sổ tay từng project từ markdown rồi gộp)
 //       node knowledge-base/build.mjs --no-rebuild   (chỉ gộp các knowledge.html đã có)
 //
-// Nguyên tắc: KHÔNG sửa nội dung sổ tay. Mỗi apps/<project>/knowledge.html được nhúng nguyên văn
+// Nguyên tắc: KHÔNG sửa nội dung sổ tay. Mỗi knowledge-base/projects/<id>/knowledge.html được nhúng nguyên văn
 // (iframe srcdoc); file này chỉ thêm trang chủ + thanh chuyển project.
 // Thêm project mới: tạo documents/*.md + scripts/build-knowledge-html.mjs trong app đó
 // (copy từ api-gateway), rồi thêm một dòng vào knowledge-base/projects.json.
@@ -24,7 +24,7 @@ const entries = projects.map((p) => {
     process.stdout.write(`[${p.id}] `);
     execFileSync(process.execPath, [builder], { cwd: appDir, stdio: 'inherit' });
   }
-  const file = path.join(appDir, 'knowledge.html');
+  const file = path.join(kbDir, 'projects', p.id, 'knowledge.html');
   if (!existsSync(file)) throw new Error(`[${p.id}] thiếu ${path.relative(rootDir, file)}`);
   const html = readFileSync(file, 'utf8');
 

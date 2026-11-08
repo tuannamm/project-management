@@ -1,0 +1,5 @@
+body { font-family: var(--dtx-font, sans-serif); }
+.login-pf body { background: linear-gradient(135deg, #edf5fd, #f8fafc); }
+.login-pf-page .card-pf { border-top: 4px solid #2582d7; border-radius: 12px; box-shadow: 0 12px 36px #173b5d1a; }
+#kc-form-login .dtx-input { width: 100%; }
+#kc-form-buttons .dtx-btn { width: 100%; justify-content: center; }

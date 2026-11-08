@@ -10,7 +10,19 @@
       "path": "./apps/lib-infrastructure/libs/health"
     },
     {
-      "path": "./apps/w-identity"
+      "path": "./apps/lib-infrastructure/libs/core"
+    },
+    {
+      "path": "./apps/lib-infrastructure/libs/rabbitmq"
+    },
+    {
+      "path": "./apps/lib-infrastructure/libs/database"
+    },
+    {
+      "path": "./apps/lib-infrastructure/libs/keycloak"
+    },
+    {
+      "path": "./apps/lib-infrastructure/libs/redis"
     }
   ],
   "compilerOptions": {}

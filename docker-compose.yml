@@ -1,6 +1,22 @@
 name: project-management
 
 services:
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pm-network
+
   mongodb:
     image: mongo:7
     container_name: pm-mongodb
@@ -83,6 +99,7 @@ services:
       - pm-network
 
 volumes:
+  redis_data:
   mongodb_data:
   rabbitmq_data:
   keycloak_db_data:

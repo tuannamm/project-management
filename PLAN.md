@@ -1,10 +1,46 @@
-# Kế hoạch triển khai lib RabbitMQ dùng chung
+# Database module dùng chung cho worker
 
-Trạng thái: đã chốt thiết kế, chưa triển khai.
+Trạng thái: đã chuyển persistence profile về worker; build, typecheck, lint, 7 unit test lib, 25 unit test worker, 6 integration test lib, Mongo integration và E2E identity đều đạt.
+
+## Trách nhiệm và API
+
+- `@lib-infrastructure/database` chỉ cung cấp kết nối/pool MongoDB, decorator `@Entity`/`@Field`, `MongoDBRepository<T>`, lỗi storage và readiness indicator dùng chung.
+- Worker sở hữu tên collection, entity/schema, repository cụ thể, contract/domain model và injection token của nghiệp vụ.
+- Import `DatabaseModule` để đọc `MONGODB_URI` khi khởi tạo. `forRoot`/`forRootAsync` dành cho cấu hình ghi đè hoặc connection có tên.
+- Worker đăng ký collection bằng `DatabaseModule.forFeature([Repository], options?)`. Các repository cùng connection dùng chung MongoClient/pool; cùng entity/collection dùng cached model. Chặn schema xung đột và model từ connection khác.
+- Base repository cung cấp create, find/findOne/findById, updateById, deleteById, count, phân trang và sort. CRUD có validation và lỗi storage an toàn.
+
+## Cấu hình và vòng đời
+
+- Mặc định: timeout chọn server/connect/socket 3000 ms; pool min 0, max 10; autoIndex false.
+- Startup thử tối đa 3 lần tổng cộng, nghỉ 1000 ms giữa hai lần; hết lượt thì thất bại.
+- Driver tự reconnect; readiness theo trạng thái connection. Không tự retry thao tác ghi.
+- Nest/Mongoose đóng pool khi shutdown. Repository và collection không mở pool riêng.
+
+## Tích hợp w-identity
+
+- `UserEntity` và `UserRepository` nằm trong infrastructure/persistence của worker; entity khai báo collection `user_profiles`.
+- `AppModule` trực tiếp import `DatabaseModule` và `DatabaseModule.forFeature([UserRepository])`; inject trực tiếp class repository.
+- `UserProfile` và `ProfilePatch` thuộc worker. Application dùng trực tiếp kiểu `UserRepository`; không có port hoặc token alias riêng cho repository.
+- Giữ unique index trên `keycloakUserId`, autoIndex true cho profile, chờ model.init và upsert an toàn khi đồng thời tạo profile.
+- Lib không export profile entity/repository/module hoặc contract profile. Kiểm thử profile nằm trong worker.
+
+## Kiểm chứng
+
+- Build, typecheck, lint, unit test qua Nx cho database và w-identity.
+- Integration của lib kiểm tra CRUD, validation, model cache, dùng chung pool, named connection, startup retry và reconnect.
+- Mongo integration của worker kiểm tra đăng ký collection bằng forFeature, index, 20 concurrent upserts và lỗi storage an toàn.
+- E2E identity kiểm chứng contract profile hiện tại. Architecture test giữ domain độc lập và chỉ cho phép application tham chiếu type của UserRepository, không import infrastructure lúc chạy.
+
+---
+
+# Kế hoạch RabbitMQ trước đó — đã hoàn tất
+
+Trạng thái: đã triển khai và tích hợp vào `w-identity`; đã kiểm chứng bằng unit test, integration test RabbitMQ và E2E identity.
 
 ## 1. Mục tiêu và phạm vi
 
-Tạo package `@org/rabbitmq` tại `libs/rabbitmq` để các service NestJS tái sử dụng cấu hình, kết nối và RMQ transport chuẩn NestJS.
+Tạo package `@lib-infrastructure/rabbitmq` tại `apps/lib-infrastructure/libs/rabbitmq` để các service NestJS tái sử dụng cấu hình, kết nối và RMQ transport chuẩn NestJS.
 
 Service import `RabbitMQModule.forRoot()`, cấu hình URI và queue qua `.env`, sử dụng cả `@EventPattern` cho event và `@MessagePattern` cho request/response (RPC).
 
@@ -77,7 +113,7 @@ Service chạy cả TCP và RMQ sử dụng một Nest hybrid application, dùng
 - Bật `enableShutdownHooks()`.
 - Khởi động cả hai listener và chỉ coi startup thành công khi cả hai sẵn sàng.
 - Không mở HTTP listener. Bổ sung HTTP adapter mà hybrid application yêu cầu nếu service chưa có dependency này.
-- Đảm bảo interceptor ack của lib được áp dụng cho RMQ listener, không tác động tới TCP handler.
+- Đảm bảo wrapper ack của lib được áp dụng cho RMQ listener, không tác động tới TCP handler.
 
 ## 3. Cấu hình và hành vi runtime
 
@@ -100,7 +136,7 @@ Service chạy cả TCP và RMQ sử dụng một Nest hybrid application, dùng
 
 ### Ack, lỗi và DLQ
 
-- Interceptor chỉ áp dụng cho RMQ context: handler hoàn thành thành công mới ack; lỗi xử lý thì nack với `requeue: false`.
+- Wrapper handler chỉ áp dụng cho RMQ transport: handler hoàn thành thành công mới ack; lỗi xử lý thì nack với `requeue: false`.
 - Chuẩn bị dead-letter exchange và queue `<queue>.dlq` trước khi nhận message; cấu hình queue nguồn trỏ tới DLQ tương ứng.
 - Với RPC, lỗi handler được trả về caller bằng cơ chế lỗi NestJS đồng thời đưa request lỗi vào DLQ; không tự retry.
 - Ack/nack mỗi message đúng một lần; không ack message sau khi channel nhận ban đầu đã đóng.
@@ -110,15 +146,15 @@ Service chạy cả TCP và RMQ sử dụng một Nest hybrid application, dùng
 
 ## 4. Các bước triển khai
 
-- [ ] Dùng skill `nx-generate` và Nx generator để tạo lib; liên kết dependency bằng npm workspace theo skill `link-workspace-packages`.
-- [ ] Triển khai cấu hình đồng bộ/bất đồng bộ và public exports.
-- [ ] Triển khai client gửi event/RPC, cache client, timeout và cleanup.
-- [ ] Triển khai helper bootstrap, topology DLQ và interceptor ack/nack cho RMQ.
-- [ ] Hoàn thiện reconnect, xử lý startup thất bại và graceful shutdown.
-- [ ] Viết README: `.env`, import module, bootstrap TCP + RMQ, hai loại handler, gửi tới queue khác và giới hạn vận hành.
-- [ ] Chạy unit/integration test và build/typecheck qua Nx.
+- [x] Dùng skill `nx-generate` và Nx generator để tạo lib; liên kết dependency bằng npm workspace theo skill `link-workspace-packages`.
+- [x] Triển khai cấu hình đồng bộ/bất đồng bộ và public exports.
+- [x] Triển khai client gửi event/RPC, cache client, timeout và cleanup.
+- [x] Triển khai helper bootstrap, topology DLQ và wrapper pipeline handler ack/nack cho RMQ.
+- [x] Hoàn thiện reconnect, xử lý startup thất bại và graceful shutdown.
+- [x] Viết README: `.env`, import module, bootstrap TCP + RMQ, hai loại handler, gửi tới queue khác và giới hạn vận hành.
+- [x] Chạy unit/integration test và build/typecheck qua Nx.
 
-Không tự chuyển các service hiện có sang RabbitMQ trong phạm vi xây lib. Ví dụ tích hợp và kiểm thử phải chứng minh lib sử dụng được từ một service NestJS.
+Theo yêu cầu triển khai bổ sung, `w-identity` đã import module và chạy TCP + RMQ trong cùng application context; readiness kiểm tra consumer RabbitMQ. Các handler identity hiện có giữ nguyên contract, không thêm event nghiệp vụ.
 
 ## 5. Kiểm thử và tiêu chí nghiệm thu
 
@@ -128,7 +164,7 @@ Không tự chuyển các service hiện có sang RabbitMQ trong phạm vi xây 
 - Cấu hình qua `forRootAsync` và dependency injection.
 - Cache client theo queue đích; timeout và đóng client khi shutdown.
 - Ack khi handler thành công; nack không requeue khi handler lỗi; mỗi message được xử lý ack/nack đúng một lần.
-- Interceptor bỏ qua TCP context.
+- TCP handler không dùng wrapper RMQ.
 
 ### Integration test với RabbitMQ thật
 
@@ -151,3 +187,13 @@ Một service NestJS có thể import module, cấu hình URI/queue qua `.env`, 
 - [RabbitMQ consumer acknowledgements và publisher confirms](https://www.rabbitmq.com/docs/confirms)
 - [RabbitMQ dead-letter exchanges](https://www.rabbitmq.com/docs/dlx)
 - [amqp-connection-manager](https://github.com/jwalton/node-amqp-connection-manager)
+
+
+## Cập nhật Clean Architecture cho profile của worker
+
+Domain quản lý trạng thái account và validation profile qua policy/error thuần. Application tiếp tục điều phối qua UserRepositoryPort. Presentation kiểm tra cấu trúc request và ánh xạ domain error thành 400/403. UserPersistenceEntity thuộc Infrastructure, giữ collection/pool và index hiện có. Đã kiểm chứng build/typecheck/unit, Mongo integration và kiểm thử profile qua TCP; full E2E hiện vướng policy quản trị trả 403 tại bước tạo user.
+
+
+## CQRS cho w-identity
+
+Đã tách 5 command và 3 query. Bus/decorator NestJS ở presentation adapter; logic handler Application và Domain vẫn độc lập framework. Một UserRepositoryPort chung cho query và command. Query trả profile null nếu chưa có và không ghi; command cập nhật upsert profile. Đã cập nhật OpenAPI và kiểm thử dispatch, validation, auth, không ghi khi query. Full E2E hiện thiếu fixture pm-realm.json.

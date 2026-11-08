@@ -1,0 +1,9 @@
+[submodule "front-end-kit"]
+	path = apps/front-end-kit
+	url = git@github.com:tuannamm/front-end-kit.git
+[submodule "u-project-management"]
+	path = apps/u-project-management
+	url = https://github.com/tuannamm/u-project-management.git
+[submodule "apps/keycloakify"]
+	path = apps/keycloakify
+	url = https://github.com/keycloakify/keycloakify.git

@@ -1,0 +1,6 @@
+node_modules/
+dist/
+dist_keycloak/
+src/kc.gen.tsx
+public/keycloak-resources/
+storybook-static/

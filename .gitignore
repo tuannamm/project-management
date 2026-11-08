@@ -51,5 +51,6 @@ Thumbs.db
 # Mỗi app là một git repo riêng
 apps/api-gateway/
 apps/service-discovery/
+apps/w-identity/
 vitest.config.*.timestamp*
 .vitest

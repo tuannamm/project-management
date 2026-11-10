@@ -22,7 +22,7 @@ const entries = projects.map((p) => {
   const builder = path.join(appDir, 'scripts/build-knowledge-html.mjs');
   if (rebuild && existsSync(builder)) {
     process.stdout.write(`[${p.id}] `);
-    execFileSync(process.execPath, [builder], { cwd: appDir, stdio: 'inherit' });
+    execFileSync(process.execPath, [builder, p.id, ...(p.docs ? [p.docs] : [])], { cwd: appDir, stdio: 'inherit' });
   }
   const file = path.join(kbDir, 'projects', p.id, 'knowledge.html');
   if (!existsSync(file)) throw new Error(`[${p.id}] thiếu ${path.relative(rootDir, file)}`);

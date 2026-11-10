@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ tay Domain-Driven Design</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Cùng hệ giao diện với sổ tay API Gateway và Service Registry.
+   Nội dung được sinh từ markdown; tiến độ ôn tập dùng khóa riêng ddd-practice-marks. */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #e9edf2;
+  --ink: #17202b;
+  --muted: #5a6574;
+  --line: #d6dce4;
+  --accent: #c2410c;
+  --accent-soft: #fbe5d8;
+  --control: #4352c9;
+  --control-soft: #e3e6fb;
+  --data: #0d7d72;
+  --data-soft: #d6f0ec;
+  --ok: #2b7a3f;
+  --ok-soft: #dcf0e1;
+  --learn: #2559c7;
+  --learn-soft: #dfe8fb;
+  --todo: #6b7482;
+  --todo-soft: #e6e9ee;
+  --danger: #b4321f;
+  --danger-soft: #f9e0db;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+    --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+    --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+    --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+  --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+  --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+  --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+[hidden] { display: none !important; }
+a { color: var(--learn); }
+code, pre, kbd { font-family: var(--font-mono); font-size: 0.86em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.eyebrow { font: 600 11px/1 var(--font-mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- Header ---------- */
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-block: 10px; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand b { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
+.brand span { font: 500 12px var(--font-mono); color: var(--muted); }
+nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+nav.tabs a {
+  text-decoration: none; color: var(--muted); font-weight: 600; font-size: 14px;
+  padding: 6px 12px; border-radius: 999px;
+}
+nav.tabs a:hover { color: var(--ink); background: var(--surface-2); }
+nav.tabs a[aria-current="page"] { color: var(--surface); background: var(--ink); }
+.icon-btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px;
+  font: 600 12px var(--font-mono); padding: 6px 10px; cursor: pointer;
+}
+main { padding-block: 28px 64px; }
+
+/* ---------- Shared bits ---------- */
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--font-mono); padding: 4px 8px; border-radius: 999px; white-space: nowrap; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.done { color: var(--ok); background: var(--ok-soft); }
+.chip.theory { color: var(--learn); background: var(--learn-soft); }
+.chip.todo { color: var(--todo); background: var(--todo-soft); }
+.chip.basic { color: var(--ok); background: var(--ok-soft); }
+.chip.mid { color: #a16207; background: #fbefcf; }
+.chip.hard { color: var(--danger); background: var(--danger-soft); }
+:root[data-theme="dark"] .chip.mid { color: #e8c062; background: #3a2f14; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip.mid { color: #e8c062; background: #3a2f14; } }
+.status-code { font: 700 13px var(--font-mono); padding: 2px 7px; border-radius: 6px; background: var(--surface-2); }
+.status-code.s2 { color: var(--ok); background: var(--ok-soft); }
+.status-code.s4 { color: #a16207; background: #fbefcf; }
+.status-code.s5 { color: var(--danger); background: var(--danger-soft); }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font: 600 14px var(--font-body); padding: 8px 14px; border-radius: 8px; cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn.good { background: var(--ok); color: var(--surface); border-color: var(--ok); }
+.btn.again { color: var(--accent); border-color: var(--accent); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.section-head h2 { font-size: 21px; font-weight: 700; }
+.section-head p { margin: 0; color: var(--muted); max-width: 62ch; }
+section.block { margin-top: 44px; }
+
+/* ---------- Overview ---------- */
+.hero { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 32px; align-items: end; }
+.hero h1 { font-size: clamp(30px, 4.6vw, 46px); font-weight: 800; letter-spacing: -0.025em; margin-top: 10px; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero p.lead { font-size: 17px; color: var(--muted); max-width: 58ch; margin: 14px 0 0; }
+.meter { padding: 18px; display: grid; gap: 14px; }
+.meter-row { display: grid; gap: 6px; }
+.meter-row .label { display: flex; justify-content: space-between; font-size: 13.5px; }
+.meter-row .label b { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.bar { height: 10px; border-radius: 999px; background: var(--surface-2); display: flex; overflow: hidden; }
+.bar i { display: block; height: 100%; }
+.bar .b-done { background: var(--ok); } .bar .b-theory { background: var(--learn); } .bar .b-known { background: var(--ok); } .bar .b-review { background: var(--accent); }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.diagram { overflow-x: auto; padding: 16px; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.diagram .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+.diagram .node.gw rect { fill: var(--accent-soft); stroke: var(--accent); }
+.diagram .node.svc rect { fill: var(--data-soft); stroke: var(--data); }
+.diagram .node.infra rect { fill: var(--control-soft); stroke: var(--control); }
+.diagram text { fill: var(--ink); font-family: var(--font-body); font-size: 14px; font-weight: 600; }
+.diagram text.small { fill: var(--muted); font: 500 11.5px var(--font-mono); }
+.diagram .edge { stroke: var(--ink); stroke-width: 1.6; fill: none; }
+.diagram .edge.tcp { stroke: var(--data); }
+.diagram .edge.dash { stroke: var(--control); stroke-dasharray: 5 5; }
+.diagram .edge.event { stroke: var(--muted); stroke-dasharray: 2 4; }
+.diagram marker path { fill: context-stroke; }
+.diagram .arrow-ink { fill: var(--ink); } .diagram .arrow-data { fill: var(--data); } .diagram .arrow-ctrl { fill: var(--control); } .diagram .arrow-muted { fill: var(--muted); }
+
+.planes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.plane { padding: 20px; border-top: 4px solid var(--control); }
+.plane.data { border-top-color: var(--data); }
+.plane h3 { font-size: 18px; margin-bottom: 4px; }
+.plane .when { font: 500 12.5px var(--font-mono); color: var(--muted); }
+.plane ol { margin: 14px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+.plane ol code { color: var(--muted); }
+.plane .rule { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 14px; color: var(--muted); }
+
+/* ---------- Knowledge ---------- */
+.kgrid { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 28px; align-items: start; }
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); max-height: calc(100vh - 100px); overflow-y: auto; padding: 10px; }
+.toc input { width: 100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 8px 10px; font: inherit; margin-bottom: 8px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.toc a { display: grid; grid-template-columns: 26px minmax(0, 1fr) 10px; gap: 6px; align-items: center; text-decoration: none; color: var(--ink); padding: 6px 8px; border-radius: 6px; font-size: 13.5px; line-height: 1.35; }
+.toc a:hover { background: var(--surface-2); }
+.toc a[aria-current="true"] { background: var(--surface-2); font-weight: 600; }
+.toc .num { font: 600 11.5px var(--font-mono); color: var(--muted); }
+.toc .dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.done { background: var(--ok); } .dot.theory { background: var(--learn); } .dot.todo { background: transparent; box-shadow: inset 0 0 0 1.5px var(--todo); }
+.toc-toggle { display: none; }
+
+article.topic { min-width: 0; }
+.topic-head { display: grid; gap: 10px; padding-bottom: 18px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.topic-head h1 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; letter-spacing: -0.02em; }
+.topic-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13.5px; }
+.prose { max-width: 76ch; }
+.prose img { display: block; max-width: 100%; height: auto; margin: 16px auto; border-radius: 12px; }
+.prose p, .prose li { overflow-wrap: break-word; }
+.prose p { margin: 0 0 12px; }
+.prose ul, .prose ol { margin: 0 0 14px; padding-left: 22px; display: grid; gap: 4px; }
+.prose code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.prose pre { background: var(--surface-2); padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 16px; line-height: 1.5; }
+.prose pre code { background: none; padding: 0; }
+.prose blockquote { margin: 0 0 14px; padding: 10px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+.prose h3 { font-size: 17px; margin: 22px 0 10px; }
+.table-wrap { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 8px; }
+.prose table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.prose th, .prose td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.prose th { background: var(--surface-2); font-weight: 600; font-size: 13px; }
+.prose tr:last-child td { border-bottom: 0; }
+.callout { border-radius: var(--radius); padding: 14px 16px 2px; margin: 0 0 16px; border: 1px solid var(--line); background: var(--surface); }
+.callout > p:first-child { font-size: 12px; font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+.callout > p:first-child strong { font-weight: 700; }
+.callout.questions { border-color: var(--learn); background: var(--learn-soft); }
+.callout.questions > p:first-child { color: var(--learn); }
+.callout.trap { border-color: var(--accent); background: var(--accent-soft); }
+.callout.trap > p:first-child { color: var(--accent); }
+.callout.sample { border-color: var(--ok); background: var(--ok-soft); }
+.callout.sample > p:first-child { color: var(--ok); }
+.callout.incode { border-color: var(--control); background: var(--control-soft); }
+.callout.incode > p:first-child { color: var(--control); }
+.callout.self { border-style: dashed; background: transparent; }
+.callout.self blockquote { border: 0; padding: 0; font-style: italic; }
+.topic-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--line); }
+.topic-foot a { text-decoration: none; }
+.practice-link { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; margin-top: 22px; }
+
+/* ---------- Practice ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; margin-bottom: 16px; }
+.fgroup { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.fgroup .eyebrow { margin-right: 4px; }
+.pill { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 5px 11px; font: 600 13px var(--font-body); cursor: pointer; }
+.pill[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.card { padding: 26px; display: grid; gap: 18px; min-height: 320px; align-content: start; }
+.card-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13px; }
+.card-q { font-size: clamp(19px, 2.4vw, 24px); font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; text-wrap: pretty; }
+.card-q strong { font-weight: 700; }
+.hint { border-left: 3px solid var(--ok); padding: 10px 14px; background: var(--ok-soft); border-radius: 0 8px 8px 0; }
+.hint .eyebrow { color: var(--ok); display: block; margin-bottom: 6px; }
+.refs { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13.5px; }
+.refs a { text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; color: var(--ink); }
+.refs a:hover { border-color: var(--learn); color: var(--learn); }
+.card-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.card-actions .spacer { flex: 1; }
+.mark { font: 600 12px var(--font-mono); }
+.mark.known { color: var(--ok); } .mark.review { color: var(--accent); }
+.practice-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.counter { font: 600 13px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.kbd-help { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); }
+.empty { padding: 40px 26px; text-align: center; color: var(--muted); }
+
+/* ---------- Glossary ---------- */
+.gloss-search { width: min(100%, 420px); border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 9px 12px; font: inherit; margin-bottom: 16px; }
+.gloss { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.term { padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.term b { font-weight: 700; }
+.term span { color: var(--muted); font-size: 14px; }
+.term code { background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+
+footer { color: var(--muted); font-size: 12.5px; padding-block: 0 32px; }
+
+/* ---------- Slides ---------- */
+.slide-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.stage { display: grid; place-items: center; }
+.slide-frame {
+  width: min(100%, calc((100vh - 240px) * 16 / 9)); aspect-ratio: 16 / 9; max-width: 100%;
+  container-type: inline-size; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+}
+.stage:fullscreen { background: var(--bg); width: 100vw; height: 100vh; }
+.stage:fullscreen .slide-frame { width: min(100vw, calc(100vh * 16 / 9)); border-radius: 0; border: 0; }
+.slide {
+  height: 100%; overflow: auto; display: flex; flex-direction: column; justify-content: center; gap: 2.2cqw;
+  padding: 5cqw 7cqw 6cqw; font-size: 2.15cqw; line-height: 1.5; position: relative;
+  border-top: 0.6cqw solid var(--accent);
+}
+.slide > * { margin: 0; }
+.slide h1 { font-size: 6cqw; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+.slide h2 { font-size: 3.6cqw; font-weight: 800; letter-spacing: -0.02em; }
+.slide.cover { justify-content: flex-end; padding-bottom: 8cqw; background: linear-gradient(135deg, var(--accent-soft), transparent 60%); }
+.slide.cover h1 { color: var(--ink); max-width: 18ch; }
+.slide.cover p:first-of-type { font-size: 2.8cqw; color: var(--ink); max-width: 36ch; }
+.slide.cover p { color: var(--muted); }
+.slide ul, .slide ol { padding-left: 1.4em; display: grid; gap: 0.9cqw; }
+.slide strong { color: var(--accent); }
+.slide code { font-size: 0.85em; background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 0.3em; }
+.slide pre { background: var(--surface-2); border-radius: 1cqw; padding: 1.6cqw 2cqw; font-size: 1.6cqw; line-height: 1.45; overflow: auto; }
+.slide pre code { background: none; padding: 0; font-size: 1em; }
+.slide table { border-collapse: collapse; width: 100%; font-size: 1.85cqw; }
+.slide th, .slide td { text-align: left; vertical-align: top; padding: 1cqw 1.4cqw; border-bottom: 1px solid var(--line); }
+.slide th { color: var(--muted); font-weight: 600; font-size: 1.5cqw; text-transform: uppercase; letter-spacing: 0.06em; }
+.slide th:empty { padding: 0; border: 0; }
+.slide td strong { color: var(--ink); }
+.slide .slide-no { position: absolute; right: 3cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); }
+.slide .slide-brand { position: absolute; left: 7cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.slide .diagram { padding: 0; border: 0; background: none; overflow: visible; }
+.slide .diagram svg { min-width: 0; max-height: 34cqw; }
+.slide .planes { gap: 2cqw; }
+.slide .plane { padding: 1.8cqw 2cqw; border-radius: 1cqw; }
+.slide .plane h3 { font-size: 2.1cqw; margin-bottom: 0; }
+.slide .plane .eyebrow { font-size: 1.15cqw; }
+.slide .plane .when, .slide .plane .rule { display: none; }
+.slide .plane ol { font-size: 1.55cqw; gap: 0.4cqw; margin-top: 1.2cqw; line-height: 1.4; }
+.slide .plane ol code { font-size: 0.78em; background: none; padding: 0; }
+.slide-progress { height: 3px; background: var(--surface-2); border-radius: 999px; margin-top: 12px; overflow: hidden; }
+.slide-progress i { display: block; height: 100%; background: var(--accent); }
+.slide-notes { margin-top: 14px; padding: 14px 18px; font-size: 15px; }
+.slide-notes p { margin: 0; }
+.slide-notes .eyebrow { display: block; margin-bottom: 6px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 920px) {
+  .hero, .planes { grid-template-columns: minmax(0, 1fr); }
+  .kgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc { position: static; max-height: none; }
+  .toc-toggle { display: inline-flex; margin-bottom: 10px; }
+  .toc.collapsed ol, .toc.collapsed input { display: none; }
+}
+@media (max-width: 480px) {
+  .card { padding: 18px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pill, .btn, nav.tabs a { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+}
+
+/* ---------- Clean Architecture overview ---------- */
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.design-note { display: flex; align-items: center; gap: 12px; margin-top: 24px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+.design-note p { margin: 0; color: var(--muted); font-size: 13px; }
+.flow { display: grid; justify-items: center; gap: 8px; margin-top: 20px; }
+.flow span { width: 100%; text-align: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font: 500 13px var(--font-mono); overflow-wrap: anywhere; }
+.flow b { color: var(--muted); line-height: 1; }
+.flow .flow-core { color: var(--control); border-color: var(--control); background: var(--control-soft); }
+.data .flow-core { color: var(--data); border-color: var(--data); background: var(--data-soft); }
+.text-link { display: inline-block; color: var(--learn); font-size: 13px; font-weight: 600; margin-top: 14px; }
+.study-path { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.study-step { display: flex; flex-direction: column; padding: 22px; color: var(--ink); text-decoration: none; }
+.study-step:hover { border-color: var(--accent); }
+.study-step h3 { font-size: 18px; margin-top: 14px; }
+.study-step p { color: var(--muted); font-size: 14px; margin: 12px 0 18px; }
+.study-step .text-link { margin-top: auto; }
+.meter-row .label { flex-wrap: wrap; gap: 4px 10px; }
+button:disabled { opacity: 0.45; cursor: default; }
+.topic-foot .btn { max-width: 100%; overflow-wrap: anywhere; }
+@media (max-width: 920px) {
+  .study-path { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .brand { flex-wrap: wrap; gap: 4px 10px; }
+  nav.tabs { width: 100%; }
+  nav.tabs a { padding: 6px 9px; font-size: 13px; }
+  .design-note { align-items: flex-start; flex-direction: column; }
+  .gloss { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Sổ tay Domain-Driven Design</b><span id="gen-date"></span></div>
+    <nav class="tabs" aria-label="Các phần">
+      <a href="#overview" data-view="overview">Tổng quan</a>
+      <a href="#knowledge" data-view="knowledge">Kiến thức</a>
+      <a href="#practice" data-view="practice">Luyện câu hỏi</a>
+      <a href="#glossary" data-view="glossary">Từ điển</a>
+      <a href="#slides" data-view="slides">Slide</a>
+    </nav>
+    <button class="icon-btn" id="theme-btn" type="button" title="Đổi giao diện sáng/tối">Giao diện: hệ thống</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ================= OVERVIEW ================= -->
+  <section id="view-overview" data-view-panel="overview">
+    <div class="hero">
+      <div>
+        <span class="eyebrow">Bounded Context · Aggregate · Ubiquitous Language</span>
+        <h1>Hiểu nghiệp vụ trước.<br><em>Rồi mới chọn pattern.</em></h1>
+        <p class="lead">Nắm Strategic và Tactical Design, tìm ranh giới bounded context và luyện giải thích DDD qua ví dụ nhà hàng.</p>
+        <div class="hero-actions"><a class="btn primary" href="#topic-0">Bắt đầu học →</a><a class="btn" href="#practice">Luyện phỏng vấn</a></div>
+      </div>
+      <div class="panel meter" id="meter" aria-live="polite"></div>
+    </div>
+    <div class="design-note"><span class="chip theory">Ví dụ minh họa</span><p>Ví dụ nhà hàng dùng để học khái niệm, không phải code đã triển khai. w-identity chỉ áp dụng DDD ở mức nhẹ (bài 7). Phần so sánh với Clean Architecture ở sổ tay Clean Architecture, bài 14.</p></div>
+
+    <section class="block">
+      <div class="section-head"><h2>Hai nửa của DDD</h2><p>Strategic tìm ranh giới và ngôn ngữ; Tactical thể hiện mô hình trong code. Strategic đi trước.</p></div>
+      <div class="planes" id="arch-diagram">
+        <div class="panel plane">
+          <span class="eyebrow">01 · Strategic Design</span><h3>Tìm ranh giới và ngôn ngữ</h3>
+          <div class="flow"><span>Ubiquitous Language</span><b aria-hidden="true">↓</b><span>Subdomain</span><b aria-hidden="true">↓</b><span class="flow-core">Bounded Context</span></div>
+          <div class="rule">Context map mô tả quan hệ: Customer–Supplier, Shared Kernel, ACL... Context không bắt buộc là một microservice.</div>
+          <a class="text-link" href="#topic-1">Hiểu bounded context →</a>
+        </div>
+        <div class="panel plane data">
+          <span class="eyebrow">02 · Tactical Design</span><h3>Thể hiện mô hình trong code</h3>
+          <div class="flow"><span>Entity · Value Object</span><b aria-hidden="true">↓</b><span>Aggregate · Repository</span><b aria-hidden="true">↓</b><span class="flow-core">Domain Event</span></div>
+          <div class="rule">Aggregate root bảo vệ bất biến trong một ranh giới nhất quán; tham chiếu aggregate khác bằng ID.</div>
+          <a class="text-link" href="#topic-4">Khám phá aggregate →</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="section-head"><h2>Lộ trình học và ôn tập</h2><p>Đọc hai chủ đề mỗi ngày, tự giải thích trong 60–90 giây rồi luyện câu hỏi liên quan.</p></div>
+      <div class="study-path" id="planes">
+        <a class="panel study-step" href="#topic-0"><span class="eyebrow">01 · Nắm nguyên lý</span><h3>Hiểu trước khi dùng pattern</h3><p>Ngôn ngữ chung, bounded context, subdomain và context map.</p><span class="text-link">Đọc bài nền tảng →</span></a>
+        <a class="panel study-step" href="#topic-4"><span class="eyebrow">02 · Mô hình trong code</span><h3>Đưa nguyên lý vào ví dụ</h3><p>Entity, value object, aggregate, repository, service và event.</p><span class="text-link">Khám phá thiết kế →</span></a>
+        <a class="panel study-step" href="#topic-7"><span class="eyebrow">03 · Tự giải thích</span><h3>Biết giới hạn của DDD</h3><p>Khi nào nên dùng DDD đầy đủ và DDD ở w-identity áp dụng đến đâu.</p><span class="text-link">Đọc bài kết →</span></a>
+      </div>
+    </section>
+  </section>
+
+  <!-- ================= KNOWLEDGE ================= -->
+  <section id="view-knowledge" data-view-panel="knowledge" hidden>
+    <div class="kgrid">
+      <aside class="panel toc" id="toc">
+        <button class="btn toc-toggle" id="toc-toggle" type="button" aria-expanded="false">Danh sách chủ đề</button>
+        <input id="toc-search" type="search" placeholder="Tìm chủ đề…" aria-label="Tìm chủ đề">
+        <ol id="toc-list"></ol>
+      </aside>
+      <article class="topic" id="topic"></article>
+    </div>
+  </section>
+
+  <!-- ================= PRACTICE ================= -->
+  <section id="view-practice" data-view-panel="practice" hidden>
+    <div class="section-head">
+      <h2>Luyện câu hỏi</h2>
+      <p>Nói thành tiếng câu trả lời trước, rồi mới mở ý chính để đối chiếu. Đánh dấu được lưu trong trình duyệt này.</p>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="practice-top">
+      <span class="counter" id="counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="shuffle-btn" type="button">Xáo thứ tự</button>
+        <button class="btn" id="reset-btn" type="button">Xoá đánh dấu</button>
+      </div>
+    </div>
+    <div class="panel" id="card"></div>
+    <p class="kbd-help"><kbd>Space</kbd> mở ý chính · <kbd>←</kbd> <kbd>→</kbd> câu trước/sau · <kbd>1</kbd> cần ôn lại · <kbd>2</kbd> đã thuộc</p>
+  </section>
+
+  <!-- ================= GLOSSARY ================= -->
+  <section id="view-glossary" data-view-panel="glossary" hidden>
+    <div class="section-head">
+      <h2>Từ điển nhanh</h2>
+      <p>Thuật ngữ gặp trong dự án và trong phỏng vấn.</p>
+    </div>
+    <input class="gloss-search" id="gloss-search" type="search" placeholder="Tìm thuật ngữ…" aria-label="Tìm thuật ngữ">
+    <div class="gloss" id="gloss"></div>
+  </section>
+
+  <!-- ================= SLIDES ================= -->
+  <section id="view-slides" data-view-panel="slides" hidden>
+    <div class="slide-bar">
+      <span class="counter" id="slide-counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="slide-prev" type="button">← Trước</button>
+        <button class="btn primary" id="slide-next" type="button">Sau →</button>
+        <button class="btn" id="slide-notes-btn" type="button" aria-pressed="false">Ghi chú người nói</button>
+        <button class="btn" id="slide-full" type="button">Toàn màn hình</button>
+      </div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="slide-frame">
+        <div class="slide" id="slide"></div>
+      </div>
+    </div>
+    <div class="slide-progress" aria-hidden="true"><i id="slide-progress"></i></div>
+    <div class="panel slide-notes" id="slide-notes" hidden></div>
+    <p class="kbd-help"><kbd>→</kbd> <kbd>Space</kbd> slide sau · <kbd>←</kbd> slide trước · <kbd>F</kbd> toàn màn hình · <kbd>N</kbd> ghi chú · <kbd>Home</kbd> <kbd>End</kbd> đầu/cuối. Nội dung sửa trong <code>documents/SLIDES.md</code>.</p>
+  </section>
+</main>
+<footer class="wrap" id="footer"></footer>
+
+<script id="data" type="application/json">{"generatedAt":"2026-11-09T11:21:58.393Z","topics":[{"n":0,"title":"DDD trong 60 giây","status":"theory","statusNote":"","step":"Strategic","html":"\u003cp>\u003cstrong>DDD (Domain-Driven Design) là cách tiếp cận phát triển và thiết kế phần mềm lấy nghiệp vụ làm trung tâm.\u003c/strong> Nhóm phát triển cùng người am hiểu nghiệp vụ khám phá khái niệm, thống nhất ngôn ngữ, tìm ranh giới và thể hiện mô hình đó trong code; mô hình tiếp tục được điều chỉnh khi hiểu biết thay đổi.\u003c/p>\n\u003cp>DDD rộng hơn một design pattern hay một cách chia folder. Tạo \u003ccode>domain/\u003c/code>, dùng repository, thêm CQRS hoặc viết class có tên Entity chưa đủ để kết luận đã áp dụng DDD tốt.\u003c/p>\n\u003cp>DDD có hai nửa:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Nửa\u003c/th>\n\u003cth>Câu hỏi\u003c/th>\n\u003cth>Công cụ chính\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003cstrong>Strategic Design\u003c/strong>\u003c/td>\n\u003ctd>Nghiệp vụ gồm những phần nào, ngôn ngữ và ranh giới ở đâu, các phần quan hệ với nhau ra sao?\u003c/td>\n\u003ctd>Ubiquitous Language, Bounded Context, Subdomain, Context Map\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>Tactical Design\u003c/strong>\u003c/td>\n\u003ctd>Trong một ranh giới, thể hiện mô hình bằng code thế nào?\u003c/td>\n\u003ctd>Entity, Value Object, Aggregate, Repository, Domain Service, Domain Event\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Strategic đi trước: nếu chọn sai ranh giới thì pattern tactical đẹp đến đâu cũng chỉ mô hình hóa sai bài toán.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nói DDD là &quot;chia thư mục domain/application/infrastructure&quot; hoặc &quot;dùng entity và repository&quot;.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":1,"title":"Ubiquitous Language và Bounded Context","status":"theory","statusNote":"","step":"Strategic","html":"\u003cul>\n\u003cli>\u003cstrong>Ubiquitous Language:\u003c/strong> developer và người hiểu nghiệp vụ dùng chung thuật ngữ, cùng nghĩa trong từng context; tên trong tài liệu, trao đổi và code phản ánh ngôn ngữ đó. Nếu chuyên gia nói &quot;xác nhận đơn&quot; mà code gọi \u003ccode>updateStatus(2)\u003c/code> thì ngôn ngữ chưa chung.\u003c/li>\n\u003cli>\u003cstrong>Bounded Context:\u003c/strong> phạm vi một mô hình và ngôn ngữ có nghĩa nhất quán. Cùng một từ ở context khác có thể cần một mô hình khác. &quot;Khách hàng&quot; ở Bán hàng (người đặt đơn) khác &quot;khách hàng&quot; ở Chăm sóc (người có ticket hỗ trợ).\u003c/li>\n\u003c/ul>\n\u003cp>Bounded context không bắt buộc trùng với một service triển khai. Một ứng dụng có thể chứa nhiều context; ranh giới cần được quyết định từ nghiệp vụ và khả năng tổ chức, không chỉ từ sơ đồ hạ tầng. Ngược lại, một mô hình dùng chung cho mọi nơi (&quot;God model&quot;) thường là dấu hiệu thiếu ranh giới.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Đồng nhất bounded context với microservice; hoặc dùng một class \u003ccode>Customer\u003c/code> khổng lồ cho mọi context.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":2,"title":"Subdomain và Context Map","status":"theory","statusNote":"","step":"Strategic","html":"\u003cp>\u003cstrong>Subdomain\u003c/strong> là phần của bài toán nghiệp vụ, phân loại theo giá trị chiến lược:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Loại\u003c/th>\n\u003cth>Đặc điểm\u003c/th>\n\u003cth>Cách đầu tư\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Core\u003c/td>\n\u003ctd>Tạo lợi thế cạnh tranh, thay đổi nhiều\u003c/td>\n\u003ctd>Mô hình sâu, đội giỏi nhất, tự xây\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Supporting\u003c/td>\n\u003ctd>Cần thiết nhưng không phân biệt công ty\u003c/td>\n\u003ctd>Làm đơn giản, có thể giao đội khác\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Generic\u003c/td>\n\u003ctd>Bài toán chung đã có giải pháp (đăng nhập, thanh toán, gửi mail)\u003c/td>\n\u003ctd>Mua hoặc dùng sản phẩm có sẵn\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Subdomain thuộc \u003cem>không gian bài toán\u003c/em>; bounded context thuộc \u003cem>không gian giải pháp\u003c/em>. Lý tưởng là khớp nhau nhưng không phải lúc nào cũng một-một.\u003c/p>\n\u003cp>\u003cstrong>Context Map\u003c/strong> mô tả quan hệ giữa các context: bên nào sở hữu dữ liệu/quy tắc nào, trao đổi bằng hợp đồng nào, cần dịch mô hình ở ranh giới ra sao.\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Kiểu quan hệ\u003c/th>\n\u003cth>Ý nghĩa ngắn\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Shared Kernel\u003c/td>\n\u003ctd>Hai context dùng chung một phần mô hình/code nhỏ, hai bên cùng chịu trách nhiệm đồng bộ\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Customer–Supplier\u003c/td>\n\u003ctd>Upstream (supplier) cung cấp, downstream (customer) có tiếng nói trong việc ưu tiên yêu cầu\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Conformist\u003c/td>\n\u003ctd>Downstream chấp nhận mô hình upstream nguyên trạng, không có ảnh hưởng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Anticorruption Layer (ACL)\u003c/td>\n\u003ctd>Downstream đặt lớp dịch để mô hình ngoài không làm &quot;nhiễm&quot; mô hình của mình\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Open Host Service / Published Language\u003c/td>\n\u003ctd>Upstream công bố giao thức và ngôn ngữ chung ổn định cho nhiều bên dùng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Separate Ways\u003c/td>\n\u003ctd>Hai context không tích hợp\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Áp tactical pattern đầy đủ cho cả subdomain generic; không biết khi nào cần ACL.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":3,"title":"Ví dụ nhà hàng: cùng một món, nhiều ý nghĩa","status":"theory","statusNote":"","step":"Strategic","html":"\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAwIDcwMCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsbGVkYnk9InRpdGxlIGRlc2MiPgogIDx0aXRsZSBpZD0idGl0bGUiPkRERDogY8O5bmcgbeG7mXQgbcOzbiDEg24sIGPDoWMgbcO0IGjDrG5oIGtow6FjIG5oYXUgdGhlbyBuZ+G7ryBj4bqjbmg8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj5UaOG7sWMgxJHGoW4gcXVhbiB0w6JtIG3Ds24gY8OzIHRo4buDIGLDoW4gdsOgIGdpw6EgaGnhu4duIHThuqFpLiDEkOG6t3QgbcOzbiBnaeG7ryBz4buRIGzGsOG7o25nIHbDoCBnacOhIHThuqFpIHRo4budaSDEkWnhu4NtIMSR4bq3dC4gQuG6v3AgcXVhbiB0w6JtIHnDqnUgY+G6p3UgY2jhur8gYmnhur9uIHbDoCB0cuG6oW5nIHRow6FpIGhvw6BuIHRow6BuaC4gVGhhbmggdG/DoW4gcXVhbiB0w6JtIHPhu5EgdGnhu4FuIHbDoCBr4bq/dCBxdeG6oyB0aHUgdGnhu4FuLiBN4buZdCBib3VuZGVkIGNvbnRleHQgY8OzIHRo4buDIGNo4bupYSBuaGnhu4F1IGFnZ3JlZ2F0ZTsgbeG7mXQgYWdncmVnYXRlIMSRxqFuIGjDoG5nIGLhuqNvIHbhu4cgcXV5IHThuq9jIGPhu6dhIGPDoWMgZMOybmcgbcOzbi48L2Rlc2M+CiAgPHJlY3Qgd2lkdGg9IjEwMDAiIGhlaWdodD0iNzAwIiByeD0iMjAiIGZpbGw9IiNmOGZhZmMiLz4KICA8ZyBmb250LWZhbWlseT0iQXJpYWwsc2Fucy1zZXJpZiIgZmlsbD0iIzE3MmI0ZCI+CiAgICA8dGV4dCB4PSIzNSIgeT0iNDQiIGZvbnQtc2l6ZT0iMjQiIGZvbnQtd2VpZ2h0PSI3MDAiPkRERDogSEnhu4JVIE5HSEnhu4ZQIFbhu6QgVFLGr+G7mkMgS0hJIENISUEgQ0xBU1M8L3RleHQ+CiAgICA8dGV4dCB4PSIzNSIgeT0iNzgiIGZvbnQtc2l6ZT0iMTgiPlbDrSBk4bulIGdp4bqjIMSR4buLbmg6IOKAnGPGoW0gZ8Og4oCdIGPDsyDDvSBuZ2jEqWEga2jDoWMgbmhhdSB0cm9uZyB04burbmcgYm91bmRlZCBjb250ZXh0LjwvdGV4dD4KICAgIDxyZWN0IHg9IjM1IiB5PSIxMDUiIHdpZHRoPSI0NTAiIGhlaWdodD0iMTM4IiByeD0iMTUiIGZpbGw9IiNlNmVkZmEiIHN0cm9rZT0iIzY2ODRiMyIvPgogICAgPHJlY3QgeD0iNTE1IiB5PSIxMDUiIHdpZHRoPSI0NTAiIGhlaWdodD0iMTM4IiByeD0iMTUiIGZpbGw9IiNkZmYzZWUiIHN0cm9rZT0iIzRlOTQ4NyIvPgogICAgPHJlY3QgeD0iMzUiIHk9IjI2MyIgd2lkdGg9IjQ1MCIgaGVpZ2h0PSIxMzgiIHJ4PSIxNSIgZmlsbD0iI2ZmZjBjNSIgc3Ryb2tlPSIjYjU4YjMxIi8+CiAgICA8cmVjdCB4PSI1MTUiIHk9IjI2MyIgd2lkdGg9IjQ1MCIgaGVpZ2h0PSIxMzgiIHJ4PSIxNSIgZmlsbD0iI2ZjZTdlZCIgc3Ryb2tlPSIjYmI2YjgzIi8+CiAgICA8ZyBmb250LXNpemU9IjIxIiBmb250LXdlaWdodD0iNzAwIj4KICAgICAgPHRleHQgeD0iNTgiIHk9IjE0MSI+VGjhu7FjIMSRxqFuIMK3IE1lbnU8L3RleHQ+PHRleHQgeD0iNTM4IiB5PSIxNDEiPsSQ4bq3dCBtw7NuIMK3IE9yZGVyaW5nPC90ZXh0PgogICAgICA8dGV4dCB4PSI1OCIgeT0iMjk5Ij5C4bq/cCDCtyBLaXRjaGVuPC90ZXh0Pjx0ZXh0IHg9IjUzOCIgeT0iMjk5Ij5UaGFuaCB0b8OhbiDCtyBCaWxsaW5nPC90ZXh0PgogICAgPC9nPgogICAgPGcgZm9udC1zaXplPSIxOCI+CiAgICAgIDx0ZXh0IHg9IjU4IiB5PSIxNzciPk3Ds24gY8OzIHRo4buDIGLDoW4sIG3DtCB04bqjLCBnacOhIGhp4buHbiB04bqhaTwvdGV4dD4KICAgICAgPHRleHQgeD0iNTgiIHk9IjIxMCI+S2jDoWkgbmnhu4dtOiBNZW51SXRlbTwvdGV4dD4KICAgICAgPHRleHQgeD0iNTM4IiB5PSIxNzciPk3Ds24gxJHDoyDEkeG6t3QsIHPhu5EgbMaw4bujbmcsIGdpw6EgbMO6YyDEkeG6t3Q8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjUzOCIgeT0iMjEwIj5LaMOhaSBuaeG7h206IE9yZGVyLCBPcmRlckxpbmU8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjU4IiB5PSIzMzUiPlnDqnUgY+G6p3UgY2jhur8gYmnhur9uLCBnaGkgY2jDuiwgdHLhuqFuZyB0aMOhaSBtw7NuPC90ZXh0PgogICAgICA8dGV4dCB4PSI1OCIgeT0iMzY4Ij5LaMOhaSBuaeG7h206IEtpdGNoZW5UaWNrZXQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjUzOCIgeT0iMzM1Ij5T4buRIHRp4buBbiBwaOG6o2kgdGh1LCBz4buRIMSRw6MgdGh1LCBnaWFvIGThu4tjaDwvdGV4dD4KICAgICAgPHRleHQgeD0iNTM4IiB5PSIzNjgiPktow6FpIG5p4buHbTogSW52b2ljZSwgUGF5bWVudDwvdGV4dD4KICAgIDwvZz4KICAgIDx0ZXh0IHg9IjUwMCIgeT0iNDM2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE4Ij5N4buXaSBjb250ZXh0IGPDsyBtw7QgaMOsbmggdsOgIHRodeG6rXQgbmfhu68gcsO1IG5naMSpYSB0cm9uZyBwaOG6oW0gdmkgY+G7p2EgbsOzLjwvdGV4dD4KICAgIDxyZWN0IHg9IjM1IiB5PSI0NTkiIHdpZHRoPSI5MzAiIGhlaWdodD0iMTcwIiByeD0iMTYiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzk0YTNiOCIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgICA8dGV4dCB4PSI2MCIgeT0iNDk1IiBmb250LXNpemU9IjIxIiBmb250LXdlaWdodD0iNzAwIj5Ww60gZOG7pSB0YWN0aWNhbCBkZXNpZ24gdHJvbmcgT3JkZXJpbmc6IGFnZ3JlZ2F0ZSBPcmRlcjwvdGV4dD4KICAgIDxyZWN0IHg9IjYwIiB5PSI1MTciIHdpZHRoPSIxODAiIGhlaWdodD0iNjYiIHJ4PSIxMiIgZmlsbD0iI2RmZjNlZSIgc3Ryb2tlPSIjNGU5NDg3Ii8+CiAgICA8dGV4dCB4PSIxNTAiIHk9IjU0NCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9IjcwMCI+T3JkZXI8L3RleHQ+CiAgICA8dGV4dCB4PSIxNTAiIHk9IjU2OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxNiI+QWdncmVnYXRlIHJvb3Q8L3RleHQ+CiAgICA8dGV4dCB4PSIyNzAiIHk9IjUzOSIgZm9udC1zaXplPSIxOCI+T3JkZXJMaW5lOiBjxqFtIGfDoCDDlyAyLCBnaeG7ryBnacOhIHThuqFpIHRo4budaSDEkWnhu4NtIMSR4bq3dDwvdGV4dD4KICAgIDx0ZXh0IHg9IjI3MCIgeT0iNTY4IiBmb250LXNpemU9IjE4Ij5UaGF5IMSR4buVaSBxdWEgT3JkZXIgxJHhu4MgYuG6o28gduG7hyBxdXkgdOG6r2Mgc+G7kSBsxrDhu6NuZyB2w6AgdOG7lW5nIHRp4buBbi48L3RleHQ+CiAgICA8dGV4dCB4PSI2MCIgeT0iNjEwIiBmb250LXNpemU9IjE3Ij5BZ2dyZWdhdGUgbMOgIHJhbmggZ2nhu5tpIG5o4bqldCBxdcOhbiBuZ2hp4buHcCB24bulOyBraMO0bmcgxJHhu5NuZyBuZ2jEqWEgbeG7mXQgdGFibGUvY29sbGVjdGlvbi48L3RleHQ+CiAgICA8dGV4dCB4PSI1MDAiIHk9IjY3MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9IjcwMCI+Qm91bmRlZCBjb250ZXh0IGzDoCByYW5oIGdp4bubaSBtw7QgaMOsbmg7IGtow7RuZyBi4bqvdCBideG7mWMgdMawxqFuZyDhu6luZyBt4buZdCBtaWNyb3NlcnZpY2UuPC90ZXh0PgogIDwvZz4KPC9zdmc+Cg==\" alt=\"DDD qua các context của nhà hàng và aggregate đơn hàng\">\u003c/p>\n\u003cp>Đây là các ranh giới \u003cstrong>minh họa\u003c/strong>, không phải cách chia duy nhất cho mọi nhà hàng:\u003c/p>\n\u003cul>\n\u003cli>\u003cstrong>Thực đơn:\u003c/strong> “cơm gà” là một món có thể bán, có mô tả và giá hiện tại.\u003c/li>\n\u003cli>\u003cstrong>Đặt món:\u003c/strong> món trong đơn có số lượng và giá được ghi nhận tại thời điểm đặt.\u003c/li>\n\u003cli>\u003cstrong>Bếp:\u003c/strong> món là yêu cầu chế biến với ghi chú và trạng thái thực hiện.\u003c/li>\n\u003cli>\u003cstrong>Thanh toán:\u003c/strong> thông tin món góp phần xác định khoản tiền cần thu trên hóa đơn.\u003c/li>\n\u003c/ul>\n\u003cp>Nếu nhà hàng có quy tắc “đổi giá thực đơn không làm thay đổi giá các đơn đã xác nhận”, Ordering cần giữ giá tại thời điểm đặt. Việc nhận ra ý nghĩa và quy tắc này là công việc mô hình hóa domain; sau đó mới chọn cấu trúc class và cách lưu trữ phù hợp.\u003c/p>\n\u003cp>Quan hệ giữa các context cũng cần quyết định: Ordering có thể là upstream của Kitchen (Kitchen nhận sự kiện &quot;đơn đã xác nhận&quot; và dịch thành ticket của mình), còn Billing có thể đặt ACL nếu phải tích hợp cổng thanh toán bên ngoài có mô hình riêng.\u003c/p>\n\u003cp>\u003cstrong>Tự kiểm tra:\u003c/strong> Giải thích vì sao OrderLine giữ giá lúc đặt; vì sao &quot;món&quot; ở Kitchen không cần giá; ai là upstream giữa Ordering và Kitchen.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":4,"title":"Entity, Value Object và Aggregate","status":"theory","statusNote":"","step":"Tactical","html":"\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Khái niệm\u003c/th>\n\u003cth>Vai trò\u003c/th>\n\u003cth>Ví dụ nhà hàng giả định\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Entity\u003c/td>\n\u003ctd>Có danh tính và vòng đời; thay thuộc tính vẫn là cùng thực thể\u003c/td>\n\u003ctd>Order có orderId\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Value Object\u003c/td>\n\u003ctd>Được xác định bởi giá trị, bảo vệ tính hợp lệ; thường thiết kế bất biến\u003c/td>\n\u003ctd>Money gồm amount và currency\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Aggregate / Aggregate Root\u003c/td>\n\u003ctd>Nhóm đối tượng trong một ranh giới nhất quán; root kiểm soát thay đổi để bảo vệ bất biến\u003c/td>\n\u003ctd>Order kiểm soát các OrderLine, số lượng và cách tính tổng tiền\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Value Object so với Entity:\u003c/strong> hai Money(50, VND) là bằng nhau vì cùng giá trị; hai Order cùng nội dung nhưng khác \u003ccode>orderId\u003c/code> là hai đơn khác nhau. Value Object nên bất biến: muốn đổi thì tạo giá trị mới.\u003c/p>\n\u003cp>\u003cstrong>Quy tắc thiết kế aggregate (theo Vaughn Vernon):\u003c/strong>\u003c/p>\n\u003cul>\n\u003cli>Bảo vệ bất biến \u003cem>trong một transaction\u003c/em>; một transaction thường chỉ sửa một aggregate.\u003c/li>\n\u003cli>Giữ aggregate nhỏ. Aggregate lớn gây tranh chấp khóa và tải dữ liệu thừa.\u003c/li>\n\u003cli>Tham chiếu aggregate khác bằng \u003cstrong>ID\u003c/strong>, không giữ object trực tiếp.\u003c/li>\n\u003cli>Nhất quán giữa các aggregate là \u003cstrong>eventual consistency\u003c/strong>, thường qua domain event.\u003c/li>\n\u003c/ul>\n\u003cp>Mã giả minh họa (không phải code của repo):\u003c/p>\n\u003cpre>\u003ccode class=\"language-text\">Order (aggregate root)\n  confirm()           // kiểm tra: có ít nhất 1 OrderLine, số lượng &gt; 0\n  addLine(menuItemId, qty, unitPrice: Money)\n  total(): Money      // tổng unitPrice * qty, luôn tính từ các OrderLine\n  // ngoài truy cập OrderLine chỉ qua Order, không sửa trực tiếp\n\u003c/code>\u003c/pre>\n\u003cp>Aggregate không mặc định là một table/collection; domain entity cũng không đồng nghĩa model có decorator ORM. Aggregate cũng không nhất thiết là class: mô hình dựa trên kiểu dữ liệu và hàm thuần vẫn có thể bảo vệ bất biến.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Cho một aggregate chứa cả hệ thống; giữ object aggregate khác thay vì ID; coi aggregate là bảng database.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":5,"title":"Repository, Factory, Service và Event","status":"theory","statusNote":"","step":"Tactical","html":"\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Khái niệm\u003c/th>\n\u003cth>Vai trò\u003c/th>\n\u003cth>Ví dụ nhà hàng giả định\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Repository\u003c/td>\n\u003ctd>Giao diện giống một tập hợp để lấy và lưu \u003cstrong>aggregate root\u003c/strong>; thường mỗi aggregate một repository\u003c/td>\n\u003ctd>OrderRepository lưu và nạp cả Order cùng OrderLine\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Factory\u003c/td>\n\u003ctd>Tạo aggregate phức tạp ở trạng thái hợp lệ ngay từ đầu\u003c/td>\n\u003ctd>Tạo Order từ giỏ hàng, đảm bảo có ít nhất một món\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Domain Service / Policy\u003c/td>\n\u003ctd>Diễn đạt quy tắc không tự nhiên thuộc riêng một entity/value object\u003c/td>\n\u003ctd>Chính sách xác định món có được áp dụng khuyến mãi\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Domain Event\u003c/td>\n\u003ctd>Diễn đạt một sự kiện nghiệp vụ đã xảy ra\u003c/td>\n\u003ctd>OrderConfirmed\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Domain Service so với Application Service:\u003c/strong> Domain Service chứa quy tắc nghiệp vụ không thuộc riêng entity nào (chỉ dùng mô hình domain). Application Service (use case) điều phối: kiểm tra quyền, mở transaction, gọi repository, gọi domain, phát event; nó không chứa quy tắc nghiệp vụ.\u003c/p>\n\u003cp>\u003cstrong>Domain Event so với Integration Event:\u003c/strong> Domain Event xảy ra \u003cem>trong\u003c/em> một bounded context và dùng ngôn ngữ của nó. Integration Event là hợp đồng công bố ra \u003cem>context khác\u003c/em> qua broker, cần ổn định phiên bản và thường đi qua outbox để không mất. Một domain event có thể được chuyển thành integration event, nhưng đó là hai thứ khác nhau. Domain event là khái niệm nghiệp vụ và không tự bảo đảm được gửi bền vững qua broker.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Repository cho từng bảng thay vì từng aggregate; để Application Service chứa toàn bộ quy tắc; coi domain event là message RabbitMQ.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":6,"title":"Anemic Model, Event Storming và khi nào nên dùng DDD","status":"theory","statusNote":"","step":"Thực hành","html":"\u003cp>\u003cstrong>Anemic Domain Model (anti-pattern):\u003c/strong> entity chỉ có getter/setter, mọi quy tắc nằm trong service nên model không tự bảo vệ bất biến. Trái lại, không phải mô hình nào cũng cần class giàu hành vi: hàm thuần và kiểu dữ liệu là lựa chọn có chủ đích khi quy tắc ít và đơn giản.\u003c/p>\n\u003cp>\u003cstrong>Event Storming:\u003c/strong> workshop dùng giấy dán để cùng chuyên gia nghiệp vụ liệt kê domain event, command, aggregate rồi tìm ranh giới context. Đây là cách phổ biến để khám phá domain trước khi viết code.\u003c/p>\n\u003cp>\u003cstrong>Khi nào nên dùng DDD đầy đủ:\u003c/strong> nghiệp vụ phức tạp, quy tắc thay đổi nhiều, cần hợp tác chặt với chuyên gia nghiệp vụ, và là subdomain core. \u003cstrong>Khi nào nên nhẹ:\u003c/strong> CRUD đơn giản, subdomain generic/supporting, đội nhỏ, hoặc nghiệp vụ đã có sản phẩm giải quyết. Chọn những pattern giải quyết quy tắc thực tế; không cần thêm đủ mọi loại class để được gọi là DDD.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Áp dụng đủ mọi pattern cho một service CRUD; hoặc ngược lại, bỏ qua việc làm rõ ngôn ngữ vì &quot;chỉ là CRUD&quot;.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":7,"title":"DDD ở w-identity: áp dụng đến đâu","status":"theory","statusNote":"","step":"Thực hành","html":"\u003cp>Identity (đăng nhập, tài khoản, hồ sơ) thường là \u003cstrong>generic subdomain\u003c/strong>: Keycloak đã giải quyết phần lớn, và w-identity chủ yếu đồng bộ/điều phối giữa Keycloak và hồ sơ trong MongoDB. Ở w-identity \u003cstrong>không có aggregate nào\u003c/strong>: \u003ccode>User\u003c/code> là mô hình hồ sơ với vài quy tắc, được biểu diễn bằng kiểu dữ liệu và hàm policy.\u003c/p>\n\u003cul>\n\u003cli>Phần w-identity thể hiện được là \u003cem>tư tưởng\u003c/em> DDD ở mức nhẹ: tách Domain khỏi hạ tầng, đặt tên theo ngôn ngữ nghiệp vụ (\u003ccode>assertActiveAccount\u003c/code>), \u003ccode>UserAccount\u003c/code> (Keycloak) tách khỏi \u003ccode>User\u003c/code> (hồ sơ) như hai mô hình cho hai nguồn dữ liệu khác nhau.\u003c/li>\n\u003cli>Phần \u003cstrong>không\u003c/strong> nên nhận là đã làm: aggregate, value object, domain event, context map. Ví dụ nhà hàng ở bài 3–5 phục vụ để học các khái niệm này, không phải mô tả code w-identity.\u003c/li>\n\u003cli>Khi phỏng vấn, nói rõ ranh giới đó. Nói &quot;w-identity không cần DDD đầy đủ vì đây là subdomain generic, tôi hiểu DDD qua ví dụ nhà hàng&quot; đáng tin hơn là gán nhãn DDD cho một service gần CRUD.\u003c/li>\n\u003c/ul>\n\u003ch3>Câu trả lời mẫu 60 giây\u003c/h3>\n\u003cp>“DDD là cách tiếp cận lấy mô hình nghiệp vụ làm trung tâm. Strategic Design giúp thống nhất ngôn ngữ và tìm bounded context; Tactical Design giúp hiện thực mô hình bằng entity, value object, aggregate hoặc policy phù hợp. Ví dụ ở nhà hàng, Menu và Ordering hiểu món ăn theo mục đích riêng; việc giữ giá tại thời điểm đặt là một quy tắc cần được mô hình hóa rõ. Ở w-identity em chỉ áp dụng DDD nhẹ vì identity là subdomain generic.”\u003c/p>\n\u003cp>\u003cstrong>Tự kiểm tra:\u003c/strong> Subdomain khác bounded context ở đâu; vì sao aggregate tham chiếu aggregate khác bằng ID; Domain Event khác Integration Event thế nào; khi nào dùng ACL; nêu một quy tắc thật cần aggregate và một trường hợp chỉ cần policy thuần.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Gán nhãn DDD cho code chỉ vì có thư mục domain; kể thiết kế dự kiến như thành tích đã làm.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n\u003cp>Nguồn tham khảo: \u003ca href=\"https://martinfowler.com/bliki/DomainDrivenDesign.html\">Martin Fowler — Domain-Driven Design\u003c/a>, \u003ca href=\"https://learn.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/ddd-oriented-microservice\">Microsoft — thiết kế service theo DDD\u003c/a>.\u003c/p>\n"}],"glossary":[{"term":"DDD","def":"Cách tiếp cận phát triển và thiết kế phần mềm lấy mô hình nghiệp vụ làm trung tâm"},{"term":"Strategic Design","def":"Nửa của DDD tìm ngôn ngữ, bounded context, subdomain và quan hệ giữa chúng"},{"term":"Tactical Design","def":"Nửa của DDD thể hiện mô hình trong một context bằng entity, value object, aggregate..."},{"term":"Ubiquitous Language","def":"Ngôn ngữ chung giữa chuyên gia nghiệp vụ và developer trong một context"},{"term":"Bounded Context","def":"Phạm vi một mô hình và ngôn ngữ có nghĩa nhất quán"},{"term":"Subdomain","def":"Phần của bài toán nghiệp vụ: core, supporting hoặc generic"},{"term":"Context Map","def":"Sơ đồ và quy ước quan hệ giữa các bounded context"},{"term":"Anticorruption Layer","def":"Lớp dịch ở ranh giới để mô hình của context khác không làm nhiễm mô hình của mình"},{"term":"Entity","def":"Đối tượng có danh tính và vòng đời"},{"term":"Value Object","def":"Đối tượng được xác định bằng giá trị, thường bất biến và tự bảo vệ tính hợp lệ"},{"term":"Aggregate","def":"Nhóm đối tượng tạo thành một ranh giới nhất quán nghiệp vụ"},{"term":"Aggregate Root","def":"Entity làm điểm kiểm soát thay đổi của aggregate"},{"term":"Repository","def":"Giao diện lấy và lưu aggregate root, giống một tập hợp"},{"term":"Factory","def":"Tạo aggregate ở trạng thái hợp lệ"},{"term":"Domain Service","def":"Quy tắc nghiệp vụ không thuộc riêng một entity hay value object"},{"term":"Domain Event","def":"Sự kiện nghiệp vụ đã xảy ra trong một bounded context"},{"term":"Integration Event","def":"Sự kiện công bố ra context khác, là hợp đồng giữa các context"},{"term":"Anemic Domain Model","def":"Mô hình chỉ chứa dữ liệu, quy tắc nằm hết ở service"},{"term":"Event Storming","def":"Workshop khám phá domain bằng cách liệt kê event, command, aggregate"}],"intro":"\u003cp>Sổ tay riêng về DDD, tách khỏi sổ tay Clean Architecture. Phần so sánh DDD với Clean Architecture và CQRS nằm ở bài 14 của sổ tay Clean Architecture.\u003c/p>\n\u003cp>Ví dụ xuyên suốt là \u003cstrong>nhà hàng\u003c/strong> (Thực đơn, Đặt món, Bếp, Thanh toán). Đây là ví dụ học khái niệm, không phải code đã triển khai. Riêng bài 7 nói về mức áp dụng DDD ở \u003cstrong>w-identity\u003c/strong> và chỉ khẳng định những gì code thực sự có.\u003c/p>\n\u003cp>Học theo thứ tự 0–7. Mỗi ngày đọc hai chủ đề, tự nói câu trả lời trong 60–90 giây rồi luyện thẻ câu hỏi. Trạng thái 📖 là tài liệu lý thuyết, không khẳng định bạn đã học thuộc.\u003c/p>\n","questions":[{"id":"d0f2291064","part":"A","partTitle":"Strategic Design","group":"Nền tảng","level":"basic","text":"DDD là gì? Khác gì với một design pattern hay cách chia folder?","hintLabel":"Ý chính","hint":"DDD là cách tiếp cận phát triển và thiết kế lấy nghiệp vụ làm trung tâm: khám phá mô hình, ngôn ngữ, ranh giới cùng chuyên gia nghiệp vụ rồi thể hiện trong code. \u003cstrong>Bẫy cần tránh:\u003c/strong> nói DDD là chia thư mục domain/application/infrastructure.","refs":[0]},{"id":"1c50e6a218","part":"A","partTitle":"Strategic Design","group":"Nền tảng","level":"mid","text":"Strategic Design và Tactical Design khác nhau thế nào?","hintLabel":"Ý chính","hint":"Strategic tìm ngôn ngữ chung, bounded context, subdomain và quan hệ giữa context. Tactical hiện thực mô hình bằng entity, value object, aggregate, policy hoặc event khi có nhu cầu thực tế. Strategic đi trước.","refs":[0]},{"id":"6712612114","part":"A","partTitle":"Strategic Design","group":"Nền tảng","level":"basic","text":"Ubiquitous Language là gì? Cho ví dụ ở nhà hàng.","hintLabel":"Ý chính","hint":"Thuật ngữ chung giữa developer và chuyên gia nghiệp vụ, cùng nghĩa trong một context và có mặt trong tài liệu lẫn code. Ví dụ &quot;xác nhận đơn&quot; dùng cả khi nói chuyện và tên method, không phải \u003ccode>updateStatus(2)\u003c/code>.","refs":[1]},{"id":"20a8bf2c70","part":"A","partTitle":"Strategic Design","group":"Nền tảng","level":"mid","text":"Dùng ví dụ nhà hàng để giải thích bounded context. Có bắt buộc mỗi context là một microservice không?","hintLabel":"Ý chính","hint":"Món trong Menu, Ordering, Kitchen và Billing có ý nghĩa khác nhau. Context là ranh giới mô hình; lựa chọn triển khai service là quyết định riêng. Giá lúc đặt có thể phải được giữ độc lập giá thực đơn hiện tại.","refs":[3]},{"id":"a0d2004fec","part":"A","partTitle":"Strategic Design","group":"Nền tảng","level":"mid","text":"Subdomain core, supporting và generic khác nhau thế nào? Identity thuộc loại nào?","hintLabel":"Ý chính","hint":"Core tạo lợi thế cạnh tranh, đáng đầu tư mô hình sâu; supporting cần thiết nhưng đơn giản; generic là bài toán chung nên dùng giải pháp có sẵn. Identity thường là generic (Keycloak lo phần lớn), nên không cần DDD tactical đầy đủ.","refs":[2]},{"id":"ca144ec403","part":"A","partTitle":"Strategic Design","group":"Nền tảng","level":"mid","text":"Subdomain khác bounded context ở đâu?","hintLabel":"Ý chính","hint":"Subdomain thuộc không gian bài toán (nghiệp vụ gồm những phần nào); bounded context thuộc không gian giải pháp (mô hình và ranh giới ta chọn). Lý tưởng là khớp nhau nhưng không bắt buộc một-một.","refs":[2]},{"id":"e4838dd8c8","part":"A","partTitle":"Strategic Design","group":"Nền tảng","level":"mid","text":"Khi nào dùng Anticorruption Layer? Kể thêm hai kiểu quan hệ giữa các context.","hintLabel":"Ý chính","hint":"Khi context của mình phải tích hợp với mô hình ngoài (legacy, bên thứ ba) mà không muốn mô hình đó lan vào. Kiểu khác: Shared Kernel, Customer–Supplier, Conformist, Open Host Service, Separate Ways.","refs":[2]},{"id":"afab7dbc5b","part":"A","partTitle":"Strategic Design","group":"Nền tảng","level":"hard","text":"Ordering và Kitchen quan hệ thế nào trong context map? Billing tích hợp cổng thanh toán bên ngoài thì làm gì?","hintLabel":"Ý chính","hint":"Ordering là upstream, Kitchen là downstream nhận sự kiện đơn đã xác nhận và dịch thành ticket của mình (Customer–Supplier hoặc qua Published Language). Billing đặt ACL để mô hình của cổng thanh toán không nhiễm vào mô hình hóa đơn.","refs":[3]},{"id":"fde87394c9","part":"B","partTitle":"Tactical Design","group":null,"level":"mid","text":"Aggregate có phải một table/collection không?","hintLabel":"Ý chính","hint":"Aggregate là ranh giới nhất quán, root kiểm soát thay đổi để giữ bất biến. Order có thể kiểm soát OrderLine và tổng tiền; cấu trúc lưu trữ được chọn sau khi hiểu mô hình.","refs":[4]},{"id":"9cbcbb40bc","part":"B","partTitle":"Tactical Design","group":null,"level":"mid","text":"Vì sao aggregate tham chiếu aggregate khác bằng ID và mỗi transaction thường chỉ sửa một aggregate?","hintLabel":"Ý chính","hint":"Giữ aggregate nhỏ, tránh tranh chấp khóa và tải dữ liệu thừa, giữ ranh giới nhất quán rõ. Nhất quán giữa các aggregate là eventual consistency, thường qua domain event.","refs":[4]},{"id":"c25e51fdd4","part":"B","partTitle":"Tactical Design","group":null,"level":"basic","text":"Entity khác Value Object thế nào? Money là loại nào?","hintLabel":"Ý chính","hint":"Entity có danh tính và vòng đời (Order có orderId); Value Object xác định bằng giá trị, bất biến, tự bảo vệ tính hợp lệ (Money gồm amount và currency). Hai Money(50, VND) bằng nhau; hai Order cùng nội dung nhưng khác orderId là hai đơn.","refs":[4]},{"id":"eb559b464e","part":"B","partTitle":"Tactical Design","group":null,"level":"mid","text":"Repository trong DDD khác repository kiểu &quot;một class cho mỗi bảng&quot; thế nào?","hintLabel":"Ý chính","hint":"Repository DDD giống một tập hợp các aggregate root: lấy và lưu cả aggregate, thường mỗi aggregate một repository, ngôn ngữ nghiệp vụ. \u003cstrong>Bẫy cần tránh:\u003c/strong> repository cho từng bảng làm lộ cấu trúc lưu trữ.","refs":[5]},{"id":"8b15f6397d","part":"B","partTitle":"Tactical Design","group":null,"level":"mid","text":"Domain Event khác Integration Event thế nào? Domain Service khác Application Service?","hintLabel":"Ý chính","hint":"Domain Event xảy ra trong một bounded context; Integration Event là hợp đồng công bố sang context khác, cần ổn định phiên bản và thường dùng outbox. Domain Service chứa quy tắc nghiệp vụ không thuộc riêng entity nào; Application Service điều phối, không chứa quy tắc nghiệp vụ.","refs":[5]},{"id":"413cd5d034","part":"B","partTitle":"Tactical Design","group":null,"level":"mid","text":"Anemic Domain Model là gì? Dùng hàm policy thuần thì có bị coi là anemic không?","hintLabel":"Ý chính","hint":"Anemic là entity chỉ có dữ liệu, mọi quy tắc nằm ở service nên model không tự bảo vệ bất biến. Hàm policy thuần là lựa chọn có chủ đích khi quy tắc ít, miễn là bất biến vẫn nằm ở Domain và được dùng mọi nơi, không rải trong service/controller.","refs":[6]},{"id":"68a2f7ebf0","part":"C","partTitle":"Áp dụng và đánh đổi","group":null,"level":"mid","text":"Event Storming là gì và giúp ích thế nào?","hintLabel":"Ý chính","hint":"Workshop dùng giấy dán cùng chuyên gia nghiệp vụ để liệt kê domain event, command, aggregate, từ đó tìm ranh giới context. Dùng trước khi viết code để khám phá domain.","refs":[6]},{"id":"98f5dd4b63","part":"C","partTitle":"Áp dụng và đánh đổi","group":null,"level":"hard","text":"Khi nào không nên áp dụng DDD đầy đủ?","hintLabel":"Ý chính","hint":"CRUD đơn giản, subdomain generic hoặc supporting, đội nhỏ, nghiệp vụ đã có sản phẩm giải quyết. Vẫn nên làm rõ ngôn ngữ và ranh giới ở mức nhẹ. Không thêm aggregate/value object chỉ để đủ tên pattern.","refs":[6]},{"id":"8920075cee","part":"C","partTitle":"Áp dụng và đánh đổi","group":null,"level":"hard","text":"w-identity có áp dụng DDD không? Bạn nói thế nào trong phỏng vấn?","hintLabel":"Ý chính","hint":"Chỉ ở mức nhẹ: tách Domain khỏi hạ tầng, đặt tên theo ngôn ngữ nghiệp vụ, tách UserAccount và User. Không có aggregate, value object, domain event hay context map. Identity là subdomain generic nên không cần DDD đầy đủ; ví dụ nhà hàng dùng để học khái niệm, không gán cho code w-identity.","refs":[7]},{"id":"3281ee3bbd","part":"C","partTitle":"Áp dụng và đánh đổi","group":null,"level":"hard","text":"Nêu một quy tắc thật cần aggregate và một trường hợp chỉ cần policy thuần.","hintLabel":"Ý chính","hint":"Cần aggregate: tổng tiền của Order phải luôn bằng tổng các OrderLine và không có đơn rỗng, nên root kiểm soát mọi thay đổi. Chỉ cần policy thuần: kiểm tra locale/timezone của profile, hàm không cần trạng thái.","refs":[7]}],"slides":[{"cover":true,"html":"\u003ch1>Domain-Driven Design\u003c/h1>\n\u003cp>Thiết kế phần mềm lấy nghiệp vụ làm trung tâm.\u003c/p>\n\u003cp>Ví dụ: nhà hàng (Thực đơn, Đặt món, Bếp, Thanh toán).\u003c/p>\n","notes":"\u003cp>Ví dụ nhà hàng là minh họa khái niệm; không phải code đã triển khai ở w-identity.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Hai nửa của DDD\u003c/h2>\n\u003cp>Strategic: ngôn ngữ chung, bounded context, subdomain, context map.\u003c/p>\n\u003cp>Tactical: entity, value object, aggregate, repository, domain service, domain event.\u003c/p>\n","notes":"\u003cp>Strategic đi trước. Chọn sai ranh giới thì pattern tactical đẹp cũng mô hình hóa sai bài toán. DDD không phải cách chia folder.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Bounded Context và Subdomain\u003c/h2>\n\u003cp>Bounded context: phạm vi một mô hình và ngôn ngữ nhất quán.\u003c/p>\n\u003cp>Subdomain: core, supporting, generic. Core đáng đầu tư mô hình sâu; generic nên dùng giải pháp có sẵn.\u003c/p>\n","notes":"\u003cp>Subdomain thuộc không gian bài toán, bounded context thuộc không gian giải pháp. Context không bắt buộc là một microservice.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>DDD qua nhà hàng\u003c/h2>\n\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAwIDcwMCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsbGVkYnk9InRpdGxlIGRlc2MiPgogIDx0aXRsZSBpZD0idGl0bGUiPkRERDogY8O5bmcgbeG7mXQgbcOzbiDEg24sIGPDoWMgbcO0IGjDrG5oIGtow6FjIG5oYXUgdGhlbyBuZ+G7ryBj4bqjbmg8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj5UaOG7sWMgxJHGoW4gcXVhbiB0w6JtIG3Ds24gY8OzIHRo4buDIGLDoW4gdsOgIGdpw6EgaGnhu4duIHThuqFpLiDEkOG6t3QgbcOzbiBnaeG7ryBz4buRIGzGsOG7o25nIHbDoCBnacOhIHThuqFpIHRo4budaSDEkWnhu4NtIMSR4bq3dC4gQuG6v3AgcXVhbiB0w6JtIHnDqnUgY+G6p3UgY2jhur8gYmnhur9uIHbDoCB0cuG6oW5nIHRow6FpIGhvw6BuIHRow6BuaC4gVGhhbmggdG/DoW4gcXVhbiB0w6JtIHPhu5EgdGnhu4FuIHbDoCBr4bq/dCBxdeG6oyB0aHUgdGnhu4FuLiBN4buZdCBib3VuZGVkIGNvbnRleHQgY8OzIHRo4buDIGNo4bupYSBuaGnhu4F1IGFnZ3JlZ2F0ZTsgbeG7mXQgYWdncmVnYXRlIMSRxqFuIGjDoG5nIGLhuqNvIHbhu4cgcXV5IHThuq9jIGPhu6dhIGPDoWMgZMOybmcgbcOzbi48L2Rlc2M+CiAgPHJlY3Qgd2lkdGg9IjEwMDAiIGhlaWdodD0iNzAwIiByeD0iMjAiIGZpbGw9IiNmOGZhZmMiLz4KICA8ZyBmb250LWZhbWlseT0iQXJpYWwsc2Fucy1zZXJpZiIgZmlsbD0iIzE3MmI0ZCI+CiAgICA8dGV4dCB4PSIzNSIgeT0iNDQiIGZvbnQtc2l6ZT0iMjQiIGZvbnQtd2VpZ2h0PSI3MDAiPkRERDogSEnhu4JVIE5HSEnhu4ZQIFbhu6QgVFLGr+G7mkMgS0hJIENISUEgQ0xBU1M8L3RleHQ+CiAgICA8dGV4dCB4PSIzNSIgeT0iNzgiIGZvbnQtc2l6ZT0iMTgiPlbDrSBk4bulIGdp4bqjIMSR4buLbmg6IOKAnGPGoW0gZ8Og4oCdIGPDsyDDvSBuZ2jEqWEga2jDoWMgbmhhdSB0cm9uZyB04burbmcgYm91bmRlZCBjb250ZXh0LjwvdGV4dD4KICAgIDxyZWN0IHg9IjM1IiB5PSIxMDUiIHdpZHRoPSI0NTAiIGhlaWdodD0iMTM4IiByeD0iMTUiIGZpbGw9IiNlNmVkZmEiIHN0cm9rZT0iIzY2ODRiMyIvPgogICAgPHJlY3QgeD0iNTE1IiB5PSIxMDUiIHdpZHRoPSI0NTAiIGhlaWdodD0iMTM4IiByeD0iMTUiIGZpbGw9IiNkZmYzZWUiIHN0cm9rZT0iIzRlOTQ4NyIvPgogICAgPHJlY3QgeD0iMzUiIHk9IjI2MyIgd2lkdGg9IjQ1MCIgaGVpZ2h0PSIxMzgiIHJ4PSIxNSIgZmlsbD0iI2ZmZjBjNSIgc3Ryb2tlPSIjYjU4YjMxIi8+CiAgICA8cmVjdCB4PSI1MTUiIHk9IjI2MyIgd2lkdGg9IjQ1MCIgaGVpZ2h0PSIxMzgiIHJ4PSIxNSIgZmlsbD0iI2ZjZTdlZCIgc3Ryb2tlPSIjYmI2YjgzIi8+CiAgICA8ZyBmb250LXNpemU9IjIxIiBmb250LXdlaWdodD0iNzAwIj4KICAgICAgPHRleHQgeD0iNTgiIHk9IjE0MSI+VGjhu7FjIMSRxqFuIMK3IE1lbnU8L3RleHQ+PHRleHQgeD0iNTM4IiB5PSIxNDEiPsSQ4bq3dCBtw7NuIMK3IE9yZGVyaW5nPC90ZXh0PgogICAgICA8dGV4dCB4PSI1OCIgeT0iMjk5Ij5C4bq/cCDCtyBLaXRjaGVuPC90ZXh0Pjx0ZXh0IHg9IjUzOCIgeT0iMjk5Ij5UaGFuaCB0b8OhbiDCtyBCaWxsaW5nPC90ZXh0PgogICAgPC9nPgogICAgPGcgZm9udC1zaXplPSIxOCI+CiAgICAgIDx0ZXh0IHg9IjU4IiB5PSIxNzciPk3Ds24gY8OzIHRo4buDIGLDoW4sIG3DtCB04bqjLCBnacOhIGhp4buHbiB04bqhaTwvdGV4dD4KICAgICAgPHRleHQgeD0iNTgiIHk9IjIxMCI+S2jDoWkgbmnhu4dtOiBNZW51SXRlbTwvdGV4dD4KICAgICAgPHRleHQgeD0iNTM4IiB5PSIxNzciPk3Ds24gxJHDoyDEkeG6t3QsIHPhu5EgbMaw4bujbmcsIGdpw6EgbMO6YyDEkeG6t3Q8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjUzOCIgeT0iMjEwIj5LaMOhaSBuaeG7h206IE9yZGVyLCBPcmRlckxpbmU8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjU4IiB5PSIzMzUiPlnDqnUgY+G6p3UgY2jhur8gYmnhur9uLCBnaGkgY2jDuiwgdHLhuqFuZyB0aMOhaSBtw7NuPC90ZXh0PgogICAgICA8dGV4dCB4PSI1OCIgeT0iMzY4Ij5LaMOhaSBuaeG7h206IEtpdGNoZW5UaWNrZXQ8L3RleHQ+CiAgICAgIDx0ZXh0IHg9IjUzOCIgeT0iMzM1Ij5T4buRIHRp4buBbiBwaOG6o2kgdGh1LCBz4buRIMSRw6MgdGh1LCBnaWFvIGThu4tjaDwvdGV4dD4KICAgICAgPHRleHQgeD0iNTM4IiB5PSIzNjgiPktow6FpIG5p4buHbTogSW52b2ljZSwgUGF5bWVudDwvdGV4dD4KICAgIDwvZz4KICAgIDx0ZXh0IHg9IjUwMCIgeT0iNDM2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE4Ij5N4buXaSBjb250ZXh0IGPDsyBtw7QgaMOsbmggdsOgIHRodeG6rXQgbmfhu68gcsO1IG5naMSpYSB0cm9uZyBwaOG6oW0gdmkgY+G7p2EgbsOzLjwvdGV4dD4KICAgIDxyZWN0IHg9IjM1IiB5PSI0NTkiIHdpZHRoPSI5MzAiIGhlaWdodD0iMTcwIiByeD0iMTYiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzk0YTNiOCIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgICA8dGV4dCB4PSI2MCIgeT0iNDk1IiBmb250LXNpemU9IjIxIiBmb250LXdlaWdodD0iNzAwIj5Ww60gZOG7pSB0YWN0aWNhbCBkZXNpZ24gdHJvbmcgT3JkZXJpbmc6IGFnZ3JlZ2F0ZSBPcmRlcjwvdGV4dD4KICAgIDxyZWN0IHg9IjYwIiB5PSI1MTciIHdpZHRoPSIxODAiIGhlaWdodD0iNjYiIHJ4PSIxMiIgZmlsbD0iI2RmZjNlZSIgc3Ryb2tlPSIjNGU5NDg3Ii8+CiAgICA8dGV4dCB4PSIxNTAiIHk9IjU0NCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9IjcwMCI+T3JkZXI8L3RleHQ+CiAgICA8dGV4dCB4PSIxNTAiIHk9IjU2OCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxNiI+QWdncmVnYXRlIHJvb3Q8L3RleHQ+CiAgICA8dGV4dCB4PSIyNzAiIHk9IjUzOSIgZm9udC1zaXplPSIxOCI+T3JkZXJMaW5lOiBjxqFtIGfDoCDDlyAyLCBnaeG7ryBnacOhIHThuqFpIHRo4budaSDEkWnhu4NtIMSR4bq3dDwvdGV4dD4KICAgIDx0ZXh0IHg9IjI3MCIgeT0iNTY4IiBmb250LXNpemU9IjE4Ij5UaGF5IMSR4buVaSBxdWEgT3JkZXIgxJHhu4MgYuG6o28gduG7hyBxdXkgdOG6r2Mgc+G7kSBsxrDhu6NuZyB2w6AgdOG7lW5nIHRp4buBbi48L3RleHQ+CiAgICA8dGV4dCB4PSI2MCIgeT0iNjEwIiBmb250LXNpemU9IjE3Ij5BZ2dyZWdhdGUgbMOgIHJhbmggZ2nhu5tpIG5o4bqldCBxdcOhbiBuZ2hp4buHcCB24bulOyBraMO0bmcgxJHhu5NuZyBuZ2jEqWEgbeG7mXQgdGFibGUvY29sbGVjdGlvbi48L3RleHQ+CiAgICA8dGV4dCB4PSI1MDAiIHk9IjY3MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9IjcwMCI+Qm91bmRlZCBjb250ZXh0IGzDoCByYW5oIGdp4bubaSBtw7QgaMOsbmg7IGtow7RuZyBi4bqvdCBideG7mWMgdMawxqFuZyDhu6luZyBt4buZdCBtaWNyb3NlcnZpY2UuPC90ZXh0PgogIDwvZz4KPC9zdmc+Cg==\" alt=\"Các context nhà hàng và aggregate Order\">\u003c/p>\n","notes":"\u003cp>Món trên Menu khác món trong Order, KitchenTicket và Invoice. Nếu giá thực đơn thay đổi không được làm đổi đơn đã xác nhận, Ordering giữ giá lúc đặt. Bounded context không bắt buộc là một microservice; aggregate không mặc định là một table.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Quan hệ giữa các context\u003c/h2>\n\u003cp>Customer–Supplier · Shared Kernel · Conformist · Anticorruption Layer · Open Host Service · Separate Ways.\u003c/p>\n","notes":"\u003cp>Ordering là upstream của Kitchen. Billing đặt ACL khi tích hợp cổng thanh toán bên ngoài để mô hình ngoài không nhiễm vào mô hình hóa đơn.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Aggregate\u003c/h2>\n\u003cp>Order là aggregate root, kiểm soát OrderLine và tổng tiền.\u003c/p>\n\u003cp>Tham chiếu aggregate khác bằng ID. Một transaction thường chỉ sửa một aggregate.\u003c/p>\n","notes":"\u003cp>Aggregate là ranh giới nhất quán, không mặc định là một table. Nhất quán giữa các aggregate là eventual consistency, thường qua domain event.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Domain Event và Integration Event\u003c/h2>\n\u003cp>Domain Event: sự kiện nghiệp vụ trong một context (OrderConfirmed).\u003c/p>\n\u003cp>Integration Event: hợp đồng công bố sang context khác.\u003c/p>\n","notes":"\u003cp>Domain event không tự bảo đảm gửi bền vững qua broker; integration event thường dùng outbox và cần ổn định phiên bản.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>DDD ở w-identity\u003c/h2>\n\u003cp>Identity là subdomain generic: Keycloak lo phần lớn.\u003c/p>\n\u003cp>w-identity chỉ dùng tư tưởng DDD nhẹ: tách Domain, đặt tên theo nghiệp vụ, UserAccount khác User. Không có aggregate hay domain event.\u003c/p>\n","notes":"\u003cp>Nói rõ phần đã làm và chưa làm. Ví dụ nhà hàng dùng để học aggregate, bounded context, context map; không gán cho code w-identity.\u003c/p>\n"}]}</script>
+<script>
+(() => {
+  // Mở nhầm file template (chưa có dữ liệu) thì báo rõ thay vì hỏng im lặng.
+  const raw = document.getElementById('data').textContent.trim();
+  if (!raw.startsWith('{')) {
+    document.querySelector('main').innerHTML =
+      '<div class="panel" style="padding:24px;margin-top:24px"><h2>Đây là file template, chưa có dữ liệu</h2>' +
+      '<p>Hãy mở <code>knowledge-base/index.html#ddd</code> (file đã sinh). ' +
+      'Nếu chưa có, chạy <code>npm run docs:knowledge-base</code> ở thư mục gốc.</p></div>';
+    return;
+  }
+  const DATA = JSON.parse(raw);
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const el = (tag, attrs = {}, html) => {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') node.className = v;
+      else if (k === 'text') node.textContent = v;
+      else node.setAttribute(k, v);
+    }
+    if (html !== undefined) node.innerHTML = html;
+    return node;
+  };
+  const STATUS_LABEL = { done: 'Đã làm', theory: 'Lý thuyết', todo: 'Chưa học' };
+  const LEVEL_LABEL = { basic: 'Cơ bản', mid: 'Trung bình', hard: 'Nâng cao' };
+  const topicByN = new Map(DATA.topics.map((t) => [t.n, t]));
+
+  // ---------- storage (có thể bị chặn: luôn bọc try/catch) ----------
+  const store = {
+    get(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* bỏ qua */ } },
+  };
+  let marks = store.get('ddd-practice-marks', {});
+
+  // ---------- theme ----------
+  const themeBtn = $('#theme-btn');
+  const THEMES = ['system', 'light', 'dark'];
+  const THEME_LABEL = { system: 'hệ thống', light: 'sáng', dark: 'tối' };
+  let theme = store.get('ddd-theme', 'system');
+  function applyTheme() {
+    if (theme === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.textContent = 'Giao diện: ' + THEME_LABEL[theme];
+  }
+  themeBtn.addEventListener('click', () => {
+    theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    store.set('ddd-theme', theme);
+    applyTheme();
+  });
+  applyTheme();
+
+  const generated = new Date(DATA.generatedAt);
+  $('#gen-date').textContent = 'cập nhật ' + generated.toLocaleDateString('vi-VN');
+  $('#footer').textContent = 'Sinh tự động từ documents/KNOWLEDGE.md và documents/INTERVIEW-QUESTIONS.md lúc ' +
+    generated.toLocaleString('vi-VN') + '. Sửa nội dung trong file markdown rồi chạy lại: npm run docs:knowledge';
+
+  // ================= OVERVIEW: meter =================
+  function renderMeter() {
+    const counts = { done: 0, theory: 0, todo: 0 };
+    DATA.topics.forEach((t) => counts[t.status]++);
+    const total = DATA.topics.length;
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    const review = DATA.questions.filter((q) => marks[q.id] === 'review').length;
+    const qTotal = DATA.questions.length;
+    const pct = (n, of) => (of ? (n / of) * 100 : 0) + '%';
+    $('#meter').innerHTML = `
+      <span class="eyebrow">Tiến độ</span>
+      <div class="meter-row">
+        <div class="label"><span>Chủ đề</span><b>${counts.done} đã làm · ${counts.theory} lý thuyết · ${counts.todo} chưa học</b></div>
+        <div class="bar"><i class="b-done" style="width:${pct(counts.done, total)}"></i><i class="b-theory" style="width:${pct(counts.theory, total)}"></i></div>
+      </div>
+      <div class="meter-row">
+        <div class="label"><span>Câu hỏi luyện</span><b>${known}/${qTotal} đã thuộc · ${review} cần ôn</b></div>
+        <div class="bar"><i class="b-known" style="width:${pct(known, qTotal)}"></i><i class="b-review" style="width:${pct(review, qTotal)}"></i></div>
+      </div>
+      <div class="legend"><a class="btn" href="#topic-0">Đọc bài đầu tiên</a><a class="btn primary" href="#practice">Luyện câu hỏi</a></div>`;
+  }
+
+  // ================= KNOWLEDGE =================
+  const LABELS = [
+    ['Câu hỏi phỏng vấn', 'questions'],
+    ['Bẫy phỏng vấn', 'trap'],
+    ['Ví dụ w-identity', 'incode'],
+    ['Kịch bản thiết kế', 'incode'],
+    ['Bẫy thực tế', 'trap'],
+    ['Bẫy cần nhớ', 'trap'],
+    ['Mẫu trả lời', 'sample'],
+    ['Trong code', 'incode'],
+    ['Tự trả lời', 'self'],
+    ['Tự viết', 'self'],
+  ];
+  function decorate(root) {
+    root.querySelectorAll('table').forEach((t) => {
+      const w = el('div', { class: 'table-wrap' });
+      t.replaceWith(w);
+      w.appendChild(t);
+    });
+    [...root.querySelectorAll(':scope > p')].forEach((p) => {
+      const strong = p.firstElementChild;
+      if (!strong || strong.tagName !== 'STRONG' || p.firstChild !== strong) return;
+      const hit = LABELS.find(([label]) => strong.textContent.startsWith(label));
+      if (!hit) return;
+      const box = el('div', { class: 'callout ' + hit[1] });
+      p.before(box);
+      const next = p.nextElementSibling;
+      box.appendChild(p);
+      if (p.textContent.trim().length > strong.textContent.trim().length + 2) return; // nội dung nằm ngay trong đoạn
+      if (next && /^(UL|OL|BLOCKQUOTE|PRE|DIV)$/.test(next.tagName)) box.appendChild(next);
+    });
+  }
+
+  const questionsByTopic = new Map();
+  DATA.questions.forEach((q) => q.refs.forEach((r) => questionsByTopic.set(r, (questionsByTopic.get(r) ?? 0) + 1)));
+
+  function renderToc(currentN) {
+    const filter = $('#toc-search').value.trim().toLowerCase();
+    const list = $('#toc-list');
+    list.innerHTML = '';
+    DATA.topics
+      .filter((t) => !filter || (t.n + '. ' + t.title).toLowerCase().includes(filter))
+      .forEach((t) => {
+        const li = el('li');
+        const a = el('a', { href: '#topic-' + t.n, title: STATUS_LABEL[t.status] });
+        if (t.n === currentN) a.setAttribute('aria-current', 'true');
+        a.innerHTML = `<span class="num">${String(t.n).padStart(2, '0')}</span><span></span><span class="dot ${t.status}"></span>`;
+        a.children[1].textContent = t.title;
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+    if (!list.children.length) list.appendChild(el('li', { class: 'empty', text: 'Không tìm thấy chủ đề phù hợp.' }));
+  }
+  function renderTopic(n) {
+    const idx = DATA.topics.findIndex((t) => t.n === n);
+    const t = DATA.topics[idx] ?? DATA.topics[0];
+    currentTopic = t.n;
+    const prev = DATA.topics[idx - 1];
+    const next = DATA.topics[idx + 1];
+    const qCount = questionsByTopic.get(t.n) ?? 0;
+    const art = $('#topic');
+    art.innerHTML = `
+      <div class="topic-head">
+        <span class="eyebrow">Chủ đề ${String(t.n).padStart(2, '0')} · ${t.step}</span>
+        <h1></h1>
+        <div class="topic-meta"><span class="chip ${t.status}">${STATUS_LABEL[t.status]}</span><span class="status-note"></span></div>
+      </div>
+      <div class="prose" id="prose">${t.html}</div>
+      ${qCount ? `<div class="panel practice-link"><span>Có <b>${qCount}</b> câu hỏi luyện tập liên quan tới chủ đề này.</span><a class="btn primary" href="#practice" data-topic="${t.n}">Luyện ngay</a></div>` : ''}
+      <div class="topic-foot">
+        ${prev ? `<a class="btn" href="#topic-${prev.n}">← ${prev.n}. </a>` : '<span></span>'}
+        ${next ? `<a class="btn" href="#topic-${next.n}">${next.n}. →</a>` : '<span></span>'}
+      </div>`;
+    $('h1', art).textContent = t.title;
+    $('.status-note', art).textContent = t.statusNote;
+    const foot = art.querySelectorAll('.topic-foot a');
+    if (prev) foot[0].textContent = '← ' + prev.n + '. ' + prev.title;
+    if (next) foot[foot.length - 1].textContent = next.n + '. ' + next.title + ' →';
+    decorate($('#prose'));
+    const link = art.querySelector('[data-topic]');
+    if (link) link.addEventListener('click', () => { practiceState.topic = t.n; practiceState.pos = 0; });
+    renderToc(t.n);
+  }
+  let currentTopic = 0;
+  $('#toc-search').addEventListener('input', () => renderToc(currentTopic));
+  $('#toc-toggle').addEventListener('click', () => {
+    const toc = $('#toc');
+    const collapsed = toc.classList.toggle('collapsed');
+    $('#toc-toggle').setAttribute('aria-expanded', String(!collapsed));
+  });
+  if (matchMedia('(max-width: 920px)').matches) $('#toc').classList.add('collapsed');
+
+  // ================= PRACTICE =================
+  const PARTS = [...new Map(DATA.questions.map((q) => [q.part, q.partTitle])).entries()];
+  const practiceState = { part: 'all', level: 'all', onlyReview: false, topic: null, order: DATA.questions.map((_, i) => i), pos: 0, revealed: false };
+
+  function filtered() {
+    return practiceState.order
+      .map((i) => DATA.questions[i])
+      .filter((q) => practiceState.part === 'all' || q.part === practiceState.part)
+      .filter((q) => practiceState.level === 'all' || q.level === practiceState.level)
+      .filter((q) => !practiceState.onlyReview || marks[q.id] !== 'known')
+      .filter((q) => practiceState.topic === null || q.refs.includes(practiceState.topic));
+  }
+  function pillGroup(label, options, key) {
+    const g = el('div', { class: 'fgroup', role: 'group', 'aria-label': label });
+    g.appendChild(el('span', { class: 'eyebrow', text: label }));
+    options.forEach(([value, text]) => {
+      const b = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState[key] === value) });
+      b.textContent = text;
+      b.addEventListener('click', () => { practiceState[key] = value; practiceState.pos = 0; practiceState.revealed = false; renderPractice(); });
+      g.appendChild(b);
+    });
+    return g;
+  }
+  function renderFilters() {
+    const f = $('#filters');
+    f.innerHTML = '';
+    f.appendChild(pillGroup('Phần', [['all', 'Tất cả'], ...PARTS.map(([id, title]) => [id, id + ' · ' + title])], 'part'));
+    f.appendChild(pillGroup('Mức', [['all', 'Tất cả'], ['basic', 'Cơ bản'], ['mid', 'Trung bình'], ['hard', 'Nâng cao']], 'level'));
+    const extra = el('div', { class: 'fgroup' });
+    const rb = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState.onlyReview) });
+    rb.textContent = 'Ẩn câu đã thuộc';
+    rb.addEventListener('click', () => { practiceState.onlyReview = !practiceState.onlyReview; practiceState.pos = 0; renderPractice(); });
+    extra.appendChild(rb);
+    if (practiceState.topic !== null) {
+      const t = topicByN.get(practiceState.topic);
+      const tb = el('button', { type: 'button', class: 'pill', 'aria-pressed': 'true', title: 'Bỏ lọc theo chủ đề' });
+      tb.textContent = 'Chủ đề ' + practiceState.topic + (t ? ' · ' + t.title : '') + '  ✕';
+      tb.addEventListener('click', () => { practiceState.topic = null; practiceState.pos = 0; renderPractice(); });
+      extra.appendChild(tb);
+    }
+    f.appendChild(extra);
+  }
+  function setMark(q, value) {
+    if (marks[q.id] === value) delete marks[q.id]; else marks[q.id] = value;
+    store.set('ddd-practice-marks', marks);
+  }
+  function renderPractice() {
+    renderFilters();
+    const list = filtered();
+    if (practiceState.pos >= list.length) practiceState.pos = Math.max(0, list.length - 1);
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    $('#counter').textContent = list.length
+      ? `Câu ${practiceState.pos + 1}/${list.length} trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`
+      : `0 câu trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`;
+    const card = $('#card');
+    if (!list.length) {
+      card.className = 'panel empty';
+      card.innerHTML = 'Không còn câu nào khớp bộ lọc. Bỏ bớt bộ lọc hoặc tắt "Ẩn câu đã thuộc".';
+      return;
+    }
+    const q = list[practiceState.pos];
+    const mark = marks[q.id];
+    card.className = 'panel card';
+    card.innerHTML = `
+      <div class="card-meta">
+        <span class="eyebrow">Phần ${q.part}${q.group ? ' · ' + q.group : ''}</span>
+        ${q.level ? `<span class="chip ${q.level}">${LEVEL_LABEL[q.level]}</span>` : ''}
+        ${mark ? `<span class="mark ${mark}">${mark === 'known' ? '✓ đã thuộc' : '↺ cần ôn lại'}</span>` : ''}
+      </div>
+      <div class="card-q">${q.text}</div>
+      <div id="hint-area"></div>
+      <div class="card-actions">
+        <button class="btn" id="prev-btn" type="button" ${practiceState.pos === 0 ? 'disabled' : ''}>← Trước</button>
+        <button class="btn primary" id="reveal-btn" type="button">${practiceState.revealed ? 'Ẩn ý chính' : 'Hiện ý chính'}</button>
+        <span class="spacer"></span>
+        <button class="btn again" id="again-btn" type="button">Cần ôn lại</button>
+        <button class="btn good" id="known-btn" type="button">Đã thuộc</button>
+        <button class="btn" id="next-btn" type="button" ${practiceState.pos >= list.length - 1 ? 'disabled' : ''}>Sau →</button>
+      </div>`;
+    if (practiceState.revealed) {
+      const area = $('#hint-area');
+      const refs = q.refs.map((r) => topicByN.get(r)).filter(Boolean);
+      area.innerHTML = `
+        ${q.hint ? `<div class="hint"><span class="eyebrow">${q.hintLabel ?? 'Ý chính'}</span>${q.hint}</div>` : '<div class="hint"><span class="eyebrow">Gợi ý</span>Tự trả lời theo khung: định nghĩa → vì sao / đánh đổi → ví dụ từ dự án.</div>'}
+        ${refs.length ? `<div class="refs"><span class="eyebrow">Đọc lại</span>${refs.map((t) => `<a href="#topic-${t.n}">#${t.n} ${escapeHtml(t.title)}</a>`).join('')}</div>` : ''}`;
+    }
+    $('#prev-btn').addEventListener('click', () => move(-1));
+    $('#next-btn').addEventListener('click', () => move(1));
+    $('#reveal-btn').addEventListener('click', toggleReveal);
+    $('#again-btn').addEventListener('click', () => { setMark(q, 'review'); move(1, true); });
+    $('#known-btn').addEventListener('click', () => { setMark(q, 'known'); move(1, true); });
+  }
+  function move(delta, afterMark) {
+    const list = filtered();
+    const nextPos = practiceState.pos + delta;
+    if (nextPos >= 0 && nextPos < list.length) practiceState.pos = nextPos;
+    practiceState.revealed = false;
+    renderPractice();
+    if (afterMark) renderMeter();
+  }
+  function toggleReveal() { practiceState.revealed = !practiceState.revealed; renderPractice(); }
+  $('#shuffle-btn').addEventListener('click', () => {
+    const o = practiceState.order;
+    for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+    practiceState.pos = 0; practiceState.revealed = false; renderPractice();
+  });
+  const resetBtn = $('#reset-btn');
+  let resetArmed = false;
+  resetBtn.addEventListener('click', () => {
+    if (!resetArmed) { resetArmed = true; resetBtn.textContent = 'Bấm lần nữa để xoá'; setTimeout(() => { resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu'; }, 3000); return; }
+    marks = {}; store.set('ddd-practice-marks', marks); resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu';
+    renderPractice(); renderMeter();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'practice' || e.target.closest('input, textarea')) return;
+    const list = filtered();
+    const q = list[practiceState.pos];
+    if (e.key === ' ') { e.preventDefault(); toggleReveal(); }
+    else if (e.key === 'ArrowRight') move(1);
+    else if (e.key === 'ArrowLeft') move(-1);
+    else if (e.key === '1' && q) { setMark(q, 'review'); move(1, true); }
+    else if (e.key === '2' && q) { setMark(q, 'known'); move(1, true); }
+  });
+
+  // ================= GLOSSARY =================
+  function renderGlossary() {
+    const filter = $('#gloss-search').value.trim().toLowerCase();
+    const box = $('#gloss');
+    box.innerHTML = '';
+    DATA.glossary
+      .filter((g) => !filter || (g.term + ' ' + g.def).toLowerCase().includes(filter))
+      .forEach((g) => box.appendChild(el('div', { class: 'panel term' }, `<b>${g.term}</b><span>${g.def}</span>`)));
+    if (!box.children.length) box.appendChild(el('p', { class: 'panel empty', text: 'Không tìm thấy thuật ngữ phù hợp.' }));
+  }
+  $('#gloss-search').addEventListener('input', renderGlossary);
+
+  // ================= SLIDES =================
+  let slideIdx = 0;
+  let showNotes = false;
+  /** Chèn lại sơ đồ của tab Tổng quan vào slide. Đổi id của marker trong SVG để không trùng. */
+  function embed(sourceId, suffix) {
+    const clone = document.getElementById(sourceId).cloneNode(true);
+    clone.removeAttribute('id');
+    clone.querySelectorAll('[id]').forEach((n) => { n.id = n.id + suffix; });
+    clone.querySelectorAll('[marker-start],[marker-end]').forEach((n) => {
+      ['marker-start', 'marker-end'].forEach((attr) => {
+        const v = n.getAttribute(attr);
+        if (v) n.setAttribute(attr, v.replace(/url\(#([^)]+)\)/, `url(#$1${suffix})`));
+      });
+    });
+    return clone;
+  }
+  const EMBEDS = { '{{architecture}}': 'arch-diagram', '{{planes}}': 'planes' };
+  function renderSlide() {
+    const total = DATA.slides.length;
+    slideIdx = Math.max(0, Math.min(slideIdx, total - 1));
+    const s = DATA.slides[slideIdx];
+    const slide = $('#slide');
+    slide.className = 'slide' + (s.cover ? ' cover' : '');
+    slide.innerHTML = s.html +
+      `<span class="slide-brand">Domain-Driven Design</span><span class="slide-no">${String(slideIdx + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}</span>`;
+    slide.querySelectorAll('p').forEach((p) => {
+      const id = EMBEDS[p.textContent.trim()];
+      if (id) p.replaceWith(embed(id, '-s' + slideIdx));
+    });
+    $('#slide-counter').textContent = `Slide ${slideIdx + 1}/${total}`;
+    $('#slide-progress').style.width = ((slideIdx + 1) / total) * 100 + '%';
+    $('#slide-prev').disabled = slideIdx === 0;
+    $('#slide-next').disabled = slideIdx === total - 1;
+    const notes = $('#slide-notes');
+    notes.hidden = !showNotes;
+    notes.innerHTML = '<span class="eyebrow">Ghi chú người nói</span>' + (s.notes || '<p>Không có ghi chú cho slide này.</p>');
+    $('#slide-notes-btn').setAttribute('aria-pressed', String(showNotes));
+  }
+  function slideGo(i) {
+    slideIdx = i;
+    renderSlide();
+    // Đổi slide không tạo thêm mục trong lịch sử (Back quay về tab trước, không lùi từng slide).
+    try { history.replaceState(null, '', '#slide-' + (slideIdx + 1)); } catch { /* bỏ qua */ }
+  }
+  function toggleFullscreen() {
+    const stage = $('#stage');
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else stage.requestFullscreen?.().catch(() => undefined);
+    } catch { /* trình xem không hỗ trợ toàn màn hình */ }
+  }
+  $('#slide-prev').addEventListener('click', () => slideGo(slideIdx - 1));
+  $('#slide-next').addEventListener('click', () => slideGo(slideIdx + 1));
+  $('#slide-full').addEventListener('click', toggleFullscreen);
+  $('#slide-notes-btn').addEventListener('click', () => { showNotes = !showNotes; renderSlide(); });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'slides' || e.target.closest('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+    const last = DATA.slides.length - 1;
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); slideGo(Math.min(slideIdx + 1, last)); }
+    else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); slideGo(Math.max(slideIdx - 1, 0)); }
+    else if (e.key === 'Home') slideGo(0);
+    else if (e.key === 'End') slideGo(last);
+    else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+    else if (e.key === 'n' || e.key === 'N') { showNotes = !showNotes; renderSlide(); }
+  });
+
+  function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+
+  // ================= ROUTING (#overview, #knowledge, #topic-N, #practice, #glossary) =================
+  // Không dựa vào sự kiện hashchange để chuyển view: một số trình xem (preview trong IDE, app desktop,
+  // file:// bị chặn điều hướng) không đổi hash khi bấm link. Bấm link nội bộ → gọi go() trực tiếp;
+  // cập nhật URL chỉ là phụ, lỗi thì bỏ qua.
+  let currentView = 'overview';
+  function go(hash, updateUrl = true) {
+    route(hash);
+    if (!updateUrl) return;
+    try {
+      if (location.hash !== '#' + hash) history.pushState(null, '', '#' + hash);
+    } catch { /* trình xem không cho đổi URL: view vẫn đã chuyển */ }
+  }
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    go(a.getAttribute('href').slice(1));
+  });
+  function route(hash) {
+    const topicMatch = /^topic-(\d+)$/.exec(hash);
+    const slideMatch = /^slide-(\d+)$/.exec(hash);
+    const view = topicMatch ? 'knowledge'
+      : slideMatch ? 'slides'
+      : ['overview', 'knowledge', 'practice', 'glossary', 'slides'].includes(hash) ? hash : 'overview';
+    currentView = view;
+    document.querySelectorAll('[data-view-panel]').forEach((p) => { p.hidden = p.dataset.viewPanel !== view; });
+    document.querySelectorAll('nav.tabs a').forEach((a) => {
+      if (a.dataset.view === view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    if (view === 'knowledge') renderTopic(topicMatch ? Number(topicMatch[1]) : DATA.topics[0].n);
+    if (view === 'practice') renderPractice();
+    if (view === 'glossary') renderGlossary();
+    if (view === 'overview') renderMeter();
+    if (view === 'slides') {
+      if (slideMatch) slideIdx = Number(slideMatch[1]) - 1;
+      renderSlide();
+    }
+    window.scrollTo(0, 0);
+  }
+  // Nút Back/Forward của trình duyệt, hoặc người dùng tự sửa hash.
+  const fromUrl = () => route(location.hash.slice(1));
+  window.addEventListener('hashchange', fromUrl);
+  window.addEventListener('popstate', fromUrl);
+
+  fromUrl();
+})();
+</script>
+</body>
+</html>

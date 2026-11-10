@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ tay Keycloak và OIDC</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Cùng hệ giao diện với sổ tay API Gateway và Service Registry.
+   Nội dung được sinh từ markdown; tiến độ ôn tập dùng khóa riêng oidc-practice-marks. */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #e9edf2;
+  --ink: #17202b;
+  --muted: #5a6574;
+  --line: #d6dce4;
+  --accent: #c2410c;
+  --accent-soft: #fbe5d8;
+  --control: #4352c9;
+  --control-soft: #e3e6fb;
+  --data: #0d7d72;
+  --data-soft: #d6f0ec;
+  --ok: #2b7a3f;
+  --ok-soft: #dcf0e1;
+  --learn: #2559c7;
+  --learn-soft: #dfe8fb;
+  --todo: #6b7482;
+  --todo-soft: #e6e9ee;
+  --danger: #b4321f;
+  --danger-soft: #f9e0db;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+    --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+    --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+    --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+  --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+  --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+  --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+[hidden] { display: none !important; }
+a { color: var(--learn); }
+code, pre, kbd { font-family: var(--font-mono); font-size: 0.86em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.eyebrow { font: 600 11px/1 var(--font-mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- Header ---------- */
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-block: 10px; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand b { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
+.brand span { font: 500 12px var(--font-mono); color: var(--muted); }
+nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+nav.tabs a {
+  text-decoration: none; color: var(--muted); font-weight: 600; font-size: 14px;
+  padding: 6px 12px; border-radius: 999px;
+}
+nav.tabs a:hover { color: var(--ink); background: var(--surface-2); }
+nav.tabs a[aria-current="page"] { color: var(--surface); background: var(--ink); }
+.icon-btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px;
+  font: 600 12px var(--font-mono); padding: 6px 10px; cursor: pointer;
+}
+main { padding-block: 28px 64px; }
+
+/* ---------- Shared bits ---------- */
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--font-mono); padding: 4px 8px; border-radius: 999px; white-space: nowrap; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.done { color: var(--ok); background: var(--ok-soft); }
+.chip.theory { color: var(--learn); background: var(--learn-soft); }
+.chip.todo { color: var(--todo); background: var(--todo-soft); }
+.chip.basic { color: var(--ok); background: var(--ok-soft); }
+.chip.mid { color: #a16207; background: #fbefcf; }
+.chip.hard { color: var(--danger); background: var(--danger-soft); }
+:root[data-theme="dark"] .chip.mid { color: #e8c062; background: #3a2f14; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip.mid { color: #e8c062; background: #3a2f14; } }
+.status-code { font: 700 13px var(--font-mono); padding: 2px 7px; border-radius: 6px; background: var(--surface-2); }
+.status-code.s2 { color: var(--ok); background: var(--ok-soft); }
+.status-code.s4 { color: #a16207; background: #fbefcf; }
+.status-code.s5 { color: var(--danger); background: var(--danger-soft); }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font: 600 14px var(--font-body); padding: 8px 14px; border-radius: 8px; cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn.good { background: var(--ok); color: var(--surface); border-color: var(--ok); }
+.btn.again { color: var(--accent); border-color: var(--accent); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.section-head h2 { font-size: 21px; font-weight: 700; }
+.section-head p { margin: 0; color: var(--muted); max-width: 62ch; }
+section.block { margin-top: 44px; }
+
+/* ---------- Overview ---------- */
+.hero { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 32px; align-items: end; }
+.hero h1 { font-size: clamp(30px, 4.6vw, 46px); font-weight: 800; letter-spacing: -0.025em; margin-top: 10px; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero p.lead { font-size: 17px; color: var(--muted); max-width: 58ch; margin: 14px 0 0; }
+.meter { padding: 18px; display: grid; gap: 14px; }
+.meter-row { display: grid; gap: 6px; }
+.meter-row .label { display: flex; justify-content: space-between; font-size: 13.5px; }
+.meter-row .label b { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.bar { height: 10px; border-radius: 999px; background: var(--surface-2); display: flex; overflow: hidden; }
+.bar i { display: block; height: 100%; }
+.bar .b-done { background: var(--ok); } .bar .b-theory { background: var(--learn); } .bar .b-known { background: var(--ok); } .bar .b-review { background: var(--accent); }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.diagram { overflow-x: auto; padding: 16px; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.diagram .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+.diagram .node.gw rect { fill: var(--accent-soft); stroke: var(--accent); }
+.diagram .node.svc rect { fill: var(--data-soft); stroke: var(--data); }
+.diagram .node.infra rect { fill: var(--control-soft); stroke: var(--control); }
+.diagram text { fill: var(--ink); font-family: var(--font-body); font-size: 14px; font-weight: 600; }
+.diagram text.small { fill: var(--muted); font: 500 11.5px var(--font-mono); }
+.diagram .edge { stroke: var(--ink); stroke-width: 1.6; fill: none; }
+.diagram .edge.tcp { stroke: var(--data); }
+.diagram .edge.dash { stroke: var(--control); stroke-dasharray: 5 5; }
+.diagram .edge.event { stroke: var(--muted); stroke-dasharray: 2 4; }
+.diagram marker path { fill: context-stroke; }
+.diagram .arrow-ink { fill: var(--ink); } .diagram .arrow-data { fill: var(--data); } .diagram .arrow-ctrl { fill: var(--control); } .diagram .arrow-muted { fill: var(--muted); }
+
+.planes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.plane { padding: 20px; border-top: 4px solid var(--control); }
+.plane.data { border-top-color: var(--data); }
+.plane h3 { font-size: 18px; margin-bottom: 4px; }
+.plane .when { font: 500 12.5px var(--font-mono); color: var(--muted); }
+.plane ol { margin: 14px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+.plane ol code { color: var(--muted); }
+.plane .rule { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 14px; color: var(--muted); }
+
+/* ---------- Knowledge ---------- */
+.kgrid { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 28px; align-items: start; }
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); max-height: calc(100vh - 100px); overflow-y: auto; padding: 10px; }
+.toc input { width: 100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 8px 10px; font: inherit; margin-bottom: 8px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.toc a { display: grid; grid-template-columns: 26px minmax(0, 1fr) 10px; gap: 6px; align-items: center; text-decoration: none; color: var(--ink); padding: 6px 8px; border-radius: 6px; font-size: 13.5px; line-height: 1.35; }
+.toc a:hover { background: var(--surface-2); }
+.toc a[aria-current="true"] { background: var(--surface-2); font-weight: 600; }
+.toc .num { font: 600 11.5px var(--font-mono); color: var(--muted); }
+.toc .dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.done { background: var(--ok); } .dot.theory { background: var(--learn); } .dot.todo { background: transparent; box-shadow: inset 0 0 0 1.5px var(--todo); }
+.toc-toggle { display: none; }
+
+article.topic { min-width: 0; }
+.topic-head { display: grid; gap: 10px; padding-bottom: 18px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.topic-head h1 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; letter-spacing: -0.02em; }
+.topic-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13.5px; }
+.prose { max-width: 76ch; }
+.prose img { display: block; max-width: 100%; height: auto; margin: 16px auto; border-radius: 12px; }
+.prose p, .prose li { overflow-wrap: break-word; }
+.prose p { margin: 0 0 12px; }
+.prose ul, .prose ol { margin: 0 0 14px; padding-left: 22px; display: grid; gap: 4px; }
+.prose code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.prose pre { background: var(--surface-2); padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 16px; line-height: 1.5; }
+.prose pre code { background: none; padding: 0; }
+.prose blockquote { margin: 0 0 14px; padding: 10px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+.prose h3 { font-size: 17px; margin: 22px 0 10px; }
+.table-wrap { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 8px; }
+.prose table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.prose th, .prose td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.prose th { background: var(--surface-2); font-weight: 600; font-size: 13px; }
+.prose tr:last-child td { border-bottom: 0; }
+.callout { border-radius: var(--radius); padding: 14px 16px 2px; margin: 0 0 16px; border: 1px solid var(--line); background: var(--surface); }
+.callout > p:first-child { font-size: 12px; font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+.callout > p:first-child strong { font-weight: 700; }
+.callout.questions { border-color: var(--learn); background: var(--learn-soft); }
+.callout.questions > p:first-child { color: var(--learn); }
+.callout.trap { border-color: var(--accent); background: var(--accent-soft); }
+.callout.trap > p:first-child { color: var(--accent); }
+.callout.sample { border-color: var(--ok); background: var(--ok-soft); }
+.callout.sample > p:first-child { color: var(--ok); }
+.callout.incode { border-color: var(--control); background: var(--control-soft); }
+.callout.incode > p:first-child { color: var(--control); }
+.callout.self { border-style: dashed; background: transparent; }
+.callout.self blockquote { border: 0; padding: 0; font-style: italic; }
+.topic-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--line); }
+.topic-foot a { text-decoration: none; }
+.practice-link { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; margin-top: 22px; }
+
+/* ---------- Practice ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; margin-bottom: 16px; }
+.fgroup { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.fgroup .eyebrow { margin-right: 4px; }
+.pill { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 5px 11px; font: 600 13px var(--font-body); cursor: pointer; }
+.pill[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.card { padding: 26px; display: grid; gap: 18px; min-height: 320px; align-content: start; }
+.card-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13px; }
+.card-q { font-size: clamp(19px, 2.4vw, 24px); font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; text-wrap: pretty; }
+.card-q strong { font-weight: 700; }
+.hint { border-left: 3px solid var(--ok); padding: 10px 14px; background: var(--ok-soft); border-radius: 0 8px 8px 0; }
+.hint .eyebrow { color: var(--ok); display: block; margin-bottom: 6px; }
+.refs { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13.5px; }
+.refs a { text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; color: var(--ink); }
+.refs a:hover { border-color: var(--learn); color: var(--learn); }
+.card-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.card-actions .spacer { flex: 1; }
+.mark { font: 600 12px var(--font-mono); }
+.mark.known { color: var(--ok); } .mark.review { color: var(--accent); }
+.practice-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.counter { font: 600 13px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.kbd-help { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); }
+.empty { padding: 40px 26px; text-align: center; color: var(--muted); }
+
+/* ---------- Glossary ---------- */
+.gloss-search { width: min(100%, 420px); border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 9px 12px; font: inherit; margin-bottom: 16px; }
+.gloss { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.term { padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.term b { font-weight: 700; }
+.term span { color: var(--muted); font-size: 14px; }
+.term code { background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+
+footer { color: var(--muted); font-size: 12.5px; padding-block: 0 32px; }
+
+/* ---------- Slides ---------- */
+.slide-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.stage { display: grid; place-items: center; }
+.slide-frame {
+  width: min(100%, calc((100vh - 240px) * 16 / 9)); aspect-ratio: 16 / 9; max-width: 100%;
+  container-type: inline-size; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+}
+.stage:fullscreen { background: var(--bg); width: 100vw; height: 100vh; }
+.stage:fullscreen .slide-frame { width: min(100vw, calc(100vh * 16 / 9)); border-radius: 0; border: 0; }
+.slide {
+  height: 100%; overflow: auto; display: flex; flex-direction: column; justify-content: center; gap: 2.2cqw;
+  padding: 5cqw 7cqw 6cqw; font-size: 2.15cqw; line-height: 1.5; position: relative;
+  border-top: 0.6cqw solid var(--accent);
+}
+.slide > * { margin: 0; }
+.slide h1 { font-size: 6cqw; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+.slide h2 { font-size: 3.6cqw; font-weight: 800; letter-spacing: -0.02em; }
+.slide.cover { justify-content: flex-end; padding-bottom: 8cqw; background: linear-gradient(135deg, var(--accent-soft), transparent 60%); }
+.slide.cover h1 { color: var(--ink); max-width: 18ch; }
+.slide.cover p:first-of-type { font-size: 2.8cqw; color: var(--ink); max-width: 36ch; }
+.slide.cover p { color: var(--muted); }
+.slide ul, .slide ol { padding-left: 1.4em; display: grid; gap: 0.9cqw; }
+.slide strong { color: var(--accent); }
+.slide code { font-size: 0.85em; background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 0.3em; }
+.slide pre { background: var(--surface-2); border-radius: 1cqw; padding: 1.6cqw 2cqw; font-size: 1.6cqw; line-height: 1.45; overflow: auto; }
+.slide pre code { background: none; padding: 0; font-size: 1em; }
+.slide table { border-collapse: collapse; width: 100%; font-size: 1.85cqw; }
+.slide th, .slide td { text-align: left; vertical-align: top; padding: 1cqw 1.4cqw; border-bottom: 1px solid var(--line); }
+.slide th { color: var(--muted); font-weight: 600; font-size: 1.5cqw; text-transform: uppercase; letter-spacing: 0.06em; }
+.slide th:empty { padding: 0; border: 0; }
+.slide td strong { color: var(--ink); }
+.slide .slide-no { position: absolute; right: 3cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); }
+.slide .slide-brand { position: absolute; left: 7cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.slide .diagram { padding: 0; border: 0; background: none; overflow: visible; }
+.slide .diagram svg { min-width: 0; max-height: 34cqw; }
+.slide .planes { gap: 2cqw; }
+.slide .plane { padding: 1.8cqw 2cqw; border-radius: 1cqw; }
+.slide .plane h3 { font-size: 2.1cqw; margin-bottom: 0; }
+.slide .plane .eyebrow { font-size: 1.15cqw; }
+.slide .plane .when, .slide .plane .rule { display: none; }
+.slide .plane ol { font-size: 1.55cqw; gap: 0.4cqw; margin-top: 1.2cqw; line-height: 1.4; }
+.slide .plane ol code { font-size: 0.78em; background: none; padding: 0; }
+.slide-progress { height: 3px; background: var(--surface-2); border-radius: 999px; margin-top: 12px; overflow: hidden; }
+.slide-progress i { display: block; height: 100%; background: var(--accent); }
+.slide-notes { margin-top: 14px; padding: 14px 18px; font-size: 15px; }
+.slide-notes p { margin: 0; }
+.slide-notes .eyebrow { display: block; margin-bottom: 6px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 920px) {
+  .hero, .planes { grid-template-columns: minmax(0, 1fr); }
+  .kgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc { position: static; max-height: none; }
+  .toc-toggle { display: inline-flex; margin-bottom: 10px; }
+  .toc.collapsed ol, .toc.collapsed input { display: none; }
+}
+@media (max-width: 480px) {
+  .card { padding: 18px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pill, .btn, nav.tabs a { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+}
+
+/* ---------- Clean Architecture overview ---------- */
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.design-note { display: flex; align-items: center; gap: 12px; margin-top: 24px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+.design-note p { margin: 0; color: var(--muted); font-size: 13px; }
+.flow { display: grid; justify-items: center; gap: 8px; margin-top: 20px; }
+.flow span { width: 100%; text-align: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font: 500 13px var(--font-mono); overflow-wrap: anywhere; }
+.flow b { color: var(--muted); line-height: 1; }
+.flow .flow-core { color: var(--control); border-color: var(--control); background: var(--control-soft); }
+.data .flow-core { color: var(--data); border-color: var(--data); background: var(--data-soft); }
+.text-link { display: inline-block; color: var(--learn); font-size: 13px; font-weight: 600; margin-top: 14px; }
+.study-path { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.study-step { display: flex; flex-direction: column; padding: 22px; color: var(--ink); text-decoration: none; }
+.study-step:hover { border-color: var(--accent); }
+.study-step h3 { font-size: 18px; margin-top: 14px; }
+.study-step p { color: var(--muted); font-size: 14px; margin: 12px 0 18px; }
+.study-step .text-link { margin-top: auto; }
+.meter-row .label { flex-wrap: wrap; gap: 4px 10px; }
+button:disabled { opacity: 0.45; cursor: default; }
+.topic-foot .btn { max-width: 100%; overflow-wrap: anywhere; }
+@media (max-width: 920px) {
+  .study-path { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .brand { flex-wrap: wrap; gap: 4px 10px; }
+  nav.tabs { width: 100%; }
+  nav.tabs a { padding: 6px 9px; font-size: 13px; }
+  .design-note { align-items: flex-start; flex-direction: column; }
+  .gloss { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Sổ tay Keycloak và OIDC</b><span id="gen-date"></span></div>
+    <nav class="tabs" aria-label="Các phần">
+      <a href="#overview" data-view="overview">Tổng quan</a>
+      <a href="#knowledge" data-view="knowledge">Kiến thức</a>
+      <a href="#practice" data-view="practice">Luyện câu hỏi</a>
+      <a href="#glossary" data-view="glossary">Từ điển</a>
+      <a href="#slides" data-view="slides">Slide</a>
+    </nav>
+    <button class="icon-btn" id="theme-btn" type="button" title="Đổi giao diện sáng/tối">Giao diện: hệ thống</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ================= OVERVIEW ================= -->
+  <section id="view-overview" data-view-panel="overview">
+    <div class="hero">
+      <div>
+        <span class="eyebrow">OIDC · PKCE · Token · Session</span>
+        <h1>Đăng nhập ở Keycloak.<br><em>Token và session nằm ở đâu?</em></h1>
+        <p class="lead">Nắm luồng SPA và Keycloak: đăng nhập, quản lý token, session, đăng xuất, kèm số liệu đã chạy thật.</p>
+        <div class="hero-actions"><a class="btn primary" href="#topic-0">Bắt đầu học →</a><a class="btn" href="#practice">Luyện phỏng vấn</a></div>
+      </div>
+      <div class="panel meter" id="meter" aria-live="polite"></div>
+    </div>
+    <div class="design-note"><span class="chip theory">Đã kiểm chứng</span><p>Thông số (thời hạn token, cookie, mã lỗi) được đo trên Keycloak 26 local bằng realm tạm. UI có test với Keycloak giả; chưa thử đầu-cuối trên trình duyệt thật. Bài 10 ghi rõ trạng thái.</p></div>
+
+    <section class="block">
+      <div class="section-head"><h2>Hai thứ hay bị nhầm</h2><p>Token sống ở client và hết hạn nhanh; phiên SSO sống ở Keycloak và cho phép đăng nhập lại không cần mật khẩu.</p></div>
+      <div class="planes" id="arch-diagram">
+        <div class="panel plane">
+          <span class="eyebrow">01 · Đăng nhập</span><h3>Authorization Code + PKCE</h3>
+          <div class="flow"><span>code_challenge</span><b aria-hidden="true">↓</b><span>Mã dùng một lần</span><b aria-hidden="true">↓</b><span class="flow-core">Token kèm code_verifier</span></div>
+          <div class="rule">SPA không bao giờ thấy mật khẩu; redirect_uri phải khớp chính xác.</div>
+          <a class="text-link" href="#topic-2">Xem từng bước →</a>
+        </div>
+        <div class="panel plane data">
+          <span class="eyebrow">02 · Token và session</span><h3>Làm mới, đăng xuất, xác minh</h3>
+          <div class="flow"><span>Access 5 phút</span><b aria-hidden="true">↓</b><span>Refresh xoay vòng</span><b aria-hidden="true">↓</b><span class="flow-core">Đăng xuất hủy phiên SSO</span></div>
+          <div class="rule">Sau đăng xuất, gateway xác minh cục bộ vẫn nhận access token đến khi hết hạn.</div>
+          <a class="text-link" href="#topic-7">Đăng xuất: cái gì còn →</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="section-head"><h2>Lộ trình học và ôn tập</h2><p>Đọc hai chủ đề mỗi ngày, tự giải thích trong 60–90 giây rồi luyện câu hỏi liên quan.</p></div>
+      <div class="study-path" id="planes">
+        <a class="panel study-step" href="#topic-0"><span class="eyebrow">01 · Nắm nguyên lý</span><h3>Hiểu trước khi vẽ luồng</h3><p>OAuth 2.0, OIDC, ba loại token và endpoint của Keycloak.</p><span class="text-link">Đọc bài nền tảng →</span></a>
+        <a class="panel study-step" href="#topic-5"><span class="eyebrow">02 · Token và session</span><h3>Vòng đời token và session</h3><p>Phiên SSO, làm mới, xoay vòng và đăng xuất.</p><span class="text-link">Khám phá thiết kế →</span></a>
+        <a class="panel study-step" href="#topic-9"><span class="eyebrow">03 · Thực hành</span><h3>Chẩn đoán lỗi thật</h3><p>Bảng triệu chứng, nguyên nhân và cách nói khi phỏng vấn.</p><span class="text-link">Đọc bài kết →</span></a>
+      </div>
+    </section>
+  </section>
+
+  <!-- ================= KNOWLEDGE ================= -->
+  <section id="view-knowledge" data-view-panel="knowledge" hidden>
+    <div class="kgrid">
+      <aside class="panel toc" id="toc">
+        <button class="btn toc-toggle" id="toc-toggle" type="button" aria-expanded="false">Danh sách chủ đề</button>
+        <input id="toc-search" type="search" placeholder="Tìm chủ đề…" aria-label="Tìm chủ đề">
+        <ol id="toc-list"></ol>
+      </aside>
+      <article class="topic" id="topic"></article>
+    </div>
+  </section>
+
+  <!-- ================= PRACTICE ================= -->
+  <section id="view-practice" data-view-panel="practice" hidden>
+    <div class="section-head">
+      <h2>Luyện câu hỏi</h2>
+      <p>Nói thành tiếng câu trả lời trước, rồi mới mở ý chính để đối chiếu. Đánh dấu được lưu trong trình duyệt này.</p>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="practice-top">
+      <span class="counter" id="counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="shuffle-btn" type="button">Xáo thứ tự</button>
+        <button class="btn" id="reset-btn" type="button">Xoá đánh dấu</button>
+      </div>
+    </div>
+    <div class="panel" id="card"></div>
+    <p class="kbd-help"><kbd>Space</kbd> mở ý chính · <kbd>←</kbd> <kbd>→</kbd> câu trước/sau · <kbd>1</kbd> cần ôn lại · <kbd>2</kbd> đã thuộc</p>
+  </section>
+
+  <!-- ================= GLOSSARY ================= -->
+  <section id="view-glossary" data-view-panel="glossary" hidden>
+    <div class="section-head">
+      <h2>Từ điển nhanh</h2>
+      <p>Thuật ngữ gặp trong dự án và trong phỏng vấn.</p>
+    </div>
+    <input class="gloss-search" id="gloss-search" type="search" placeholder="Tìm thuật ngữ…" aria-label="Tìm thuật ngữ">
+    <div class="gloss" id="gloss"></div>
+  </section>
+
+  <!-- ================= SLIDES ================= -->
+  <section id="view-slides" data-view-panel="slides" hidden>
+    <div class="slide-bar">
+      <span class="counter" id="slide-counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="slide-prev" type="button">← Trước</button>
+        <button class="btn primary" id="slide-next" type="button">Sau →</button>
+        <button class="btn" id="slide-notes-btn" type="button" aria-pressed="false">Ghi chú người nói</button>
+        <button class="btn" id="slide-full" type="button">Toàn màn hình</button>
+      </div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="slide-frame">
+        <div class="slide" id="slide"></div>
+      </div>
+    </div>
+    <div class="slide-progress" aria-hidden="true"><i id="slide-progress"></i></div>
+    <div class="panel slide-notes" id="slide-notes" hidden></div>
+    <p class="kbd-help"><kbd>→</kbd> <kbd>Space</kbd> slide sau · <kbd>←</kbd> slide trước · <kbd>F</kbd> toàn màn hình · <kbd>N</kbd> ghi chú · <kbd>Home</kbd> <kbd>End</kbd> đầu/cuối. Nội dung sửa trong <code>documents/SLIDES.md</code>.</p>
+  </section>
+</main>
+<footer class="wrap" id="footer"></footer>
+
+<script id="data" type="application/json">{"generatedAt":"2026-11-09T11:21:58.492Z","topics":[{"n":0,"title":"OAuth 2.0 và OIDC trong 60 giây","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003cp>\u003cstrong>OAuth 2.0\u003c/strong> là giao thức \u003cem>ủy quyền\u003c/em>: cho một ứng dụng quyền gọi API thay mặt người dùng mà không đưa mật khẩu. \u003cstrong>OpenID Connect (OIDC)\u003c/strong> là lớp \u003cem>xác thực\u003c/em> chạy trên OAuth 2.0: thêm \u003cstrong>ID token\u003c/strong> để ứng dụng biết người dùng là ai.\u003c/p>\n\u003cp>Bốn vai trò:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Vai trò\u003c/th>\n\u003cth>Trong dự án\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Resource Owner (người dùng)\u003c/td>\n\u003ctd>Người dùng cuối\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Client / Relying Party\u003c/td>\n\u003ctd>SPA React (\u003ccode>pm-web\u003c/code>)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Authorization Server / OpenID Provider\u003c/td>\n\u003ctd>Keycloak (realm \u003ccode>pm\u003c/code>)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Resource Server\u003c/td>\n\u003ctd>API Gateway rồi w-identity\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Ba loại token, mỗi loại cho một người nhận khác nhau:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Token\u003c/th>\n\u003cth>Dành cho\u003c/th>\n\u003cth>Dùng để\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003cstrong>Access token\u003c/strong>\u003c/td>\n\u003ctd>Resource server (gateway)\u003c/td>\n\u003ctd>Chứng minh được phép gọi API\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>ID token\u003c/strong>\u003c/td>\n\u003ctd>Client (SPA)\u003c/td>\n\u003ctd>Cho client biết người dùng là ai\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>Refresh token\u003c/strong>\u003c/td>\n\u003ctd>Keycloak\u003c/td>\n\u003ctd>Lấy access token mới mà không đăng nhập lại\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Điểm cốt lõi: SPA \u003cstrong>không bao giờ thấy mật khẩu\u003c/strong>. Người dùng nhập mật khẩu trên trang của Keycloak, SPA chỉ nhận lại một mã rồi đổi lấy token.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nói OAuth 2.0 là giao thức xác thực; dùng access token để biết &quot;user là ai&quot; ở client; dùng ID token để gọi API.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":1,"title":"Thành phần và endpoint của Keycloak","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Khái niệm\u003c/th>\n\u003cth>Ý nghĩa\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003cstrong>Realm\u003c/strong>\u003c/td>\n\u003ctd>Một vùng tách biệt gồm user, client, role, cấu hình. Dự án dùng realm \u003ccode>pm\u003c/code> (realm \u003ccode>master\u003c/code> chỉ để quản trị)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>Client\u003c/strong>\u003c/td>\n\u003ctd>Ứng dụng được phép dùng Keycloak. \u003ccode>pm-web\u003c/code> (public, SPA) và \u003ccode>identity-service\u003c/code> (confidential, có secret, gọi Admin API)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>Public client\u003c/strong>\u003c/td>\n\u003ctd>Không giữ được secret (SPA, mobile): bảo vệ bằng PKCE\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>Confidential client\u003c/strong>\u003c/td>\n\u003ctd>Giữ được secret (server): xác thực bằng secret\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>Client scope\u003c/strong>\u003c/td>\n\u003ctd>Nhóm claim và mapper gắn vào token. \u003ccode>basic\u003c/code> chứa claim \u003ccode>sub\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>Mapper\u003c/strong>\u003c/td>\n\u003ctd>Thêm claim vào token, ví dụ Audience mapper thêm \u003ccode>aud = w-identity\u003c/code>\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Tự mô tả qua \u003cstrong>discovery document\u003c/strong> \u003ccode>/.well-known/openid-configuration\u003c/code>. Các endpoint chính (đã kiểm chứng, tiền tố \u003ccode>/realms/&lt;realm&gt;/protocol/openid-connect\u003c/code>):\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Endpoint\u003c/th>\n\u003cth>Dùng cho\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003ccode>/auth\u003c/code> (authorization)\u003c/td>\n\u003ctd>Trình duyệt được chuyển tới để đăng nhập\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>/token\u003c/code>\u003c/td>\n\u003ctd>Đổi mã lấy token; làm mới token\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>/userinfo\u003c/code>\u003c/td>\n\u003ctd>Lấy thông tin người dùng bằng access token (kiểm tra cả phiên)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>/certs\u003c/code> (JWKS)\u003c/td>\n\u003ctd>Khóa công khai để xác minh chữ ký token\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>/logout\u003c/code> (end session)\u003c/td>\n\u003ctd>Đăng xuất, hủy phiên SSO\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>/token/introspect\u003c/code>\u003c/td>\n\u003ctd>Hỏi Keycloak token còn hợp lệ không (cần xác thực client)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>/revoke\u003c/code>\u003c/td>\n\u003ctd>Thu hồi token\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Discovery cũng cho biết server hỗ trợ \u003ccode>code_challenge_methods: plain, S256\u003c/code> và nhiều grant (kể cả \u003ccode>password\u003c/code>, \u003ccode>implicit\u003c/code>). \u003cstrong>Hỗ trợ không có nghĩa là client được dùng\u003c/strong>: client \u003ccode>pm-web\u003c/code> chỉ bật Standard flow và ép PKCE \u003ccode>S256\u003c/code>, tắt Direct access grants và Implicit.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Dùng realm \u003ccode>master\u003c/code> cho ứng dụng; bật Implicit hoặc Password cho SPA; nhầm client public với confidential.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":2,"title":"Authorization Code + PKCE từng bước","status":"theory","statusNote":"","step":"Luồng","html":"\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMTAwIDkzMCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsbGVkYnk9InRpdGxlIGRlc2MiPgo8dGl0bGUgaWQ9InRpdGxlIj7EkMSDbmcgbmjhuq1wIHbDoCDEkcSDbmcgeHXhuqV0IHRyw6puIFVJPC90aXRsZT4KPGRlc2MgaWQ9ImRlc2MiPlBo4bqnbiBBOiDEkcSDbmcgbmjhuq1wIGLhurFuZyBBdXRob3JpemF0aW9uIENvZGUgdsOgIFBLQ0UuIFNQQSB04bqhbyBjb2RlX3ZlcmlmaWVyLCBjaHV54buDbiBoxrDhu5tuZyBzYW5nIEtleWNsb2FrLCBuZ8aw4budaSBkw7luZyBuaOG6rXAgbeG6rXQga2jhuql1IOG7nyBLZXljbG9haywgS2V5Y2xvYWsgdHLhuqMgbcOjIHbhu4EgL2NhbGxiYWNrLCBTUEEgxJHhu5VpIG3DoyBs4bqleSB0b2tlbiB2w6AgZ+G7jWkgL21lL3Blcm1pc3Npb25zLiBQaOG6p24gQjogxJHEg25nIHh14bqldCB4w7NhIHRva2VuIOG7nyBTUEEgcuG7k2kgY2h1eeG7g24gaMaw4bubbmcgdOG7m2kgS2V5Y2xvYWsgxJHhu4MgaOG7p3kgcGhpw6puIFNTTy48L2Rlc2M+CjxkZWZzPjxtYXJrZXIgaWQ9ImIiIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPjxwYXRoIGQ9Ik0wIDBMMTAgNUwwIDEwWiIgZmlsbD0iIzI3NjViMyIvPjwvbWFya2VyPjxtYXJrZXIgaWQ9Im8iIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPjxwYXRoIGQ9Ik0wIDBMMTAgNUwwIDEwWiIgZmlsbD0iI2E0NWMxMCIvPjwvbWFya2VyPjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjExMDAiIGhlaWdodD0iOTMwIiByeD0iMjAiIGZpbGw9IiNmOGZhZmMiLz4KPGcgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmaWxsPSIjMTcyYjRkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4KPHRleHQgeD0iMzUiIHk9IjM2IiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMjMiIGZvbnQtd2VpZ2h0PSI3MDAiPsSQxIJORyBOSOG6rFAgVsOAIMSQxIJORyBYVeG6pFQgVFLDik4gVUk8L3RleHQ+CjxsaW5lIHgxPSIxMTAiIHkxPSIxMDQiIHgyPSIxMTAiIHkyPSI5MTAiIHN0cm9rZT0iI2I2YzNkNCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtZGFzaGFycmF5PSI2IDYiLz4KPGxpbmUgeDE9IjM0MCIgeTE9IjEwNCIgeDI9IjM0MCIgeTI9IjkxMCIgc3Ryb2tlPSIjYjZjM2Q0IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1kYXNoYXJyYXk9IjYgNiIvPgo8bGluZSB4MT0iNjAwIiB5MT0iMTA0IiB4Mj0iNjAwIiB5Mj0iOTEwIiBzdHJva2U9IiNiNmMzZDQiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWRhc2hhcnJheT0iNiA2Ii8+CjxsaW5lIHgxPSI5MDAiIHkxPSIxMDQiIHgyPSI5MDAiIHkyPSI5MTAiIHN0cm9rZT0iI2I2YzNkNCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtZGFzaGFycmF5PSI2IDYiLz4KPHJlY3QgeD0iMTUiIHk9IjUwIiB3aWR0aD0iMTkwIiBoZWlnaHQ9IjU0IiByeD0iMTIiIGZpbGw9IiNmY2U3ZWQiIHN0cm9rZT0iIzk2YTdiZCIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48dGV4dCB4PSIxMTAiIHk9IjczIiBmb250LXNpemU9IjE3IiBmb250LXdlaWdodD0iNzAwIj5OZ8aw4budaSBkw7luZzwvdGV4dD48dGV4dCB4PSIxMTAiIHk9IjkzIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNDQ1NDZhIj50csOsbmggZHV54buHdDwvdGV4dD4KPHJlY3QgeD0iMjQ1IiB5PSI1MCIgd2lkdGg9IjE5MCIgaGVpZ2h0PSI1NCIgcng9IjEyIiBmaWxsPSIjZGZmM2VlIiBzdHJva2U9IiM5NmE3YmQiIHN0cm9rZS13aWR0aD0iMS41Ii8+PHRleHQgeD0iMzQwIiB5PSI3MyIgZm9udC1zaXplPSIxNyIgZm9udC13ZWlnaHQ9IjcwMCI+U1BBIChSZWFjdCk8L3RleHQ+PHRleHQgeD0iMzQwIiB5PSI5MyIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzQ0NTQ2YSI+a2V5Y2xvYWstanMsIHRva2VuIHRyb25nIGLhu5kgbmjhu5s8L3RleHQ+CjxyZWN0IHg9IjUwNSIgeT0iNTAiIHdpZHRoPSIxOTAiIGhlaWdodD0iNTQiIHJ4PSIxMiIgZmlsbD0iI2ZmZjBjNSIgc3Ryb2tlPSIjOTZhN2JkIiBzdHJva2Utd2lkdGg9IjEuNSIvPjx0ZXh0IHg9IjYwMCIgeT0iNzMiIGZvbnQtc2l6ZT0iMTciIGZvbnQtd2VpZ2h0PSI3MDAiPktleWNsb2FrPC90ZXh0Pjx0ZXh0IHg9IjYwMCIgeT0iOTMiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM0NDU0NmEiPnRyYW5nIMSRxINuZyBuaOG6rXAsIGPhuqVwIHRva2VuPC90ZXh0Pgo8cmVjdCB4PSI4MDUiIHk9IjUwIiB3aWR0aD0iMTkwIiBoZWlnaHQ9IjU0IiByeD0iMTIiIGZpbGw9IiNlNmVkZmEiIHN0cm9rZT0iIzk2YTdiZCIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48dGV4dCB4PSI5MDAiIHk9IjczIiBmb250LXNpemU9IjE3IiBmb250LXdlaWdodD0iNzAwIj5BUEkgR2F0ZXdheTwvdGV4dD48dGV4dCB4PSI5MDAiIHk9IjkzIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNDQ1NDZhIj5raeG7g20gdHJhIEpXVCB2w6AgcXV54buBbjwvdGV4dD4KPHJlY3QgeD0iMjAiIHk9IjExNiIgd2lkdGg9IjEwNjAiIGhlaWdodD0iMzAiIHJ4PSI4IiBmaWxsPSIjMjc2NWIzIiBvcGFjaXR5PSIwLjE0Ii8+PHRleHQgeD0iMzUiIHk9IjEzNiIgdGV4dC1hbmNob3I9InN0YXJ0IiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMjc2NWIzIj5BIMK3IMSQxIJORyBOSOG6rFA6IEF1dGhvcml6YXRpb24gQ29kZSArIFBLQ0UgKG3huq10IGto4bqpdSBraMO0bmcgxJFpIHF1YSBTUEEpPC90ZXh0Pgo8bGluZSB4MT0iMTEwIiB5MT0iMTc2IiB4Mj0iMzQwIiB5Mj0iMTc2IiBzdHJva2U9IiMyNzY1YjMiIHN0cm9rZS13aWR0aD0iMi40IiBtYXJrZXItZW5kPSJ1cmwoI2IpIi8+PHRleHQgeD0iMjI1LjAiIHk9IjE2OCIgZm9udC1zaXplPSIxMy41IiBmaWxsPSIjMjc2NWIzIiBmb250LXdlaWdodD0iNjAwIj4xLiBN4bufIC9hcHAgKGNoxrBhIGPDsyB0b2tlbik8L3RleHQ+CjxyZWN0IHg9IjM1NCIgeT0iMTg4IiB3aWR0aD0iMzMwIiBoZWlnaHQ9IjU2IiByeD0iOSIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjMWQ3YTVmIiBzdHJva2Utd2lkdGg9IjEuNiIvPgo8dGV4dCB4PSI1MTkuMCIgeT0iMjEwIiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiMxZDdhNWYiPlNpbmggY29kZV92ZXJpZmllciwgc3RhdGU8L3RleHQ+Cjx0ZXh0IHg9IjUxOS4wIiB5PSIyMzIiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iIzFkN2E1ZiI+Y29kZV9jaGFsbGVuZ2UgPSBTMjU2KGNvZGVfdmVyaWZpZXIpPC90ZXh0Pgo8bGluZSB4MT0iMzQwIiB5MT0iMjc4IiB4Mj0iNjAwIiB5Mj0iMjc4IiBzdHJva2U9IiMyNzY1YjMiIHN0cm9rZS13aWR0aD0iMi40IiBtYXJrZXItZW5kPSJ1cmwoI2IpIi8+PHRleHQgeD0iNDcwLjAiIHk9IjI3MCIgZm9udC1zaXplPSIxMy41IiBmaWxsPSIjMjc2NWIzIiBmb250LXdlaWdodD0iNjAwIj4yLiBDaHV54buDbiBoxrDhu5tuZyAvYXV0aCArIGNvZGVfY2hhbGxlbmdlPC90ZXh0Pgo8bGluZSB4MT0iNjAwIiB5MT0iMzA4IiB4Mj0iMTEwIiB5Mj0iMzA4IiBzdHJva2U9IiNhNDVjMTAiIHN0cm9rZS13aWR0aD0iMi40IiBzdHJva2UtZGFzaGFycmF5PSI3IDUiIG1hcmtlci1lbmQ9InVybCgjbykiLz48dGV4dCB4PSIzNTUuMCIgeT0iMzAwIiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiNhNDVjMTAiIGZvbnQtd2VpZ2h0PSI2MDAiPjMuIFRyYW5nIMSRxINuZyBuaOG6rXAgKHRoZW1lIEtleWNsb2FrKTwvdGV4dD4KPGxpbmUgeDE9IjExMCIgeTE9IjMzOCIgeDI9IjYwMCIgeTI9IjMzOCIgc3Ryb2tlPSIjMjc2NWIzIiBzdHJva2Utd2lkdGg9IjIuNCIgbWFya2VyLWVuZD0idXJsKCNiKSIvPjx0ZXh0IHg9IjM1NS4wIiB5PSIzMzAiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iIzI3NjViMyIgZm9udC13ZWlnaHQ9IjYwMCI+NC4gTmjhuq1wIHVzZXJuYW1lICsgcGFzc3dvcmQ8L3RleHQ+CjxsaW5lIHgxPSI2MDAiIHkxPSIzNzAiIHgyPSIzNDAiIHkyPSIzNzAiIHN0cm9rZT0iI2E0NWMxMCIgc3Ryb2tlLXdpZHRoPSIyLjQiIHN0cm9rZS1kYXNoYXJyYXk9IjcgNSIgbWFya2VyLWVuZD0idXJsKCNvKSIvPjx0ZXh0IHg9IjQ3MC4wIiB5PSIzNjIiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iI2E0NWMxMCIgZm9udC13ZWlnaHQ9IjYwMCI+NS4gMzAyIC9jYWxsYmFjaz9jb2RlPS4uLiZhbXA7c3RhdGU9Li4uPC90ZXh0Pgo8cmVjdCB4PSIzNTQiIHk9IjM4MiIgd2lkdGg9IjMzMCIgaGVpZ2h0PSIzNCIgcng9IjkiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzFkN2E1ZiIgc3Ryb2tlLXdpZHRoPSIxLjYiLz4KPHRleHQgeD0iNTE5LjAiIHk9IjQwNCIgZm9udC1zaXplPSIxMy41IiBmaWxsPSIjMWQ3YTVmIj5LaeG7g20gdHJhIHN0YXRlOyBjaMawYSBjw7MgdG9rZW48L3RleHQ+CjxsaW5lIHgxPSIzNDAiIHkxPSI0NTAiIHgyPSI2MDAiIHkyPSI0NTAiIHN0cm9rZT0iIzI3NjViMyIgc3Ryb2tlLXdpZHRoPSIyLjQiIG1hcmtlci1lbmQ9InVybCgjYikiLz48dGV4dCB4PSI0NzAuMCIgeT0iNDQyIiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiMyNzY1YjMiIGZvbnQtd2VpZ2h0PSI2MDAiPjYuIMSQ4buVaSBtw6M6IGNvZGUgKyBjb2RlX3ZlcmlmaWVyPC90ZXh0Pgo8bGluZSB4MT0iNjAwIiB5MT0iNDgwIiB4Mj0iMzQwIiB5Mj0iNDgwIiBzdHJva2U9IiNhNDVjMTAiIHN0cm9rZS13aWR0aD0iMi40IiBzdHJva2UtZGFzaGFycmF5PSI3IDUiIG1hcmtlci1lbmQ9InVybCgjbykiLz48dGV4dCB4PSI0NzAuMCIgeT0iNDcyIiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiNhNDVjMTAiIGZvbnQtd2VpZ2h0PSI2MDAiPmFjY2VzcyAoNSBwaMO6dCkgKyByZWZyZXNoICsgaWRfdG9rZW48L3RleHQ+CjxyZWN0IHg9IjM1NCIgeT0iNDkyIiB3aWR0aD0iMzMwIiBoZWlnaHQ9IjU2IiByeD0iOSIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjMWQ3YTVmIiBzdHJva2Utd2lkdGg9IjEuNiIvPgo8dGV4dCB4PSI1MTkuMCIgeT0iNTE0IiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiMxZDdhNWYiPlRva2VuIGNo4buJIGdp4buvIHRyb25nIGLhu5kgbmjhu5s8L3RleHQ+Cjx0ZXh0IHg9IjUxOS4wIiB5PSI1MzYiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iIzFkN2E1ZiI+VuG7gSB0cmFuZyDEkcOjIG5o4bubIChjaOG7iSDEkcaw4budbmcgZOG6q24gbuG7mWkgYuG7mSk8L3RleHQ+CjxsaW5lIHgxPSIzNDAiIHkxPSI1ODIiIHgyPSI5MDAiIHkyPSI1ODIiIHN0cm9rZT0iIzI3NjViMyIgc3Ryb2tlLXdpZHRoPSIyLjQiIG1hcmtlci1lbmQ9InVybCgjYikiLz48dGV4dCB4PSI2MjAuMCIgeT0iNTc0IiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiMyNzY1YjMiIGZvbnQtd2VpZ2h0PSI2MDAiPjcuIEdFVCAvbWUvcGVybWlzc2lvbnMgKyBCZWFyZXI8L3RleHQ+CjxsaW5lIHgxPSI5MDAiIHkxPSI2MTAiIHgyPSIzNDAiIHkyPSI2MTAiIHN0cm9rZT0iI2E0NWMxMCIgc3Ryb2tlLXdpZHRoPSIyLjQiIHN0cm9rZS1kYXNoYXJyYXk9IjcgNSIgbWFya2VyLWVuZD0idXJsKCNvKSIvPjx0ZXh0IHg9IjYyMC4wIiB5PSI2MDIiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iI2E0NWMxMCIgZm9udC13ZWlnaHQ9IjYwMCI+eyByb2xlLCBwZXJtaXNzaW9uc1tdIH0g4oaSIHJlbmRlcjwvdGV4dD4KPHJlY3QgeD0iMjAiIHk9IjY0NiIgd2lkdGg9IjEwNjAiIGhlaWdodD0iMzAiIHJ4PSI4IiBmaWxsPSIjMjc2NWIzIiBvcGFjaXR5PSIwLjE0Ii8+PHRleHQgeD0iMzUiIHk9IjY2NiIgdGV4dC1hbmNob3I9InN0YXJ0IiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMjc2NWIzIj5CIMK3IMSQxIJORyBYVeG6pFQ6IHjDs2EgdG9rZW4g4bufIFVJIHbDoCBo4buneSBwaGnDqm4gU1NPIOG7nyBLZXljbG9hazwvdGV4dD4KPGxpbmUgeDE9IjExMCIgeTE9IjcwNiIgeDI9IjM0MCIgeTI9IjcwNiIgc3Ryb2tlPSIjMjc2NWIzIiBzdHJva2Utd2lkdGg9IjIuNCIgbWFya2VyLWVuZD0idXJsKCNiKSIvPjx0ZXh0IHg9IjIyNS4wIiB5PSI2OTgiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iIzI3NjViMyIgZm9udC13ZWlnaHQ9IjYwMCI+OC4gQuG6pW0gxJDEg25nIHh14bqldDwvdGV4dD4KPHJlY3QgeD0iMzU0IiB5PSI3MTgiIHdpZHRoPSIzMzAiIGhlaWdodD0iMzQiIHJ4PSI5IiBmaWxsPSIjZmZmIiBzdHJva2U9IiMxZDdhNWYiIHN0cm9rZS13aWR0aD0iMS42Ii8+Cjx0ZXh0IHg9IjUxOS4wIiB5PSI3NDAiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iIzFkN2E1ZiI+WMOzYSB0b2tlbiwgY+G7nSBwaGnDqm4gdsOgIHRyYW5nIMSRw6Mgbmjhu5s8L3RleHQ+CjxsaW5lIHgxPSIzNDAiIHkxPSI3ODYiIHgyPSI2MDAiIHkyPSI3ODYiIHN0cm9rZT0iIzI3NjViMyIgc3Ryb2tlLXdpZHRoPSIyLjQiIG1hcmtlci1lbmQ9InVybCgjYikiLz48dGV4dCB4PSI0NzAuMCIgeT0iNzc4IiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiMyNzY1YjMiIGZvbnQtd2VpZ2h0PSI2MDAiPjkuIC9sb2dvdXQgKyBpZF90b2tlbl9oaW50ICsgcG9zdF9sb2dvdXRfcmVkaXJlY3RfdXJpPC90ZXh0Pgo8bGluZSB4MT0iNjAwIiB5MT0iODIwIiB4Mj0iMTEwIiB5Mj0iODIwIiBzdHJva2U9IiNhNDVjMTAiIHN0cm9rZS13aWR0aD0iMi40IiBzdHJva2UtZGFzaGFycmF5PSI3IDUiIG1hcmtlci1lbmQ9InVybCgjbykiLz48dGV4dCB4PSIzNTUuMCIgeT0iODEyIiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiNhNDVjMTAiIGZvbnQtd2VpZ2h0PSI2MDAiPjEwLiAzMDIgduG7gSAvIChjaMawYSDEkcSDbmcgbmjhuq1wKTwvdGV4dD4KPHJlY3QgeD0iNjE0IiB5PSI4MzIiIHdpZHRoPSIzMzAiIGhlaWdodD0iNTYiIHJ4PSI5IiBmaWxsPSIjZmZmIiBzdHJva2U9IiNiMzMwNGEiIHN0cm9rZS13aWR0aD0iMS42Ii8+Cjx0ZXh0IHg9Ijc3OS4wIiB5PSI4NTQiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iI2IzMzA0YSI+QWNjZXNzIHRva2VuIGPFqSB24bqrbiBo4bujcCBs4buHIMSR4bq/biBraGkgaOG6v3QgaOG6oW48L3RleHQ+Cjx0ZXh0IHg9Ijc3OS4wIiB5PSI4NzYiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iI2IzMzA0YSI+KHJlZnJlc2ggdG9rZW4gxJHDoyBi4buLIHbDtCBoaeG7h3UgY8O5bmcgcGhpw6puKTwvdGV4dD4KPC9nPjwvc3ZnPg==\" alt=\"Đăng nhập và đăng xuất trên UI\">\u003c/p>\n\u003cp>Các tham số khi chuyển hướng tới \u003ccode>/auth\u003c/code>:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Tham số\u003c/th>\n\u003cth>Vai trò\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003ccode>client_id\u003c/code>\u003c/td>\n\u003ctd>Client nào đang xin đăng nhập (\u003ccode>pm-web\u003c/code>)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>response_type=code\u003c/code>\u003c/td>\n\u003ctd>Yêu cầu một \u003cstrong>mã\u003c/strong> (Authorization Code), không phải token\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>scope=openid ...\u003c/code>\u003c/td>\n\u003ctd>\u003ccode>openid\u003c/code> bật OIDC và cấp ID token\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>redirect_uri\u003c/code>\u003c/td>\n\u003ctd>Nơi Keycloak trả mã về; phải khớp \u003cstrong>chính xác\u003c/strong> địa chỉ đã đăng ký\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>state\u003c/code>\u003c/td>\n\u003ctd>Giá trị ngẫu nhiên để chống CSRF; Keycloak trả lại nguyên vẹn, client phải kiểm tra\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>nonce\u003c/code>\u003c/td>\n\u003ctd>Gắn vào ID token để chống phát lại; ID token trả về chứa đúng \u003ccode>nonce\u003c/code> đã gửi\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>code_challenge\u003c/code>, \u003ccode>code_challenge_method=S256\u003c/code>\u003c/td>\n\u003ctd>PKCE: băm SHA-256 của \u003ccode>code_verifier\u003c/code>\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Các bước đã chạy thật:\u003c/p>\n\u003col>\n\u003cli>SPA sinh \u003ccode>code_verifier\u003c/code> ngẫu nhiên, tính \u003ccode>code_challenge = BASE64URL(SHA256(code_verifier))\u003c/code>, rồi chuyển hướng tới \u003ccode>/auth\u003c/code>.\u003c/li>\n\u003cli>Keycloak hiện trang đăng nhập; người dùng nhập mật khẩu \u003cstrong>trên Keycloak\u003c/strong>.\u003c/li>\n\u003cli>Keycloak chuyển hướng về \u003ccode>redirect_uri?code=...&amp;state=...&amp;iss=...\u003c/code>.\u003c/li>\n\u003cli>SPA kiểm tra \u003ccode>state\u003c/code>, gọi \u003ccode>POST /token\u003c/code> với \u003ccode>code\u003c/code> và \u003ccode>code_verifier\u003c/code>, nhận access, id và refresh token.\u003c/li>\n\u003c/ol>\n\u003cp>Những điều đã kiểm chứng:\u003c/p>\n\u003cul>\n\u003cli>Đổi mã bằng \u003ccode>code_verifier\u003c/code> \u003cstrong>sai\u003c/strong> thì trả \u003ccode>400\u003c/code>.\u003c/li>\n\u003cli>\u003ccode>redirect_uri\u003c/code> lạ thì Keycloak trả \u003ccode>400\u003c/code> và không chuyển hướng.\u003c/li>\n\u003cli>Mã chỉ dùng được \u003cstrong>một lần\u003c/strong> và sống ngắn (\u003ccode>accessCodeLifespan\u003c/code> = 60 giây trong realm này).\u003c/li>\n\u003cli>Phản hồi chuyển hướng có thêm tham số \u003ccode>iss\u003c/code> (RFC 9207) giúp client phát hiện bị lừa sang máy chủ khác (mix-up attack).\u003c/li>\n\u003c/ul>\n\u003cp>Vì sao cần PKCE: SPA là public client, không giữ được secret. PKCE thay secret bằng một cặp gắn với \u003cem>lượt đăng nhập này\u003c/em>. Kẻ chặn được mã (ví dụ qua URL) không có \u003ccode>code_verifier\u003c/code> nên không đổi được token.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Dùng luồng Implicit (token nằm trong URL); không kiểm tra \u003ccode>state\u003c/code>; dùng \u003ccode>redirect_uri\u003c/code> có ký tự đại diện; nghĩ PKCE chỉ dành cho mobile.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":3,"title":"Ba loại token và các claim","status":"theory","statusNote":"","step":"Token","html":"\u003cp>Phản hồi của \u003ccode>/token\u003c/code> có: \u003ccode>access_token\u003c/code>, \u003ccode>id_token\u003c/code>, \u003ccode>refresh_token\u003c/code>, \u003ccode>expires_in\u003c/code> (300), \u003ccode>refresh_expires_in\u003c/code> (1800), \u003ccode>scope\u003c/code> và \u003ccode>session_state\u003c/code>.\u003c/p>\n\u003cp>Giải mã thật cho thấy (token là JWT: header.payload.signature; payload chỉ được mã hóa base64url, \u003cstrong>không bí mật\u003c/strong>):\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Claim\u003c/th>\n\u003cth>Access token\u003c/th>\n\u003cth>ID token\u003c/th>\n\u003cth>Refresh token\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003ccode>typ\u003c/code>\u003c/td>\n\u003ctd>\u003ccode>Bearer\u003c/code>\u003c/td>\n\u003ctd>\u003ccode>ID\u003c/code>\u003c/td>\n\u003ctd>\u003ccode>Refresh\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>aud\u003c/code> (người nhận)\u003c/td>\n\u003ctd>\u003ccode>w-identity\u003c/code>\u003c/td>\n\u003ctd>\u003ccode>pm-web\u003c/code>\u003c/td>\n\u003ctd>URL của realm\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>azp\u003c/code> (client xin token)\u003c/td>\n\u003ctd>\u003ccode>pm-web\u003c/code>\u003c/td>\n\u003ctd>\u003ccode>pm-web\u003c/code>\u003c/td>\n\u003ctd>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>iss\u003c/code>\u003c/td>\n\u003ctd>URL realm\u003c/td>\n\u003ctd>URL realm\u003c/td>\n\u003ctd>URL realm\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>sid\u003c/code> (mã phiên)\u003c/td>\n\u003ctd>có\u003c/td>\n\u003ctd>có\u003c/td>\n\u003ctd>có\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Đặc biệt\u003c/td>\n\u003ctd>\u003ccode>scope\u003c/code>, \u003ccode>preferred_username\u003c/code>\u003c/td>\n\u003ctd>\u003ccode>nonce\u003c/code>, \u003ccode>at_hash\u003c/code>\u003c/td>\n\u003ctd>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>exp - iat\u003c/code>\u003c/td>\n\u003ctd>300 giây\u003c/td>\n\u003ctd>\u003c/td>\n\u003ctd>1800 giây\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Rút ra:\u003c/p>\n\u003cul>\n\u003cli>\u003cstrong>Ba token cùng \u003ccode>sid\u003c/code>:\u003c/strong> cùng thuộc một phiên Keycloak, nên khi phiên bị hủy, cả ba bị ảnh hưởng (bài 7).\u003c/li>\n\u003cli>\u003cstrong>\u003ccode>aud\u003c/code> khác nhau là chủ ý.\u003c/strong> Access token dành cho API (\u003ccode>w-identity\u003c/code>), ID token dành cho client (\u003ccode>pm-web\u003c/code>). Client không được đưa ID token cho API.\u003c/li>\n\u003cli>\u003cstrong>\u003ccode>sub\u003c/code>\u003c/strong> là định danh ổn định của người dùng. Nó đến từ client scope \u003cstrong>\u003ccode>basic\u003c/code>\u003c/strong>.\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Bài học thực tế (lỗi của chính dự án này):\u003c/strong> fixture ban đầu liệt kê \u003ccode>defaultClientScopes\u003c/code> mà thiếu \u003ccode>basic\u003c/code>, nên access token \u003cstrong>không có \u003ccode>sub\u003c/code>\u003c/strong>. Gateway yêu cầu \u003ccode>sub\u003c/code> nên sẽ trả 401 cho mọi request dù token hợp lệ. Phát hiện khi giải mã token thật; sửa bằng cách thêm \u003ccode>basic\u003c/code>. Khi tùy biến client scope mặc định, hãy kiểm tra lại claim trong token.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Tin nội dung JWT khi chưa xác minh chữ ký; lưu dữ liệu nhạy cảm trong claim; đưa ID token cho API; không nhận ra \u003ccode>aud\u003c/code> sai là lỗi phổ biến.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":4,"title":"Resource server xác minh token","status":"theory","statusNote":"","step":"Token","html":"\u003cp>Gateway (resource server) xác minh JWT \u003cstrong>cục bộ\u003c/strong>, không gọi Keycloak mỗi request:\u003c/p>\n\u003col>\n\u003cli>Lấy khóa công khai từ JWKS (\u003ccode>/certs\u003c/code>), chọn khóa theo \u003ccode>kid\u003c/code> trong header. Realm có khóa ký \u003ccode>RS256\u003c/code> (cho chữ ký) và một khóa mã hóa riêng (\u003ccode>RSA-OAEP\u003c/code>).\u003c/li>\n\u003cli>Kiểm tra \u003cstrong>chữ ký\u003c/strong> và thuật toán cho phép (\u003ccode>RS256\u003c/code>).\u003c/li>\n\u003cli>Kiểm tra \u003ccode>iss\u003c/code> (đúng realm), \u003ccode>aud\u003c/code> (đúng \u003ccode>w-identity\u003c/code>), \u003ccode>exp\u003c/code> (chưa hết hạn), \u003ccode>typ = Bearer\u003c/code>, và có \u003ccode>sub\u003c/code>, \u003ccode>iat\u003c/code>.\u003c/li>\n\u003cli>Xoay khóa: khi gặp \u003ccode>kid\u003c/code> lạ thì tải lại JWKS (có thời gian chờ giữa các lần để chống lạm dụng).\u003c/li>\n\u003c/ol>\n\u003cp>So sánh hai cách kiểm tra token:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Cách\u003c/th>\n\u003cth>Ưu\u003c/th>\n\u003cth>Nhược\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003cstrong>Xác minh cục bộ\u003c/strong> (chữ ký + claim)\u003c/td>\n\u003ctd>Nhanh, không phụ thuộc Keycloak lúc chạy\u003c/td>\n\u003ctd>Không biết phiên đã bị hủy: token vẫn qua đến khi hết hạn\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>Introspection\u003c/strong> (hỏi Keycloak)\u003c/td>\n\u003ctd>Biết token còn hiệu lực theo phiên ngay\u003c/td>\n\u003ctd>Thêm một lần gọi mạng mỗi lần kiểm tra\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Đã kiểm chứng: \u003ccode>introspect\u003c/code> trả \u003ccode>active: true\u003c/code> khi phiên còn và \u003ccode>active: false\u003c/code> sau khi đăng xuất, trong khi xác minh cục bộ vẫn chấp nhận token đến lúc \u003ccode>exp\u003c/code>. Đây là lý do access token sống ngắn (5 phút) là \u003cem>chủ ý thiết kế\u003c/em>, và vì sao dự án bổ sung kiểm tra tài khoản bị khóa ở lớp phân quyền (xem \u003ccode>#authz\u003c/code>).\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Không kiểm tra \u003ccode>aud\u003c/code> hoặc \u003ccode>iss\u003c/code>; chấp nhận thuật toán \u003ccode>none\u003c/code> hoặc \u003ccode>HS256\u003c/code> từ token; nghĩ xác minh cục bộ biết ngay khi user đăng xuất.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":5,"title":"Session: SSO session khác token","status":"theory","statusNote":"","step":"Session","html":"\u003cp>Có \u003cstrong>hai thứ khác nhau\u003c/strong> hay bị nhầm:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>\u003c/th>\n\u003cth>Phiên SSO (Keycloak)\u003c/th>\n\u003cth>Token (client)\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Nằm ở đâu\u003c/td>\n\u003ctd>Keycloak, nhận biết bằng cookie của trình duyệt trên miền Keycloak\u003c/td>\n\u003ctd>Bộ nhớ của SPA\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Cookie (đã thấy)\u003c/td>\n\u003ctd>\u003ccode>KEYCLOAK_IDENTITY\u003c/code>, \u003ccode>KEYCLOAK_SESSION\u003c/code>, \u003ccode>AUTH_SESSION_ID\u003c/code>\u003c/td>\n\u003ctd>Không có cookie\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Sống bao lâu\u003c/td>\n\u003ctd>\u003ccode>ssoSessionIdleTimeout\u003c/code> = 1800 giây không hoạt động; tối đa \u003ccode>ssoSessionMaxLifespan\u003c/code> = 36000 giây\u003c/td>\n\u003ctd>\u003ccode>exp\u003c/code> của từng token (5 phút / 30 phút)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Dùng để\u003c/td>\n\u003ctd>Đăng nhập lại \u003cstrong>không cần nhập mật khẩu\u003c/strong>\u003c/td>\n\u003ctd>Gọi API\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMTAwIDY0MCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsbGVkYnk9InRpdGxlIGRlc2MiPgo8dGl0bGUgaWQ9InRpdGxlIj5Ww7JuZyDEkeG7nWkgdG9rZW4gdsOgIHNlc3Npb248L3RpdGxlPgo8ZGVzYyBpZD0iZGVzYyI+VHLhu6VjIHRo4budaSBnaWFuOiDEkcSDbmcgbmjhuq1wIHThuqFvIHBoacOqbiBTU08gKDMwIHBow7p0IGtow7RuZyBob+G6oXQgxJHhu5luZywgdOG7kWkgxJFhIDEwIGdp4budKSwgYWNjZXNzIHRva2VuIHPhu5FuZyA1IHBow7p0IMSRxrDhu6NjIGzDoG0gbeG7m2kgYuG6sW5nIHJlZnJlc2ggdG9rZW4geG9heSB2w7JuZzsgc2F1IMSRxINuZyB4deG6pXQgcmVmcmVzaCB0b2tlbiB2w6AgdXNlcmluZm8gYuG7iyB04burIGNo4buRaSwgbmjGsG5nIGdhdGV3YXkgeMOhYyBtaW5oIGPhu6VjIGLhu5kgduG6q24gY2jhuqVwIG5o4bqtbiBhY2Nlc3MgdG9rZW4gxJHhur9uIGtoaSBo4bq/dCBo4bqhbi48L2Rlc2M+CjxkZWZzPjxtYXJrZXIgaWQ9ImIiIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPjxwYXRoIGQ9Ik0wIDBMMTAgNUwwIDEwWiIgZmlsbD0iIzI3NjViMyIvPjwvbWFya2VyPjxtYXJrZXIgaWQ9Im8iIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPjxwYXRoIGQ9Ik0wIDBMMTAgNUwwIDEwWiIgZmlsbD0iI2E0NWMxMCIvPjwvbWFya2VyPjxtYXJrZXIgaWQ9InIiIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPjxwYXRoIGQ9Ik0wIDBMMTAgNUwwIDEwWiIgZmlsbD0iI2IzMzA0YSIvPjwvbWFya2VyPjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjExMDAiIGhlaWdodD0iNjQwIiByeD0iMjAiIGZpbGw9IiNmOGZhZmMiLz4KPGcgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmaWxsPSIjMTcyYjRkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4KPHRleHQgeD0iMzUiIHk9IjM2IiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMjMiIGZvbnQtd2VpZ2h0PSI3MDAiPlbDkk5HIMSQ4bucSSBUT0tFTiBWw4AgU0VTU0lPTjwvdGV4dD4KPHRleHQgeD0iMjAiIHk9IjExMCIgdGV4dC1hbmNob3I9InN0YXJ0IiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIj5QaGnDqm4gU1NPPC90ZXh0Pjx0ZXh0IHg9IjIwIiB5PSIxMjgiIHRleHQtYW5jaG9yPSJzdGFydCIgZm9udC1zaXplPSIxMi41IiBmaWxsPSIjNDQ1NDZhIj4oS2V5Y2xvYWspPC90ZXh0Pgo8dGV4dCB4PSIyMCIgeT0iMjEwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMTUiIGZvbnQtd2VpZ2h0PSI3MDAiPkFjY2VzcyB0b2tlbjwvdGV4dD48dGV4dCB4PSIyMCIgeT0iMjI4IiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMTIuNSIgZmlsbD0iIzQ0NTQ2YSI+KDUgcGjDunQpPC90ZXh0Pgo8dGV4dCB4PSIyMCIgeT0iMzEwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMTUiIGZvbnQtd2VpZ2h0PSI3MDAiPlJlZnJlc2ggdG9rZW48L3RleHQ+PHRleHQgeD0iMjAiIHk9IjMyOCIgdGV4dC1hbmNob3I9InN0YXJ0IiBmb250LXNpemU9IjEyLjUiIGZpbGw9IiM0NDU0NmEiPih4b2F5IHbDsm5nKTwvdGV4dD4KPHRleHQgeD0iMjAiIHk9IjQxMCIgdGV4dC1hbmNob3I9InN0YXJ0IiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIj5HYXRld2F5PC90ZXh0Pjx0ZXh0IHg9IjIwIiB5PSI0MjgiIHRleHQtYW5jaG9yPSJzdGFydCIgZm9udC1zaXplPSIxMi41IiBmaWxsPSIjNDQ1NDZhIj4oeMOhYyBtaW5oIGPhu6VjIGLhu5kpPC90ZXh0Pgo8bGluZSB4MT0iMTcwIiB5MT0iNzAiIHgyPSIxNzAiIHkyPSI1MjAiIHN0cm9rZT0iIzI3NjViMyIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtZGFzaGFycmF5PSI2IDYiLz48dGV4dCB4PSIxNzAiIHk9IjY0IiBmb250LXNpemU9IjE0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMjc2NWIzIj7EkMSDbmcgbmjhuq1wPC90ZXh0Pgo8bGluZSB4MT0iNTIwIiB5MT0iNzAiIHgyPSI1MjAiIHkyPSI1MjAiIHN0cm9rZT0iI2E0NWMxMCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtZGFzaGFycmF5PSI2IDYiLz48dGV4dCB4PSI1MjAiIHk9IjY0IiBmb250LXNpemU9IjE0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjYTQ1YzEwIj5Mw6BtIG3hu5tpICh+NDozMCk8L3RleHQ+CjxsaW5lIHgxPSI3NjAiIHkxPSI3MCIgeDI9Ijc2MCIgeTI9IjUyMCIgc3Ryb2tlPSIjYjMzMDRhIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1kYXNoYXJyYXk9IjYgNiIvPjx0ZXh0IHg9Ijc2MCIgeT0iNjQiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNiMzMwNGEiPsSQxINuZyB4deG6pXQ8L3RleHQ+CjxyZWN0IHg9IjE3MCIgeT0iOTAiIHdpZHRoPSI1OTAiIGhlaWdodD0iNDQiIHJ4PSIxMCIgZmlsbD0iI2ZmZjBjNSIgc3Ryb2tlPSIjYTQ1YzEwIiBzdHJva2Utd2lkdGg9IjEuNiIvPjx0ZXh0IHg9IjQ2NS4wIiB5PSIxMTAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNhNDVjMTAiPlBoacOqbiBTU08gY8OybiBz4buRbmc8L3RleHQ+Cjx0ZXh0IHg9IjQ2NS4wIiB5PSIxMjciIGZvbnQtc2l6ZT0iMTIuNSIgZmlsbD0iI2E0NWMxMCI+aWRsZSAzMCBwaMO6dDsgdOG7kWkgxJFhIDEwIGdp4budOyBjb29raWUgS0VZQ0xPQUtfSURFTlRJVFk8L3RleHQ+CjxyZWN0IHg9Ijc2MCIgeT0iOTAiIHdpZHRoPSIyODAiIGhlaWdodD0iNDQiIHJ4PSIxMCIgZmlsbD0iI2ZiZTNlOCIgc3Ryb2tlPSIjYjMzMDRhIiBzdHJva2Utd2lkdGg9IjEuNiIvPjx0ZXh0IHg9IjkwMC4wIiB5PSIxMTAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNiMzMwNGEiPsSQw6MgaOG7p3k8L3RleHQ+Cjx0ZXh0IHg9IjkwMC4wIiB5PSIxMjciIGZvbnQtc2l6ZT0iMTIuNSIgZmlsbD0iI2IzMzA0YSI+Y29va2llIGLhu4sgeMOzYTwvdGV4dD4KPHJlY3QgeD0iMTcwIiB5PSIxOTAiIHdpZHRoPSIzNzAiIGhlaWdodD0iNDQiIHJ4PSIxMCIgZmlsbD0iI2RmZjNlZSIgc3Ryb2tlPSIjMWQ3YTVmIiBzdHJva2Utd2lkdGg9IjEuNiIvPjx0ZXh0IHg9IjM1NS4wIiB5PSIyMTAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxZDdhNWYiPkFjY2VzcyAjMTwvdGV4dD4KPHRleHQgeD0iMzU1LjAiIHk9IjIyNyIgZm9udC1zaXplPSIxMi41IiBmaWxsPSIjMWQ3YTVmIj5leHAgNSBwaMO6dDwvdGV4dD4KPHJlY3QgeD0iNTUwIiB5PSIxOTAiIHdpZHRoPSIzMjAiIGhlaWdodD0iNDQiIHJ4PSIxMCIgZmlsbD0iI2RmZjNlZSIgc3Ryb2tlPSIjMWQ3YTVmIiBzdHJva2Utd2lkdGg9IjEuNiIvPjx0ZXh0IHg9IjcxMC4wIiB5PSIyMTAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxZDdhNWYiPkFjY2VzcyAjMiAodG9rZW4gbeG7m2kpPC90ZXh0Pgo8dGV4dCB4PSI3MTAuMCIgeT0iMjI3IiBmb250LXNpemU9IjEyLjUiIGZpbGw9IiMxZDdhNWYiPmjhur90IGjhuqFuIDUgcGjDunQgc2F1IGzDumMgbMOgbSBt4bubaTwvdGV4dD4KPHJlY3QgeD0iMTcwIiB5PSIyOTAiIHdpZHRoPSIzNTAiIGhlaWdodD0iNDQiIHJ4PSIxMCIgZmlsbD0iI2U2ZWRmYSIgc3Ryb2tlPSIjMjc2NWIzIiBzdHJva2Utd2lkdGg9IjEuNiIvPjx0ZXh0IHg9IjM0NS4wIiB5PSIzMTAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMyNzY1YjMiPlJlZnJlc2ggIzE8L3RleHQ+Cjx0ZXh0IHg9IjM0NS4wIiB5PSIzMjciIGZvbnQtc2l6ZT0iMTIuNSIgZmlsbD0iIzI3NjViMyI+YuG7iyB2w7QgaGnhu4d1IGtoaSBsw6BtIG3hu5tpPC90ZXh0Pgo8cmVjdCB4PSI1MjAiIHk9IjI5MCIgd2lkdGg9IjI0MCIgaGVpZ2h0PSI0NCIgcng9IjEwIiBmaWxsPSIjZTZlZGZhIiBzdHJva2U9IiMyNzY1YjMiIHN0cm9rZS13aWR0aD0iMS42Ii8+PHRleHQgeD0iNjQwLjAiIHk9IjMxMCIgZm9udC1zaXplPSIxNCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzI3NjViMyI+UmVmcmVzaCAjMjwvdGV4dD4KPHRleHQgeD0iNjQwLjAiIHk9IjMyNyIgZm9udC1zaXplPSIxMi41IiBmaWxsPSIjMjc2NWIzIj5kw7luZyBs4bqhaSAjMSDihpIgNDAwPC90ZXh0Pgo8cmVjdCB4PSI3NjAiIHk9IjI5MCIgd2lkdGg9IjI4MCIgaGVpZ2h0PSI0NCIgcng9IjEwIiBmaWxsPSIjZmJlM2U4IiBzdHJva2U9IiNiMzMwNGEiIHN0cm9rZS13aWR0aD0iMS42Ii8+PHRleHQgeD0iOTAwLjAiIHk9IjMxMCIgZm9udC1zaXplPSIxNCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2IzMzA0YSI+QuG7iyB04burIGNo4buRaSAoNDAwKTwvdGV4dD4KPHRleHQgeD0iOTAwLjAiIHk9IjMyNyIgZm9udC1zaXplPSIxMi41IiBmaWxsPSIjYjMzMDRhIj5waGnDqm4gxJHDoyBo4buneTwvdGV4dD4KPHJlY3QgeD0iMTcwIiB5PSIzOTAiIHdpZHRoPSI3MDAiIGhlaWdodD0iNDQiIHJ4PSIxMCIgZmlsbD0iI2VlZjBmMyIgc3Ryb2tlPSIjNDQ1NDZhIiBzdHJva2Utd2lkdGg9IjEuNiIvPjx0ZXh0IHg9IjUyMC4wIiB5PSI0MTAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiM0NDU0NmEiPkNo4bqlcCBuaOG6rW4gbeG7jWkgYWNjZXNzIHRva2VuIGPDsm4gaOG6oW48L3RleHQ+Cjx0ZXh0IHg9IjUyMC4wIiB5PSI0MjciIGZvbnQtc2l6ZT0iMTIuNSIgZmlsbD0iIzQ0NTQ2YSI+Y2jhu68ga8O9ICsgaXNzICsgYXVkICsgZXhwPC90ZXh0Pgo8cmVjdCB4PSI4NzAiIHk9IjM5MCIgd2lkdGg9IjE3MCIgaGVpZ2h0PSI0NCIgcng9IjEwIiBmaWxsPSIjZmJlM2U4IiBzdHJva2U9IiNiMzMwNGEiIHN0cm9rZS13aWR0aD0iMS42Ii8+PHRleHQgeD0iOTU1LjAiIHk9IjQxMCIgZm9udC1zaXplPSIxNCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2IzMzA0YSI+VG9rZW4gaOG6v3QgaOG6oW4g4oaSIDQwMTwvdGV4dD4KPHRleHQgeD0iODMwIiB5PSIyNTYiIGZvbnQtc2l6ZT0iMTMiIGZpbGw9IiNiMzMwNGEiIGZvbnQtd2VpZ2h0PSI3MDAiPnbhuqtuIGjhu6NwIGzhu4cgxJHhur9uIGV4cDwvdGV4dD4KPHJlY3QgeD0iMzUiIHk9IjQ3MCIgd2lkdGg9IjEwMzAiIGhlaWdodD0iMTQwIiByeD0iMTIiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzk2YTdiZCIgc3Ryb2tlLXdpZHRoPSIxLjUiLz4KPHRleHQgeD0iNTUiIHk9IjUwMCIgdGV4dC1hbmNob3I9InN0YXJ0IiBmb250LXNpemU9IjE0IiBmb250LXdlaWdodD0iNjAwIiBmaWxsPSIjYjMzMDRhIj5TYXUgxJHEg25nIHh14bqldDogL3VzZXJpbmZvIOKGkiA0MDEsIGludHJvc3BlY3Rpb24g4oaSIGFjdGl2ZTpmYWxzZSwgcmVmcmVzaCB0b2tlbiDihpIgNDAwLCBwcm9tcHQ9bm9uZSDihpIgbG9naW5fcmVxdWlyZWQuPC90ZXh0Pgo8dGV4dCB4PSI1NSIgeT0iNTMwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI2MDAiIGZpbGw9IiNiMzMwNGEiPkdhdGV3YXkgeMOhYyBtaW5oIGPhu6VjIGLhu5kgS0jDlE5HIGJp4bq/dCBwaGnDqm4gxJHDoyBi4buLIGjhu6d5OiBhY2Nlc3MgdG9rZW4gY8WpIGPDsm4gZMO5bmcgxJHGsOG7o2MgdOG7kWkgxJFhIDUgcGjDunQuPC90ZXh0Pgo8dGV4dCB4PSI1NSIgeT0iNTYwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI2MDAiIGZpbGw9IiMxZDdhNWYiPlbDrCB24bqteSBhY2Nlc3MgdG9rZW4gc+G7kW5nIG5n4bqvbjsgcmVmcmVzaCB0b2tlbiBjaOG6v3QgY8O5bmcgcGhpw6puOyBraeG7g20gdHJhIHTDoGkga2hv4bqjbiBraMOzYSDhu58gbOG7m3AgcGjDom4gcXV54buBbi48L3RleHQ+Cjx0ZXh0IHg9IjU1IiB5PSI1OTAiIHRleHQtYW5jaG9yPSJzdGFydCIgZm9udC1zaXplPSIxNCIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iIzI3NjViMyI+RjUgbeG6pXQgdG9rZW4gKGNo4buJIHRyb25nIGLhu5kgbmjhu5spLCBuaMawbmcgcGhpw6puIFNTTyBjw7JuIHRow6wgS2V5Y2xvYWsgY+G6pXAgbcOjIG3hu5tpIG3DoCBraMO0bmcgaOG7j2kgbeG6rXQga2jhuql1LjwvdGV4dD4KPC9nPjwvc3ZnPg==\" alt=\"Vòng đời token và session\">\u003c/p>\n\u003cp>Hệ quả:\u003c/p>\n\u003cul>\n\u003cli>\u003cstrong>F5 mất token\u003c/strong> (token chỉ trong bộ nhớ), nhưng nếu phiên SSO còn thì Keycloak cấp mã mới ngay mà không hỏi mật khẩu.\u003c/li>\n\u003cli>\u003ccode>prompt=none\u003c/code> hỏi Keycloak &quot;đã có phiên chưa&quot; mà không hiện trang đăng nhập: chưa có phiên thì trả \u003ccode>error=login_required\u003c/code> (đã kiểm chứng, cả trước khi đăng nhập và sau khi đăng xuất).\u003c/li>\n\u003cli>Hai chế độ khi khởi động của keycloak-js: \u003cstrong>\u003ccode>check-sso\u003c/code>\u003c/strong> (có phiên thì đăng nhập ngầm, không thì ở trạng thái chưa đăng nhập) và \u003cstrong>\u003ccode>login-required\u003c/code>\u003c/strong> (không có phiên thì chuyển thẳng sang trang đăng nhập). Dự án dùng \u003ccode>login-required\u003c/code>.\u003c/li>\n\u003cli>\u003ccode>sid\u003c/code> trong token chính là mã phiên SSO; mọi token của cùng phiên chia sẻ \u003ccode>sid\u003c/code>.\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nghĩ &quot;đăng xuất&quot; là xóa token; nghĩ F5 buộc nhập lại mật khẩu; nhầm thời hạn token với thời hạn phiên.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":6,"title":"Làm mới token và xoay vòng refresh token","status":"theory","statusNote":"","step":"Token","html":"\u003cp>Access token sống 5 phút. Để người dùng không phải đăng nhập lại, client dùng refresh token (30 phút trong cấu hình này, bằng \u003ccode>ssoSessionIdleTimeout\u003c/code>):\u003c/p>\n\u003cp>\u003ccode>POST /token\u003c/code> với \u003ccode>grant_type=refresh_token\u003c/code> → nhận access token mới \u003cstrong>và refresh token mới\u003c/strong>.\u003c/p>\n\u003cp>\u003cstrong>Xoay vòng (rotation)\u003c/strong> đã bật (\u003ccode>revokeRefreshToken = true\u003c/code>, \u003ccode>refreshTokenMaxReuse = 0\u003c/code>). Đã kiểm chứng:\u003c/p>\n\u003cul>\n\u003cli>Làm mới thành công, refresh token mới \u003cstrong>khác\u003c/strong> token cũ, vẫn cùng \u003ccode>sid\u003c/code>.\u003c/li>\n\u003cli>Dùng lại refresh token \u003cstrong>cũ\u003c/strong> → \u003ccode>400 invalid_grant: Maximum allowed refresh token reuse exceeded\u003c/code>. Nếu kẻ trộm và người dùng cùng dùng một refresh token, một bên sẽ bị chặn, và đó là tín hiệu bị lộ.\u003c/li>\n\u003cli>Thu hồi bằng \u003ccode>/revoke\u003c/code> thì làm mới sau đó trả \u003ccode>400\u003c/code>.\u003c/li>\n\u003c/ul>\n\u003cp>Cách client quản lý (keycloak-js):\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Việc\u003c/th>\n\u003cth>Cách làm\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Trước mỗi lần gọi API\u003c/td>\n\u003ctd>\u003ccode>updateToken(30)\u003c/code>: làm mới nếu token còn dưới 30 giây\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Token hết hạn khi đang mở\u003c/td>\n\u003ctd>\u003ccode>onTokenExpired\u003c/code> → \u003ccode>updateToken\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Làm mới lỗi (phiên hết)\u003c/td>\n\u003ctd>\u003ccode>onAuthRefreshError\u003c/code> → chuyển lại sang đăng nhập\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>API trả 401\u003c/td>\n\u003ctd>Ép làm mới (\u003ccode>updateToken(-1)\u003c/code>), thử lại \u003cstrong>đúng một lần\u003c/strong>\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Lưu ý khi nhiều nơi cùng làm mới: với rotation, hai yêu cầu làm mới song song dùng cùng refresh token sẽ làm một yêu cầu thất bại. Nên gom thành một lần làm mới (single-flight) ở client.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Không xoay vòng refresh token; lưu refresh token lâu dài ở \u003ccode>localStorage\u003c/code>; thử lại 401 vô hạn; làm mới song song không gom.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":7,"title":"Đăng xuất: cái gì mất, cái gì còn","status":"theory","statusNote":"","step":"Session","html":"\u003cp>Đăng xuất đúng (RP-initiated logout): xóa token ở client \u003cstrong>và\u003c/strong> chuyển hướng tới \u003ccode>/logout?id_token_hint=...&amp;post_logout_redirect_uri=...&amp;client_id=pm-web\u003c/code>.\u003c/p>\n\u003cul>\n\u003cli>\u003ccode>id_token_hint\u003c/code>: cho Keycloak biết phiên nào cần đóng; không có thì Keycloak hiện trang hỏi xác nhận.\u003c/li>\n\u003cli>\u003ccode>post_logout_redirect_uri\u003c/code> phải được đăng ký trước; địa chỉ lạ bị từ chối (\u003ccode>400\u003c/code>, đã kiểm chứng).\u003c/li>\n\u003c/ul>\n\u003cp>Kết quả đã đo \u003cstrong>ngay sau khi đăng xuất\u003c/strong>:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Thứ\u003c/th>\n\u003cth>Trạng thái sau đăng xuất\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Cookie SSO (\u003ccode>KEYCLOAK_IDENTITY\u003c/code>, \u003ccode>KEYCLOAK_SESSION\u003c/code>)\u003c/td>\n\u003ctd>Bị xóa\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>prompt=none\u003c/code>\u003c/td>\n\u003ctd>\u003ccode>error=login_required\u003c/code>; mở \u003ccode>/auth\u003c/code> lại thì hiện trang đăng nhập\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Refresh token cũ\u003c/td>\n\u003ctd>Không dùng được: \u003ccode>400\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>/userinfo\u003c/code> với access token cũ\u003c/td>\n\u003ctd>\u003ccode>401\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Introspection access token cũ\u003c/td>\n\u003ctd>\u003ccode>active: false\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>Xác minh cục bộ ở gateway\u003c/strong>\u003c/td>\n\u003ctd>\u003cstrong>Vẫn chấp nhận\u003c/strong> đến khi \u003ccode>exp\u003c/code> (tối đa 5 phút)\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Kết luận quan trọng: \u003cstrong>đăng xuất không thu hồi access token đã cấp\u003c/strong> theo nghĩa các resource server xác minh cục bộ. Giảm thiểu: token sống ngắn; refresh token chết cùng phiên; kiểm tra bổ sung ở lớp phân quyền cho tài khoản bị khóa.\u003c/p>\n\u003cp>Đăng xuất toàn cục: front-channel logout (trình duyệt nạp trang đăng xuất của từng client) và back-channel logout (Keycloak gọi server của client) giúp các client khác biết phiên đã kết thúc. Fixture bật \u003ccode>frontchannelLogout\u003c/code> cho \u003ccode>pm-web\u003c/code>; dự án hiện chỉ có một client nên chưa dùng back-channel.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Chỉ xóa token ở UI (lần sau Keycloak vẫn đăng nhập ngầm); nói đăng xuất làm access token vô hiệu ngay; không đăng ký \u003ccode>post_logout_redirect_uri\u003c/code>.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":8,"title":"Lưu token ở client và các kiểu tấn công","status":"theory","statusNote":"","step":"Bảo mật","html":"\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Cách lưu\u003c/th>\n\u003cth>XSS đọc được?\u003c/th>\n\u003cth>CSRF?\u003c/th>\n\u003cth>Nhận xét\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Bộ nhớ (biến JS)\u003c/td>\n\u003ctd>Khó hơn (chỉ khi script chạy trong cùng trang)\u003c/td>\n\u003ctd>Không (dùng header \u003ccode>Authorization\u003c/code>)\u003c/td>\n\u003ctd>\u003cstrong>Dự án dùng\u003c/strong>; F5 mất token nên phải hỏi lại SSO\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>localStorage\u003c/code> / \u003ccode>sessionStorage\u003c/code>\u003c/td>\n\u003ctd>\u003cstrong>Dễ\u003c/strong> (mọi script cùng origin đọc được)\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003ctd>Tránh cho token\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Cookie \u003ccode>HttpOnly\u003c/code>\u003c/td>\n\u003ctd>Không đọc được từ JS\u003c/td>\n\u003ctd>\u003cstrong>Có\u003c/strong> nếu không có biện pháp chống\u003c/td>\n\u003ctd>Cần \u003ccode>SameSite\u003c/code> và token CSRF\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Các tấn công và biện pháp:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Tấn công\u003c/th>\n\u003cth>Biện pháp\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Chặn mã ủy quyền\u003c/td>\n\u003ctd>PKCE (\u003ccode>code_verifier\u003c/code>) và mã dùng một lần, sống ngắn\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>CSRF ở luồng đăng nhập\u003c/td>\n\u003ctd>Tham số \u003ccode>state\u003c/code> được kiểm tra\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Phát lại ID token\u003c/td>\n\u003ctd>\u003ccode>nonce\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Chuyển hướng tới địa chỉ lạ\u003c/td>\n\u003ctd>\u003ccode>redirect_uri\u003c/code> và \u003ccode>post_logout_redirect_uri\u003c/code> khớp chính xác; chỉ chấp nhận đường dẫn nội bộ cho trang quay lại\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Mix-up (máy chủ lạ)\u003c/td>\n\u003ctd>Kiểm tra \u003ccode>iss\u003c/code> trong phản hồi\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Token bị lộ\u003c/td>\n\u003ctd>Sống ngắn, xoay vòng refresh token, thu hồi\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>XSS\u003c/td>\n\u003ctd>CSP, không \u003ccode>innerHTML\u003c/code> dữ liệu lạ, token không ở \u003ccode>localStorage\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Gửi token tới nơi sai\u003c/td>\n\u003ctd>\u003ccode>aud\u003c/code> đúng; không đưa ID token cho API\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>CORS không phải biện pháp bảo mật cho API (nó chỉ bảo vệ \u003cem>trình duyệt\u003c/em>); API vẫn phải xác minh token.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Lưu token ở \u003ccode>localStorage\u003c/code> vì &quot;tiện&quot;; cho rằng CORS bảo vệ API; quên kiểm tra \u003ccode>state\u003c/code>.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":9,"title":"Dự án này: cấu hình và cách chẩn đoán lỗi","status":"theory","statusNote":"","step":"Thực hành","html":"\u003cp>Nơi từng phần nằm:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Phần\u003c/th>\n\u003cth>Vị trí\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Realm \u003ccode>pm\u003c/code>, client \u003ccode>pm-web\u003c/code>, \u003ccode>identity-service\u003c/code>, audience mapper\u003c/td>\n\u003ctd>\u003ccode>apps/w-identity/fixtures/pm-realm.json\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Đăng nhập, token, đăng xuất ở UI\u003c/td>\n\u003ctd>\u003ccode>apps/u-project-management/src/auth/AuthProvider.tsx\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Gọi API, xử lý 401/403/503\u003c/td>\n\u003ctd>\u003ccode>apps/u-project-management/src/api/apiClient.ts\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Xác minh JWT\u003c/td>\n\u003ctd>\u003ccode>apps/api-gateway/src/gateway/auth/jwt-authenticator.ts\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>CORS\u003c/td>\n\u003ctd>Lõi gateway (\u003ccode>GATEWAY_CORS_ORIGINS\u003c/code>)\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Cấu hình \u003ccode>pm-web\u003c/code>: client public, chỉ Standard flow, PKCE \u003ccode>S256\u003c/code>, \u003ccode>redirect_uri\u003c/code> chính xác \u003ccode>http://localhost:3001/callback\u003c/code>, access token 5 phút, audience mapper \u003ccode>w-identity\u003c/code>, refresh token xoay vòng.\u003c/p>\n\u003cp>Bảng chẩn đoán (lỗi thật đã gặp hoặc đã tái hiện):\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Triệu chứng\u003c/th>\n\u003cth>Nguyên nhân thường gặp\u003c/th>\n\u003cth>Cách kiểm tra\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Trang Keycloak &quot;Page not found / Realm does not exist&quot;\u003c/td>\n\u003ctd>Realm chưa được import\u003c/td>\n\u003ctd>\u003ccode>curl localhost:8081/realms/pm\u003c/code> trả \u003ccode>Realm does not exist\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Keycloak báo redirect_uri không hợp lệ (400)\u003c/td>\n\u003ctd>URL của UI không khớp \u003ccode>redirectUris\u003c/code>\u003c/td>\n\u003ctd>So URL trên thanh địa chỉ với client trong Admin Console\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Gateway trả 401 dù đã đăng nhập\u003c/td>\n\u003ctd>Token thiếu \u003ccode>sub\u003c/code> (thiếu scope \u003ccode>basic\u003c/code>), sai \u003ccode>aud\u003c/code>, sai \u003ccode>iss\u003c/code>\u003c/td>\n\u003ctd>Giải mã payload token, kiểm tra \u003ccode>sub\u003c/code>, \u003ccode>aud\u003c/code>, \u003ccode>iss\u003c/code>, \u003ccode>typ\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Trình duyệt chặn lời gọi API\u003c/td>\n\u003ctd>Thiếu CORS cho origin của UI\u003c/td>\n\u003ctd>Xem console; cấu hình \u003ccode>GATEWAY_CORS_ORIGINS\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Đăng nhập lặp vô hạn\u003c/td>\n\u003ctd>Chặn cookie bên thứ ba hoặc lệch \u003ccode>redirect_uri\u003c/code>\u003c/td>\n\u003ctd>Xem tab Network, thử trình duyệt khác\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>401 sau vài phút\u003c/td>\n\u003ctd>Access token hết hạn và không làm mới được\u003c/td>\n\u003ctd>Kiểm tra \u003ccode>onAuthRefreshError\u003c/code>, thời hạn phiên SSO\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Lệnh giải mã nhanh payload (chỉ để học, không đưa token thật vào công cụ bên ngoài):\u003c/p>\n\u003cpre>\u003ccode class=\"language-text\">echo &quot;&lt;payload base64url&gt;&quot; | base64 -d    # thêm dấu &quot;=&quot; cho đủ độ dài nếu cần\n\u003c/code>\u003c/pre>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Không kiểm tra claim thực tế trong token khi gỡ lỗi; đổ lỗi cho gateway trong khi lỗi nằm ở cấu hình client scope.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.\u003c/p>\n"},{"n":10,"title":"Cách nói khi phỏng vấn","status":"theory","statusNote":"","step":"Thực hành","html":"\u003cp>Trạng thái thực tế tại 2026-11-09:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Phần\u003c/th>\n\u003cth>Trạng thái\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Fixture realm, client \u003ccode>pm-web\u003c/code>, audience mapper\u003c/td>\n\u003ctd>Đã làm; đã import vào Keycloak local và kiểm tra bằng realm tạm\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Đăng nhập Authorization Code + PKCE, làm mới có xoay vòng, đăng xuất, kiểm tra \u003ccode>redirect_uri\u003c/code>\u003c/td>\n\u003ctd>Đã kiểm chứng bằng script trên Keycloak thật\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>UI (React + TypeScript) với keycloak-js\u003c/td>\n\u003ctd>Đã làm; 46 test chạy với Keycloak giả; chưa thử đầu-cuối trên trình duyệt thật\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Xác minh JWT ở gateway\u003c/td>\n\u003ctd>Đã có từ trước, có test\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Bài 11 (SPA): mô tả luồng, làm mới token, CORS và chẩn đoán\u003c/td>\n\u003ctd>Dựa trên mã UI và mã nguồn \u003ccode>keycloak-js\u003c/code> 26.2.5; chưa thử đầu-cuối trên trình duyệt thật\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Back-channel logout, đăng ký/quên mật khẩu, theme tùy biến, BFF\u003c/td>\n\u003ctd>Chưa làm\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Câu trả lời mẫu 60–90 giây\u003c/h3>\n\u003cp>“SPA không nhận mật khẩu. Nó chuyển hướng sang Keycloak bằng Authorization Code với PKCE: SPA sinh một \u003ccode>code_verifier\u003c/code>, gửi \u003ccode>code_challenge\u003c/code>, Keycloak đăng nhập rồi trả về một mã dùng một lần, SPA đổi mã kèm \u003ccode>code_verifier\u003c/code> lấy access, ID và refresh token. Token chỉ giữ trong bộ nhớ. Access token sống 5 phút và được làm mới bằng refresh token có xoay vòng, dùng lại token cũ sẽ bị từ chối. Gateway xác minh chữ ký, \u003ccode>iss\u003c/code>, \u003ccode>aud\u003c/code>, hạn của JWT cục bộ. Đăng xuất là xóa token ở UI và chuyển hướng tới \u003ccode>/logout\u003c/code> kèm \u003ccode>id_token_hint\u003c/code> để hủy phiên SSO; nhưng access token đã cấp vẫn hợp lệ đến hết hạn nên em để nó sống ngắn. Đánh đổi là xác minh cục bộ nhanh nhưng không biết tức thì phiên đã bị hủy.”\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nói đã chạy đầu-cuối trên môi trường thật khi mới thử bằng script và test; kể thiết kế dự kiến như đã làm.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> vì sao SPA không cần client secret? Sau khi đăng xuất, access token cũ còn dùng được ở đâu và không dùng được ở đâu? Hai request làm mới song song với rotation sẽ xảy ra chuyện gì?\u003c/p>\n"},{"n":11,"title":"SPA và Keycloak: những điều riêng của ứng dụng trên trình duyệt","status":"theory","statusNote":"","step":"Thực hành","html":"\u003cp>Bài này gom những gì làm SPA khác ứng dụng phía server khi dùng Keycloak. Ví dụ lấy từ \u003ccode>apps/u-project-management\u003c/code> (React, \u003ccode>keycloak-js\u003c/code> 26.2.5). Chỗ nói về hành vi của \u003ccode>keycloak-js\u003c/code> được đọc từ mã nguồn thư viện đã cài; \u003cstrong>chưa thử đầu-cuối trên trình duyệt thật\u003c/strong>. Hành vi chung của trình duyệt (cookie bên thứ ba, máy chủ tĩnh) là kiến thức phổ biến, không được đo trong dự án.\u003c/p>\n\u003ch3>11.1 SPA là gì và vì sao là public client\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Kiểu ứng dụng\u003c/th>\n\u003cth>Mã chạy ở\u003c/th>\n\u003cth>Giữ được secret?\u003c/th>\n\u003cth>Ai đổi mã lấy token\u003c/th>\n\u003cth>Token nằm ở\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Render phía server\u003c/td>\n\u003ctd>Server\u003c/td>\n\u003ctd>Có (confidential)\u003c/td>\n\u003ctd>Server\u003c/td>\n\u003ctd>Server (trình duyệt chỉ có cookie phiên)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>SPA (dự án)\u003c/strong>\u003c/td>\n\u003ctd>Trình duyệt\u003c/td>\n\u003ctd>Không (public) và dùng PKCE\u003c/td>\n\u003ctd>Chính SPA qua \u003ccode>keycloak-js\u003c/code>\u003c/td>\n\u003ctd>Bộ nhớ của trang\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>SPA kèm BFF\u003c/td>\n\u003ctd>Trình duyệt và một server nhỏ\u003c/td>\n\u003ctd>BFF giữ secret\u003c/td>\n\u003ctd>BFF\u003c/td>\n\u003ctd>BFF; trình duyệt chỉ có cookie \u003ccode>HttpOnly\u003c/code>\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Mọi thứ trong bundle JavaScript đều xem được, nên không đặt secret ở đó. \u003ccode>config.ts\u003c/code> chỉ chứa URL Keycloak, realm, client id, URL API; các biến \u003ccode>REACT_APP_*\u003c/code> được nhúng lúc build và là thông tin công khai. BFF (Backend For Frontend) giữ token ngoài tầm với của JavaScript nên an toàn hơn trước XSS, đổi lại phải vận hành thêm một thành phần và phải chống CSRF vì quay về dùng cookie. Dự án chọn SPA thuần cho đơn giản; BFF là hướng nâng cấp, chưa làm.\u003c/p>\n\u003ch3>11.2 Một lượt đăng nhập nhìn từ vòng đời trang\u003c/h3>\n\u003col>\n\u003cli>Người dùng mở \u003ccode>/app/users\u003c/code>. \u003ccode>AuthProvider\u003c/code> ghi đường dẫn này vào \u003ccode>sessionStorage\u003c/code> (khóa \u003ccode>pm.return-to\u003c/code>) rồi gọi \u003ccode>keycloak.init({ onLoad: &#39;login-required&#39;, pkceMethod: &#39;S256&#39;, checkLoginIframe: false, redirectUri: &#39;&lt;origin&gt;/callback&#39; })\u003c/code>.\u003c/li>\n\u003cli>Chưa có phiên: \u003ccode>keycloak-js\u003c/code> sinh \u003ccode>state\u003c/code>, \u003ccode>nonce\u003c/code>, \u003ccode>code_verifier\u003c/code>, ghi trạng thái chờ này (chưa phải token) vào \u003ccode>localStorage\u003c/code> khóa \u003ccode>kc-callback-&lt;state&gt;\u003c/code>, rồi \u003cstrong>chuyển hướng cả trang\u003c/strong> sang Keycloak. Toàn bộ state JavaScript của SPA biến mất.\u003c/li>\n\u003cli>Keycloak đăng nhập xong và chuyển về \u003ccode>http://localhost:3001/callback#state=…&amp;code=…\u003c/code>. Mặc định \u003ccode>responseMode\u003c/code> là \u003ccode>fragment\u003c/code>: mã nằm sau dấu \u003ccode>#\u003c/code>, trình duyệt không gửi phần này lên server.\u003c/li>\n\u003cli>SPA nạp lại từ đầu. \u003ccode>init\u003c/code> đọc mã từ URL, \u003cstrong>xóa nó khỏi thanh địa chỉ\u003c/strong> bằng \u003ccode>history.replaceState\u003c/code>, đối chiếu \u003ccode>state\u003c/code> với bản đã lưu (và xóa bản lưu), đổi mã cùng \u003ccode>code_verifier\u003c/code> lấy token rồi giữ token trong bộ nhớ.\u003c/li>\n\u003cli>\u003ccode>CallbackPage\u003c/code> thấy trạng thái \u003ccode>authenticated\u003c/code>, gọi \u003ccode>takeReturnTo()\u003c/code> (đọc rồi xóa \u003ccode>pm.return-to\u003c/code>) và \u003ccode>navigate(…, { replace: true })\u003c/code> về trang đang xem lúc đầu.\u003c/li>\n\u003c/ol>\n\u003cp>F5 là lặp lại từ bước 1: token trong bộ nhớ mất, nhưng cookie phiên SSO của Keycloak còn nên trang chỉ đi–về mà không hỏi lại mật khẩu (bài 5). Bài 8 nói không để \u003cem>token\u003c/em> ở \u003ccode>localStorage\u003c/code>; còn trạng thái chờ gồm \u003ccode>code_verifier\u003c/code> thì \u003ccode>keycloak-js\u003c/code> ghi tạm ở \u003ccode>localStorage\u003c/code>, dùng một lần và bị xóa khi xử lý callback.\u003c/p>\n\u003ch3>11.3 Định tuyến phía client và trang \u003ccode>/callback\u003c/code>\u003c/h3>\n\u003cul>\n\u003cli>\u003ccode>/callback\u003c/code> là route của SPA, không phải endpoint server. Máy chủ tĩnh hoặc CDN phải trả \u003ccode>index.html\u003c/code> cho mọi đường dẫn không phải file (\u003cem>history fallback\u003c/em>); nếu không, bước Keycloak chuyển về sẽ gặp 404. Server dev của Create React App làm sẵn, môi trường thật phải tự cấu hình.\u003c/li>\n\u003cli>Ba nơi phải khớp: \u003ccode>redirectUri\u003c/code> trong code (\u003ccode>&lt;origin&gt;/callback\u003c/code>), \u003ccode>redirectUris\u003c/code> của client \u003ccode>pm-web\u003c/code> (\u003ccode>http://localhost:3001/callback\u003c/code>) và danh sách origin của CORS ở gateway. Đổi cổng, domain hay \u003ccode>https\u003c/code> là phải sửa cả Keycloak lẫn gateway.\u003c/li>\n\u003cli>Trang quay lại chỉ nhận đường dẫn nội bộ. \u003ccode>safeReturnTo\u003c/code> từ chối \u003ccode>//evil.com\u003c/code>, ký tự \u003ccode>\\\u003c/code>, ký tự điều khiển, chuỗi dài hơn 2048 và chính \u003ccode>/callback\u003c/code> (tránh vòng lặp). Giá trị này đi qua storage nên được coi là dữ liệu không tin cậy, nếu không sẽ thành \u003cem>open redirect\u003c/em>.\u003c/li>\n\u003c/ul>\n\u003ch3>11.4 Token trong SPA: làm mới và lỗi\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Tình huống\u003c/th>\n\u003cth>Code trong dự án\u003c/th>\n\u003cth>Hành vi\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Trước mỗi lời gọi API\u003c/td>\n\u003ctd>\u003ccode>getToken()\u003c/code> gọi \u003ccode>updateToken(30)\u003c/code>\u003c/td>\n\u003ctd>Làm mới nếu token còn dưới 30 giây; lỗi thì ném \u003ccode>SessionExpiredError\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Token hết hạn lúc rảnh\u003c/td>\n\u003ctd>\u003ccode>onTokenExpired\u003c/code>\u003c/td>\n\u003ctd>Gọi \u003ccode>updateToken(30)\u003c/code>; lỗi thì \u003ccode>redirectToLogin\u003c/code> (quay lại đúng trang)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Gateway trả 401\u003c/td>\n\u003ctd>\u003ccode>forceRefresh()\u003c/code> gọi \u003ccode>updateToken(-1)\u003c/code>\u003c/td>\n\u003ctd>Ép làm mới, thử lại \u003cstrong>đúng một lần\u003c/strong>; vẫn 401 thì \u003ccode>onUnauthorized\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Gateway trả 403\u003c/td>\n\u003ctd>\u003ccode>onForbidden\u003c/code>\u003c/td>\n\u003ctd>\u003cstrong>Không đăng xuất\u003c/strong> (đã xác thực nhưng thiếu quyền); tải lại quyền\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>502/503/504 hoặc mất mạng\u003c/td>\n\u003ctd>\u003ccode>ApiError.retryable\u003c/code>\u003c/td>\n\u003ctd>Lỗi tạm thời, khác với bị từ chối\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Phiên SSO bị hủy ở nơi khác\u003c/td>\n\u003ctd>\u003ccode>onAuthLogout\u003c/code>, \u003ccode>onAuthRefreshError\u003c/code>\u003c/td>\n\u003ctd>Chuyển sang đăng nhập lại\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Hai chi tiết đáng nhớ. Thứ nhất, \u003ccode>keycloak-js\u003c/code> 26.2.5 xếp hàng các lời gọi \u003ccode>updateToken\u003c/code> đồng thời: chỉ lời gọi đầu tiên gửi yêu cầu làm mới, các lời gọi còn lại chờ cùng kết quả, nên hai lời gọi song song không làm hỏng nhau khi refresh token được xoay vòng (bài 6). Thứ hai, dự án đặt \u003ccode>checkLoginIframe: false\u003c/code> (mặc định là bật, kiểm tra mỗi 5 giây). Iframe này cần cookie bên thứ ba và thư viện có sẵn đường báo timeout khi không nhận được thông điệp từ nó; trình duyệt chặn cookie bên thứ ba là lý do phổ biến để tắt (lý do chính xác của dự án chưa được ghi lại). Đánh đổi: UI không biết ngay phiên SSO bị hủy ở tab khác, chỉ biết khi lần làm mới kế tiếp thất bại.\u003c/p>\n\u003ch3>11.5 Gọi API từ trình duyệt: CORS và Bearer\u003c/h3>\n\u003cul>\n\u003cli>SPA ở \u003ccode>http://localhost:3001\u003c/code> gọi gateway \u003ccode>http://localhost:3000\u003c/code>: khác origin nên áp dụng CORS. Header \u003ccode>Authorization\u003c/code> khiến trình duyệt gửi trước một yêu cầu \u003cstrong>preflight\u003c/strong> \u003ccode>OPTIONS\u003c/code>.\u003c/li>\n\u003cli>Gateway (xem README): \u003ccode>GATEWAY_CORS_ORIGINS\u003c/code> liệt kê origin chính xác (không path, không \u003ccode>*\u003c/code>), preflight được trả lời \u003cstrong>trước\u003c/strong> bước xác thực vì preflight không mang token, origin lạ nhận 403.\u003c/li>\n\u003cli>Token đi bằng header \u003ccode>Authorization: Bearer\u003c/code>, không bằng cookie: trình duyệt không tự gắn nó nên không có CSRF kiểu cookie. Đổi lại JavaScript phải tự gắn token, nên XSS nguy hiểm hơn.\u003c/li>\n\u003cli>Mỗi yêu cầu có \u003ccode>X-Request-Id\u003c/code> (\u003ccode>crypto.randomUUID()\u003c/code>); gateway trả lại \u003ccode>requestId\u003c/code> trong \u003ccode>problem+json\u003c/code>, dùng để lần theo log qua UI, gateway và service.\u003c/li>\n\u003cli>Khi CORS chặn, \u003ccode>fetch\u003c/code> chỉ ném lỗi mạng chung chung và UI không đọc được trạng thái thật; dự án gói nó thành \u003ccode>ApiError\u003c/code> có \u003ccode>status\u003c/code> bằng 0. Chi tiết nằm ở console của trình duyệt (&quot;blocked by CORS policy&quot;).\u003c/li>\n\u003c/ul>\n\u003ch3>11.6 Bảo mật riêng của SPA\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Rủi ro\u003c/th>\n\u003cth>Vì sao\u003c/th>\n\u003cth>Biện pháp\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Mã nguồn công khai\u003c/td>\n\u003ctd>Ai cũng đọc được bundle và biến \u003ccode>REACT_APP_*\u003c/code>\u003c/td>\n\u003ctd>Không đặt secret hay khóa riêng ở client\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>XSS\u003c/td>\n\u003ctd>Script chèn vào cùng origin chạy với quyền của ứng dụng: đọc được \u003ccode>keycloak.token\u003c/code> hoặc gọi API thay người dùng. Token trong bộ nhớ chỉ làm khó hơn, không ngăn được\u003c/td>\n\u003ctd>CSP, không chèn HTML từ dữ liệu lạ, kiểm soát phụ thuộc\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Chuỗi cung ứng npm\u003c/td>\n\u003ctd>Gói độc hại chạy với đúng quyền của ứng dụng\u003c/td>\n\u003ctd>Khóa phiên bản (\u003ccode>package-lock.json\u003c/code>), rà soát khi nâng cấp\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Phân quyền ở UI\u003c/td>\n\u003ctd>Người dùng sửa được JavaScript hoặc gọi API trực tiếp\u003c/td>\n\u003ctd>Ẩn nút theo \u003ccode>/me/permissions\u003c/code> chỉ để tiện dùng; quyết định thật ở gateway và service (\u003ccode>#authz\u003c/code>)\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>11.7 Build, môi trường và kiểm thử\u003c/h3>\n\u003cul>\n\u003cli>Cấu hình được nhúng lúc build (Create React App chỉ nhúng biến bắt đầu bằng \u003ccode>REACT_APP_\u003c/code>): \u003ccode>REACT_APP_KEYCLOAK_URL\u003c/code>, \u003ccode>REACT_APP_KEYCLOAK_REALM\u003c/code>, \u003ccode>REACT_APP_KEYCLOAK_CLIENT_ID\u003c/code>, \u003ccode>REACT_APP_API_URL\u003c/code>. Đổi môi trường là build lại. Mỗi môi trường cần redirect URI và origin riêng trong Keycloak.\u003c/li>\n\u003cli>Cổng dev là 3001 vì 3000 đã dành cho gateway; số này phải khớp client \u003ccode>pm-web\u003c/code> và \u003ccode>GATEWAY_CORS_ORIGINS\u003c/code>.\u003c/li>\n\u003cli>\u003ccode>keycloak-js\u003c/code> là gói ESM mà Jest của Create React App không nạp được, nên \u003ccode>createKeycloak.ts\u003c/code> được tách riêng và \u003ccode>AuthProvider\u003c/code> nhận một \u003ccode>KeycloakClient\u003c/code> (\u003ccode>Pick&lt;Keycloak, …&gt;\u003c/code>) để test truyền đối tượng giả. Đánh đổi: test không bắt được lỗi cấu hình thật với Keycloak (redirect URI, scope), nên vẫn cần thử đầu-cuối.\u003c/li>\n\u003c/ul>\n\u003ch3>11.8 Chẩn đoán lỗi riêng của SPA\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Triệu chứng\u003c/th>\n\u003cth>Nguyên nhân thường gặp\u003c/th>\n\u003cth>Cách kiểm tra\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>UI báo chung &quot;Không tải được quyền&quot; dù đã đăng nhập (gặp ngày 2026-11-09)\u003c/td>\n\u003ctd>\u003ccode>GET /me/permissions\u003c/code> thất bại: gateway chạy sai project (\u003ccode>GATEWAY_PROJECT=example\u003c/code> nên không có route, gateway trả 404 \u003ccode>ROUTE_NOT_FOUND\u003c/code>), service w-identity chưa chạy, hoặc thiếu CORS\u003c/td>\n\u003ctd>Tab Network: xem status và \u003ccode>code\u003c/code> trong \u003ccode>problem+json\u003c/code>; gọi \u003ccode>curl localhost:3000/me/permissions\u003c/code> không token, kết quả phải là lỗi xác thực chứ không phải \u003ccode>ROUTE_NOT_FOUND\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Trang trắng hoặc 404 khi Keycloak chuyển về \u003ccode>/callback\u003c/code>\u003c/td>\n\u003ctd>Máy chủ tĩnh không có history fallback\u003c/td>\n\u003ctd>Mở thẳng \u003ccode>/callback\u003c/code>, xem có trả \u003ccode>index.html\u003c/code> không\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Đăng nhập lặp vô hạn\u003c/td>\n\u003ctd>\u003ccode>redirectUri\u003c/code> lệch client, hoặc storage bị chặn nên không đọc lại được \u003ccode>kc-callback-…\u003c/code>\u003c/td>\n\u003ctd>Network, và Application → Local Storage\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>F5 bị hỏi lại mật khẩu\u003c/td>\n\u003ctd>Cookie phiên SSO không còn (hết hạn, bị chặn, hoặc đã đăng xuất ở nơi khác)\u003c/td>\n\u003ctd>Bài 5\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Dùng được vài phút rồi 401\u003c/td>\n\u003ctd>Làm mới token thất bại\u003c/td>\n\u003ctd>\u003ccode>onAuthRefreshError\u003c/code>, bài 6\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Console có &quot;blocked by CORS policy&quot;\u003c/td>\n\u003ctd>Origin của UI không nằm trong \u003ccode>GATEWAY_CORS_ORIGINS\u003c/code>\u003c/td>\n\u003ctd>So \u003ccode>window.location.origin\u003c/code> với cấu hình gateway\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Bài học từ ca đầu tiên: một thông báo chung ở UI có thể đến từ ba tầng (gateway, service, CORS). Đừng đoán; đọc status và \u003ccode>code\u003c/code> trả về, rồi đi từng tầng.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nói &quot;SPA an toàn vì token nằm trong bộ nhớ&quot; mà không nhắc XSS vẫn dùng được token; quên rằng \u003ccode>/callback\u003c/code> cần history fallback ở môi trường thật; ẩn nút trên UI rồi coi đó là phân quyền; nhầm response mode \u003ccode>fragment\u003c/code> (mã không gửi lên server) với \u003ccode>query\u003c/code>.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> vì sao SPA không cần secret mà vẫn an toàn khi đổi mã? Sau F5 điều gì còn và điều gì mất? Khi nào bạn chọn BFF thay cho SPA thuần, và phải đánh đổi gì?\u003c/p>\n"}],"glossary":[{"term":"OAuth 2.0","def":"Giao thức ủy quyền: cấp quyền gọi API mà không đưa mật khẩu"},{"term":"OIDC","def":"Lớp xác thực trên OAuth 2.0, thêm ID token"},{"term":"Authorization Server / OP","def":"Máy chủ cấp token (Keycloak)"},{"term":"Relying Party / Client","def":"Ứng dụng xin đăng nhập (SPA)"},{"term":"Resource Server","def":"API nhận và xác minh access token (gateway)"},{"term":"Realm","def":"Vùng tách biệt gồm user, client, cấu hình trong Keycloak"},{"term":"Public client","def":"Client không giữ được secret (SPA, mobile)"},{"term":"Confidential client","def":"Client giữ được secret (server)"},{"term":"Authorization Code","def":"Mã dùng một lần đổi lấy token"},{"term":"PKCE","def":"Cơ chế gắn \u003ccode>code_verifier\u003c/code> vào lượt đăng nhập để chặn đánh cắp mã"},{"term":"\u003ccode>state\u003c/code>","def":"Giá trị chống CSRF ở luồng đăng nhập"},{"term":"\u003ccode>nonce\u003c/code>","def":"Giá trị gắn vào ID token để chống phát lại"},{"term":"Access token","def":"Token cho API; sống ngắn"},{"term":"ID token","def":"Token cho client biết người dùng là ai"},{"term":"Refresh token","def":"Token lấy access token mới; được xoay vòng"},{"term":"JWT","def":"Token có chữ ký: header.payload.signature"},{"term":"JWKS","def":"Tập khóa công khai để xác minh chữ ký"},{"term":"\u003ccode>aud\u003c/code>","def":"Người nhận dự kiến của token"},{"term":"\u003ccode>azp\u003c/code>","def":"Client đã xin token"},{"term":"\u003ccode>sid\u003c/code>","def":"Mã phiên SSO, dùng chung cho các token của một phiên"},{"term":"SSO session","def":"Phiên đăng nhập ở Keycloak, nhận biết bằng cookie"},{"term":"\u003ccode>prompt=none\u003c/code>","def":"Hỏi phiên có sẵn mà không hiện trang đăng nhập"},{"term":"\u003ccode>check-sso\u003c/code> / \u003ccode>login-required\u003c/code>","def":"Hai chế độ khởi động của keycloak-js"},{"term":"Introspection","def":"Hỏi Keycloak token còn hiệu lực không"},{"term":"Revocation","def":"Thu hồi token"},{"term":"Refresh token rotation","def":"Mỗi lần làm mới cấp refresh token mới, token cũ không dùng lại được"},{"term":"RP-initiated logout","def":"Client chuyển hướng tới \u003ccode>/logout\u003c/code> để hủy phiên SSO"},{"term":"Front-channel / back-channel logout","def":"Cách báo các client khác khi phiên kết thúc (qua trình duyệt / gọi server)"},{"term":"SPA","def":"Ứng dụng một trang: mã chạy ở trình duyệt, điều hướng bằng JavaScript"},{"term":"BFF","def":"Server nhỏ đứng giữa trình duyệt và API, giữ token và secret thay cho trình duyệt"},{"term":"History fallback","def":"Máy chủ tĩnh trả \u003ccode>index.html\u003c/code> cho mọi đường dẫn của SPA (ví dụ \u003ccode>/callback\u003c/code>)"},{"term":"Response mode (\u003ccode>fragment\u003c/code> / \u003ccode>query\u003c/code>)","def":"Mã ủy quyền trả về sau dấu \u003ccode>#\u003c/code> (không gửi lên server) hay trong chuỗi truy vấn"},{"term":"Preflight","def":"Yêu cầu \u003ccode>OPTIONS\u003c/code> mà trình duyệt gửi trước khi gọi API khác origin có header đặc biệt"},{"term":"Open redirect","def":"Lỗi cho phép chuyển người dùng tới địa chỉ lạ qua tham số quay lại"},{"term":"CSP","def":"Chính sách nội dung do server khai báo, giới hạn script được chạy trên trang"}],"intro":"\u003cp>Sổ tay về cách client (SPA) tương tác với Keycloak: đăng nhập, quản lý token, session và đăng xuất. Mọi số liệu và hành vi ở đây được \u003cstrong>chạy thật\u003c/strong> trên Keycloak 26 ở \u003ccode>localhost:8081\u003c/code> (realm tạm dựng từ \u003ccode>fixtures/pm-realm.json\u003c/code>, đã xóa sau khi thử), không chép từ tài liệu. Phần nối với dự án (gateway, w-identity, UI) nằm ở bài 9, 10 và 11 (bài 11 gom những điều riêng của SPA); phân quyền sau đăng nhập nằm ở sổ tay \u003ccode>#authz\u003c/code>.\u003c/p>\n\u003cp>Học theo thứ tự 0–11. Mỗi ngày đọc hai chủ đề, tự nói câu trả lời trong 60–90 giây rồi luyện thẻ câu hỏi. Trạng thái 📖 là tài liệu lý thuyết, không khẳng định bạn đã học thuộc.\u003c/p>\n","questions":[{"id":"b439dab96f","part":"A","partTitle":"Nền tảng và luồng đăng nhập","group":"Khái niệm","level":"basic","text":"OAuth 2.0 khác OpenID Connect thế nào?","hintLabel":"Ý chính","hint":"OAuth 2.0 là giao thức ủy quyền (quyền gọi API không cần đưa mật khẩu). OIDC là lớp xác thực chạy trên OAuth 2.0, thêm ID token để client biết người dùng là ai. \u003cstrong>Bẫy cần tránh:\u003c/strong> gọi OAuth 2.0 là giao thức xác thực.","refs":[0]},{"id":"60272327fb","part":"A","partTitle":"Nền tảng và luồng đăng nhập","group":"Khái niệm","level":"basic","text":"Access token, ID token và refresh token khác nhau thế nào? Mỗi loại dành cho ai?","hintLabel":"Ý chính","hint":"Access token cho resource server (gọi API); ID token cho client (biết user là ai); refresh token cho Keycloak (lấy access token mới). Trong dự án: \u003ccode>aud\u003c/code> của access token là \u003ccode>w-identity\u003c/code>, của ID token là \u003ccode>pm-web\u003c/code>.","refs":[0]},{"id":"371e3c8447","part":"A","partTitle":"Nền tảng và luồng đăng nhập","group":"Khái niệm","level":"mid","text":"Public client khác confidential client thế nào? \u003ccode>pm-web\u003c/code> và \u003ccode>identity-service\u003c/code> thuộc loại nào?","hintLabel":"Ý chính","hint":"Public không giữ được secret (SPA, mobile) nên dùng PKCE; confidential giữ được secret (server) nên xác thực bằng secret. \u003ccode>pm-web\u003c/code> là public, \u003ccode>identity-service\u003c/code> là confidential.","refs":[1]},{"id":"9c0be3c5eb","part":"A","partTitle":"Nền tảng và luồng đăng nhập","group":"Khái niệm","level":"mid","text":"Realm, client, client scope và mapper là gì?","hintLabel":"Ý chính","hint":"Realm là vùng tách biệt chứa user, client, cấu hình; client là ứng dụng được phép dùng Keycloak; client scope là nhóm claim gắn vào token; mapper thêm một claim cụ thể (ví dụ audience).","refs":[1]},{"id":"3801e643cc","part":"A","partTitle":"Nền tảng và luồng đăng nhập","group":"Authorization Code + PKCE","level":"basic","text":"Vì sao SPA không tự làm form đăng nhập? Luồng nào được dùng?","hintLabel":"Ý chính","hint":"Mật khẩu không nên đi qua mã của SPA. SPA chuyển hướng sang Keycloak rồi nhận một mã (Authorization Code + PKCE).","refs":[2]},{"id":"776a589426","part":"A","partTitle":"Nền tảng và luồng đăng nhập","group":"Authorization Code + PKCE","level":"mid","text":"PKCE giải quyết vấn đề gì? Hoạt động thế nào?","hintLabel":"Ý chính","hint":"SPA không giữ được secret. SPA gửi \u003ccode>code_challenge = SHA256(code_verifier)\u003c/code> khi bắt đầu và gửi \u003ccode>code_verifier\u003c/code> khi đổi mã. Kẻ chặn được mã không có verifier nên không đổi được token. Đã kiểm chứng: verifier sai trả 400.","refs":[2]},{"id":"d39bf4adaf","part":"A","partTitle":"Nền tảng và luồng đăng nhập","group":"Authorization Code + PKCE","level":"mid","text":"\u003ccode>state\u003c/code> và \u003ccode>nonce\u003c/code> khác nhau thế nào?","hintLabel":"Ý chính","hint":"\u003ccode>state\u003c/code> chống CSRF ở luồng đăng nhập: Keycloak trả lại nguyên vẹn, client kiểm tra. \u003ccode>nonce\u003c/code> gắn vào ID token để chống phát lại: ID token trả về chứa đúng \u003ccode>nonce\u003c/code> đã gửi.","refs":[2]},{"id":"d320d048a1","part":"A","partTitle":"Nền tảng và luồng đăng nhập","group":"Authorization Code + PKCE","level":"mid","text":"Vì sao \u003ccode>redirect_uri\u003c/code> phải khớp chính xác và không dùng ký tự đại diện?","hintLabel":"Ý chính","hint":"Nếu cho phép địa chỉ tùy ý, kẻ tấn công có thể nhận mã ủy quyền. Keycloak trả 400 khi \u003ccode>redirect_uri\u003c/code> không khớp (đã kiểm chứng).","refs":[2]},{"id":"a3f9c9524d","part":"A","partTitle":"Nền tảng và luồng đăng nhập","group":"Authorization Code + PKCE","level":"hard","text":"Vì sao không dùng luồng Implicit hay Password cho SPA?","hintLabel":"Ý chính","hint":"Implicit đặt token trong URL (lộ qua lịch sử, log, referrer) và không có PKCE; Password buộc ứng dụng nhận mật khẩu. Server vẫn hỗ trợ các grant này nhưng client \u003ccode>pm-web\u003c/code> chỉ bật Standard flow.","refs":[2]},{"id":"5680a34c0d","part":"B","partTitle":"Token và xác minh","group":"Nội dung token","level":"mid","text":"Những claim nào bạn kiểm tra khi xác minh một access token?","hintLabel":"Ý chính","hint":"Chữ ký (thuật toán \u003ccode>RS256\u003c/code>, khóa theo \u003ccode>kid\u003c/code> từ JWKS), \u003ccode>iss\u003c/code>, \u003ccode>aud\u003c/code>, \u003ccode>exp\u003c/code>, \u003ccode>typ = Bearer\u003c/code>, có \u003ccode>sub\u003c/code> và \u003ccode>iat\u003c/code>.","refs":[4]},{"id":"c8df35b95b","part":"B","partTitle":"Token và xác minh","group":"Nội dung token","level":"mid","text":"Vì sao \u003ccode>aud\u003c/code> của access token và ID token khác nhau?","hintLabel":"Ý chính","hint":"Mỗi token có người nhận khác nhau: access token cho API (\u003ccode>w-identity\u003c/code>), ID token cho client (\u003ccode>pm-web\u003c/code>). Client không được đưa ID token cho API.","refs":[3]},{"id":"7a9eab1b14","part":"B","partTitle":"Token và xác minh","group":"Nội dung token","level":"hard","text":"Gateway trả 401 dù người dùng vừa đăng nhập. Bạn kiểm tra gì?","hintLabel":"Ý chính","hint":"Giải mã payload token và kiểm tra \u003ccode>sub\u003c/code>, \u003ccode>aud\u003c/code>, \u003ccode>iss\u003c/code>, \u003ccode>typ\u003c/code>, \u003ccode>exp\u003c/code>. Lỗi thật của dự án: fixture thiếu client scope \u003ccode>basic\u003c/code> nên access token không có \u003ccode>sub\u003c/code>, mà gateway yêu cầu \u003ccode>sub\u003c/code>.","refs":[9]},{"id":"53477c215d","part":"B","partTitle":"Token và xác minh","group":"Nội dung token","level":"mid","text":"Xác minh JWT cục bộ khác introspection thế nào?","hintLabel":"Ý chính","hint":"Cục bộ: nhanh, không gọi Keycloak, nhưng không biết phiên đã hủy. Introspection: biết ngay token còn hiệu lực theo phiên, đổi lại thêm một lần gọi mạng. Đã kiểm chứng: sau đăng xuất introspection trả \u003ccode>active: false\u003c/code>, còn xác minh cục bộ vẫn chấp nhận đến khi hết hạn.","refs":[4]},{"id":"dec6aac42b","part":"B","partTitle":"Token và xác minh","group":"Nội dung token","level":"hard","text":"Khóa ký xoay vòng thì gateway xử lý thế nào?","hintLabel":"Ý chính","hint":"Chọn khóa theo \u003ccode>kid\u003c/code>; gặp \u003ccode>kid\u003c/code> lạ thì tải lại JWKS, có thời gian chờ giữa các lần để chống lạm dụng.","refs":[4]},{"id":"987e760330","part":"B","partTitle":"Token và xác minh","group":"Làm mới token","level":"mid","text":"Refresh token rotation là gì? Nó bảo vệ điều gì?","hintLabel":"Ý chính","hint":"Mỗi lần làm mới cấp refresh token mới và vô hiệu token cũ. Dùng lại token cũ bị từ chối (\u003ccode>invalid_grant: Maximum allowed refresh token reuse exceeded\u003c/code>), nên token bị lộ chỉ dùng được một lần và việc dùng lại là tín hiệu bị đánh cắp.","refs":[6]},{"id":"36ea779562","part":"B","partTitle":"Token và xác minh","group":"Làm mới token","level":"mid","text":"Client quản lý việc làm mới access token thế nào?","hintLabel":"Ý chính","hint":"Làm mới trước mỗi lần gọi API nếu còn dưới 30 giây (\u003ccode>updateToken(30)\u003c/code>), xử lý \u003ccode>onTokenExpired\u003c/code>, và khi API trả 401 thì ép làm mới rồi thử lại đúng một lần.","refs":[6]},{"id":"00dc9b27bc","part":"B","partTitle":"Token và xác minh","group":"Làm mới token","level":"hard","text":"Hai yêu cầu làm mới chạy song song với rotation sẽ xảy ra chuyện gì?","hintLabel":"Ý chính","hint":"Cùng dùng một refresh token nên một yêu cầu thất bại (token đã bị vô hiệu). Giải pháp: gom thành một lần làm mới (single-flight) ở client.","refs":[6]},{"id":"163786d2d3","part":"C","partTitle":"Session và đăng xuất","group":null,"level":"mid","text":"Phiên SSO khác token ở điểm nào?","hintLabel":"Ý chính","hint":"Phiên SSO nằm ở Keycloak (cookie \u003ccode>KEYCLOAK_IDENTITY\u003c/code>, \u003ccode>KEYCLOAK_SESSION\u003c/code>), cho phép đăng nhập lại không cần mật khẩu; token nằm ở client và dùng gọi API. Phiên idle 30 phút, tối đa 10 giờ; token sống 5 phút và 30 phút.","refs":[5]},{"id":"4a936ffc2c","part":"C","partTitle":"Session và đăng xuất","group":null,"level":"mid","text":"F5 trang thì chuyện gì xảy ra với token và phiên?","hintLabel":"Ý chính","hint":"Token trong bộ nhớ mất. Keycloak thấy phiên SSO còn nên cấp mã mới mà không hỏi mật khẩu; phiên hết thì hiện trang đăng nhập.","refs":[5]},{"id":"48da67bdcc","part":"C","partTitle":"Session và đăng xuất","group":null,"level":"mid","text":"\u003ccode>check-sso\u003c/code> khác \u003ccode>login-required\u003c/code> thế nào? \u003ccode>prompt=none\u003c/code> là gì?","hintLabel":"Ý chính","hint":"\u003ccode>check-sso\u003c/code>: có phiên thì đăng nhập ngầm, không thì ở trạng thái chưa đăng nhập. \u003ccode>login-required\u003c/code>: không có phiên thì chuyển thẳng sang trang đăng nhập (dự án dùng cái này). \u003ccode>prompt=none\u003c/code> hỏi phiên có sẵn mà không hiện trang đăng nhập; không có phiên thì trả \u003ccode>error=login_required\u003c/code>.","refs":[5]},{"id":"f30d904a57","part":"C","partTitle":"Session và đăng xuất","group":null,"level":"hard","text":"Đăng xuất đúng gồm những việc gì?","hintLabel":"Ý chính","hint":"Xóa token ở client và chuyển hướng tới \u003ccode>/logout\u003c/code> kèm \u003ccode>id_token_hint\u003c/code> và \u003ccode>post_logout_redirect_uri\u003c/code> đã đăng ký để hủy phiên SSO. Chỉ xóa token ở UI thì lần sau Keycloak vẫn đăng nhập ngầm.","refs":[7]},{"id":"5eab0fa4c6","part":"C","partTitle":"Session và đăng xuất","group":null,"level":"hard","text":"Ngay sau khi đăng xuất, access token cũ còn dùng được ở đâu và không dùng được ở đâu?","hintLabel":"Ý chính","hint":"Không dùng được: \u003ccode>/userinfo\u003c/code> (401), introspection (\u003ccode>active: false\u003c/code>), làm mới (400). Vẫn dùng được: gateway xác minh cục bộ đến khi \u003ccode>exp\u003c/code> (tối đa 5 phút). Vì vậy access token sống ngắn.","refs":[7]},{"id":"e620b80e2a","part":"C","partTitle":"Session và đăng xuất","group":null,"level":"mid","text":"Front-channel và back-channel logout khác nhau thế nào?","hintLabel":"Ý chính","hint":"Front-channel: trình duyệt nạp trang đăng xuất của từng client. Back-channel: Keycloak gọi server của client. Giúp các client khác biết phiên đã kết thúc. Dự án chỉ có một client nên chưa dùng back-channel.","refs":[7]},{"id":"97e8cb76ae","part":"D","partTitle":"Bảo mật, chẩn đoán và dự án","group":null,"level":"mid","text":"Vì sao không lưu token trong \u003ccode>localStorage\u003c/code>? Lưu ở đâu thì hợp lý hơn?","hintLabel":"Ý chính","hint":"Mọi script cùng origin (kể cả mã bị chèn do XSS) đọc được \u003ccode>localStorage\u003c/code>. Giữ trong bộ nhớ (dự án dùng) hoặc cookie \u003ccode>HttpOnly\u003c/code> kèm biện pháp chống CSRF. Đổi lại ở bộ nhớ: F5 mất token nên phải hỏi lại phiên SSO.","refs":[8]},{"id":"ecff394f7c","part":"D","partTitle":"Bảo mật, chẩn đoán và dự án","group":null,"level":"mid","text":"CORS có bảo vệ API không?","hintLabel":"Ý chính","hint":"Không: CORS chỉ ràng buộc trình duyệt. API vẫn phải xác minh token. Gateway cũng chỉ cho phép origin cấu hình chính xác, không dùng \u003ccode>*\u003c/code> khi có \u003ccode>Authorization\u003c/code>.","refs":[8]},{"id":"75ed4700f6","part":"D","partTitle":"Bảo mật, chẩn đoán và dự án","group":null,"level":"hard","text":"Kể các tấn công vào luồng đăng nhập và biện pháp tương ứng.","hintLabel":"Ý chính","hint":"Chặn mã → PKCE, mã dùng một lần; CSRF → \u003ccode>state\u003c/code>; phát lại ID token → \u003ccode>nonce\u003c/code>; chuyển hướng lạ → \u003ccode>redirect_uri\u003c/code> khớp chính xác; mix-up → kiểm tra \u003ccode>iss\u003c/code>; lộ token → sống ngắn, rotation, thu hồi; XSS → không để token ở \u003ccode>localStorage\u003c/code>, CSP.","refs":[8]},{"id":"deb9ce542a","part":"D","partTitle":"Bảo mật, chẩn đoán và dự án","group":null,"level":"mid","text":"Bạn thấy trang Keycloak &quot;Page not found&quot; khi bấm đăng nhập. Nguyên nhân thường gặp?","hintLabel":"Ý chính","hint":"Realm chưa tồn tại: \u003ccode>/realms/&lt;realm&gt;\u003c/code> trả \u003ccode>Realm does not exist\u003c/code>. Cách xử lý: import fixture realm. Nếu realm có nhưng báo \u003ccode>redirect_uri\u003c/code> không hợp lệ thì so URL của UI với \u003ccode>redirectUris\u003c/code> của client.","refs":[9]},{"id":"08f63126b2","part":"D","partTitle":"Bảo mật, chẩn đoán và dự án","group":null,"level":"hard","text":"Bạn đã làm đến đâu trong phần Keycloak? Nói thế nào cho trung thực?","hintLabel":"Ý chính","hint":"Fixture realm, luồng PKCE, rotation, đăng xuất và kiểm tra \u003ccode>redirect_uri\u003c/code> đã kiểm chứng bằng script trên Keycloak thật; UI có test với Keycloak giả, chưa thử đầu-cuối trên trình duyệt thật. Back-channel logout, đăng ký, theme chưa làm.","refs":[10]},{"id":"0cdb527a79","part":"E","partTitle":"SPA và trình duyệt","group":null,"level":"basic","text":"Vì sao SPA là public client? Bundle JavaScript có chứa secret không?","hintLabel":"Ý chính","hint":"Mã chạy ở trình duyệt nên ai cũng đọc được; mọi biến \u003ccode>REACT_APP_*\u003c/code> được nhúng lúc build là công khai. Vì vậy dùng Authorization Code + PKCE thay cho secret. \u003cstrong>Bẫy cần tránh:\u003c/strong> đặt client secret trong biến môi trường của SPA.","refs":[11]},{"id":"b874fd4915","part":"E","partTitle":"SPA và trình duyệt","group":null,"level":"mid","text":"Kể một lượt đăng nhập của SPA theo vòng đời trang, từ mở \u003ccode>/app/users\u003c/code> đến khi quay lại đúng trang.","hintLabel":"Ý chính","hint":"Ghi trang hiện tại vào \u003ccode>sessionStorage\u003c/code>; \u003ccode>init\u003c/code> với \u003ccode>login-required\u003c/code> và PKCE; chuyển hướng cả trang sang Keycloak (state JS mất); quay về \u003ccode>/callback#state&amp;code\u003c/code>; đọc mã, xóa khỏi URL, đối chiếu \u003ccode>state\u003c/code>, đổi mã lấy token trong bộ nhớ; \u003ccode>CallbackPage\u003c/code> đọc rồi xóa trang quay lại và điều hướng.","refs":[11]},{"id":"776573ca33","part":"E","partTitle":"SPA và trình duyệt","group":null,"level":"mid","text":"F5 trang khi đang đăng nhập thì mất gì, còn gì? Có bị hỏi lại mật khẩu không?","hintLabel":"Ý chính","hint":"Mất token trong bộ nhớ; còn cookie phiên SSO của Keycloak, nên \u003ccode>init\u003c/code> chuyển hướng đi–về mà không hỏi mật khẩu. Hỏi lại khi phiên SSO hết hạn, bị chặn cookie hoặc đã đăng xuất.","refs":[11]},{"id":"7c80570b96","part":"E","partTitle":"SPA và trình duyệt","group":null,"level":"mid","text":"\u003ccode>/callback\u003c/code> là gì? Vì sao production cần history fallback?","hintLabel":"Ý chính","hint":"Là route của SPA, không phải endpoint server, nên máy chủ tĩnh phải trả \u003ccode>index.html\u003c/code> cho đường dẫn không phải file, nếu không Keycloak chuyển về sẽ gặp 404. \u003ccode>redirectUri\u003c/code> trong code, \u003ccode>redirectUris\u003c/code> của client và CORS của gateway phải khớp cùng một origin.","refs":[11]},{"id":"502ada992c","part":"E","partTitle":"SPA và trình duyệt","group":null,"level":"mid","text":"Vì sao phải kiểm tra lại đường dẫn quay lại dù chính SPA đã ghi nó vào \u003ccode>sessionStorage\u003c/code>?","hintLabel":"Ý chính","hint":"Storage là đầu vào không tin cậy (XSS hoặc đồng nghiệp chèn giá trị khác); không kiểm tra sẽ thành open redirect. \u003ccode>safeReturnTo\u003c/code> chỉ nhận đường dẫn nội bộ, chặn \u003ccode>//host\u003c/code>, \u003ccode>\\\u003c/code>, ký tự điều khiển, chuỗi quá dài và \u003ccode>/callback\u003c/code>.","refs":[11]},{"id":"28c1bd7c4c","part":"E","partTitle":"SPA và trình duyệt","group":null,"level":"mid","text":"Khi API trả 401 và khi trả 403, SPA xử lý khác nhau thế nào? Vì sao?","hintLabel":"Ý chính","hint":"401: làm mới token và thử lại đúng một lần; vẫn 401 thì phiên hết hạn, đăng nhập lại. 403: không đăng xuất vì đã xác thực nhưng thiếu quyền, chỉ tải lại quyền và báo lỗi. 502/503/504 hoặc mất mạng là lỗi tạm thời, không phải bị từ chối.","refs":[11]},{"id":"d6004c5e96","part":"E","partTitle":"SPA và trình duyệt","group":null,"level":"hard","text":"Hai lời gọi làm mới token chạy song song với refresh token xoay vòng thì chuyện gì xảy ra ở \u003ccode>keycloak-js\u003c/code>?","hintLabel":"Ý chính","hint":"\u003ccode>keycloak-js\u003c/code> 26.2.5 xếp hàng các lời gọi \u003ccode>updateToken\u003c/code>: chỉ lời đầu gửi yêu cầu, các lời sau chờ cùng kết quả. Nếu không gom lại, lời thứ hai dùng refresh token đã bị xoay vòng và nhận \u003ccode>invalid_grant\u003c/code> (bài 6).","refs":[11]},{"id":"2e0da0c20b","part":"E","partTitle":"SPA và trình duyệt","group":null,"level":"mid","text":"Vì sao gọi API khác origin kèm \u003ccode>Authorization\u003c/code> lại có yêu cầu \u003ccode>OPTIONS\u003c/code>? Gateway xử lý nó thế nào?","hintLabel":"Ý chính","hint":"Header \u003ccode>Authorization\u003c/code> làm yêu cầu không còn &quot;đơn giản&quot;, trình duyệt gửi preflight trước. Gateway trả lời preflight trước bước xác thực vì preflight không mang token, chỉ cho origin cấu hình chính xác (không \u003ccode>*\u003c/code>), origin lạ nhận 403.","refs":[11]},{"id":"16c5306581","part":"E","partTitle":"SPA và trình duyệt","group":null,"level":"hard","text":"Token ở bộ nhớ có đủ an toàn trước XSS không? Khi nào chọn BFF?","hintLabel":"Ý chính","hint":"Không đủ: script bị chèn cùng origin vẫn đọc \u003ccode>keycloak.token\u003c/code> hoặc gọi API thay người dùng; bộ nhớ chỉ làm khó hơn. Biện pháp chính là CSP và kiểm soát phụ thuộc. BFF giữ token ngoài JavaScript nên hợp khi yêu cầu bảo mật cao, đổi lại thêm một thành phần phải vận hành và phải chống CSRF vì dùng cookie.","refs":[11]},{"id":"82a3f21460","part":"E","partTitle":"SPA và trình duyệt","group":null,"level":"mid","text":"UI ẩn nút theo quyền thì đã là phân quyền chưa?","hintLabel":"Ý chính","hint":"Chưa: đó chỉ là trải nghiệm vì người dùng sửa được JavaScript hoặc gọi API trực tiếp. Quyết định thật nằm ở gateway và service (\u003ccode>#authz\u003c/code>).","refs":[11]},{"id":"624c642026","part":"E","partTitle":"SPA và trình duyệt","group":null,"level":"hard","text":"UI báo &quot;Không tải được quyền&quot; dù đăng nhập thành công. Bạn kiểm tra theo thứ tự nào?","hintLabel":"Ý chính","hint":"Đọc status và \u003ccode>code\u003c/code> của yêu cầu \u003ccode>/me/permissions\u003c/code> ở tab Network, rồi đi từng tầng: CORS (console), gateway có nạp đúng project không (\u003ccode>ROUTE_NOT_FOUND\u003c/code> nghĩa là không), service có chạy và đăng ký chưa, cuối cùng mới tới dữ liệu quyền. Đã gặp thật ngày 2026-11-09 do \u003ccode>GATEWAY_PROJECT=example\u003c/code>.","refs":[11]},{"id":"a1d7327e26","part":"E","partTitle":"SPA và trình duyệt","group":null,"level":"mid","text":"Vì sao cấu hình SPA phải build lại khi đổi môi trường? Test \u003ccode>AuthProvider\u003c/code> làm thế nào khi Jest không nạp được \u003ccode>keycloak-js\u003c/code>?","hintLabel":"Ý chính","hint":"Biến \u003ccode>REACT_APP_*\u003c/code> được nhúng lúc build. \u003ccode>createKeycloak.ts\u003c/code> được tách riêng và \u003ccode>AuthProvider\u003c/code> nhận một \u003ccode>KeycloakClient\u003c/code> (\u003ccode>Pick&lt;Keycloak, …&gt;\u003c/code>) để test truyền đối tượng giả; đánh đổi là không bắt được lỗi cấu hình thật nên vẫn cần thử đầu-cuối.","refs":[11]}],"slides":[{"cover":true,"html":"\u003ch1>Keycloak và OIDC\u003c/h1>\n\u003cp>Đăng nhập, token, session và đăng xuất giữa SPA và Keycloak.\u003c/p>\n\u003cp>Thông số được kiểm chứng trên Keycloak 26 của dự án.\u003c/p>\n","notes":"\u003cp>Nói rõ phần đã kiểm chứng bằng script trên Keycloak thật và phần mới có test với Keycloak giả.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>OAuth 2.0 và OIDC\u003c/h2>\n\u003cp>OAuth 2.0: ủy quyền. OIDC: xác thực, thêm ID token.\u003c/p>\n\u003cp>Access token → API. ID token → client. Refresh token → Keycloak.\u003c/p>\n","notes":"\u003cp>SPA không bao giờ thấy mật khẩu. aud của access token là w-identity, của ID token là pm-web.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Authorization Code + PKCE\u003c/h2>\n\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMTAwIDkzMCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsbGVkYnk9InRpdGxlIGRlc2MiPgo8dGl0bGUgaWQ9InRpdGxlIj7EkMSDbmcgbmjhuq1wIHbDoCDEkcSDbmcgeHXhuqV0IHRyw6puIFVJPC90aXRsZT4KPGRlc2MgaWQ9ImRlc2MiPlBo4bqnbiBBOiDEkcSDbmcgbmjhuq1wIGLhurFuZyBBdXRob3JpemF0aW9uIENvZGUgdsOgIFBLQ0UuIFNQQSB04bqhbyBjb2RlX3ZlcmlmaWVyLCBjaHV54buDbiBoxrDhu5tuZyBzYW5nIEtleWNsb2FrLCBuZ8aw4budaSBkw7luZyBuaOG6rXAgbeG6rXQga2jhuql1IOG7nyBLZXljbG9haywgS2V5Y2xvYWsgdHLhuqMgbcOjIHbhu4EgL2NhbGxiYWNrLCBTUEEgxJHhu5VpIG3DoyBs4bqleSB0b2tlbiB2w6AgZ+G7jWkgL21lL3Blcm1pc3Npb25zLiBQaOG6p24gQjogxJHEg25nIHh14bqldCB4w7NhIHRva2VuIOG7nyBTUEEgcuG7k2kgY2h1eeG7g24gaMaw4bubbmcgdOG7m2kgS2V5Y2xvYWsgxJHhu4MgaOG7p3kgcGhpw6puIFNTTy48L2Rlc2M+CjxkZWZzPjxtYXJrZXIgaWQ9ImIiIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPjxwYXRoIGQ9Ik0wIDBMMTAgNUwwIDEwWiIgZmlsbD0iIzI3NjViMyIvPjwvbWFya2VyPjxtYXJrZXIgaWQ9Im8iIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPjxwYXRoIGQ9Ik0wIDBMMTAgNUwwIDEwWiIgZmlsbD0iI2E0NWMxMCIvPjwvbWFya2VyPjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjExMDAiIGhlaWdodD0iOTMwIiByeD0iMjAiIGZpbGw9IiNmOGZhZmMiLz4KPGcgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmaWxsPSIjMTcyYjRkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4KPHRleHQgeD0iMzUiIHk9IjM2IiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMjMiIGZvbnQtd2VpZ2h0PSI3MDAiPsSQxIJORyBOSOG6rFAgVsOAIMSQxIJORyBYVeG6pFQgVFLDik4gVUk8L3RleHQ+CjxsaW5lIHgxPSIxMTAiIHkxPSIxMDQiIHgyPSIxMTAiIHkyPSI5MTAiIHN0cm9rZT0iI2I2YzNkNCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtZGFzaGFycmF5PSI2IDYiLz4KPGxpbmUgeDE9IjM0MCIgeTE9IjEwNCIgeDI9IjM0MCIgeTI9IjkxMCIgc3Ryb2tlPSIjYjZjM2Q0IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1kYXNoYXJyYXk9IjYgNiIvPgo8bGluZSB4MT0iNjAwIiB5MT0iMTA0IiB4Mj0iNjAwIiB5Mj0iOTEwIiBzdHJva2U9IiNiNmMzZDQiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWRhc2hhcnJheT0iNiA2Ii8+CjxsaW5lIHgxPSI5MDAiIHkxPSIxMDQiIHgyPSI5MDAiIHkyPSI5MTAiIHN0cm9rZT0iI2I2YzNkNCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtZGFzaGFycmF5PSI2IDYiLz4KPHJlY3QgeD0iMTUiIHk9IjUwIiB3aWR0aD0iMTkwIiBoZWlnaHQ9IjU0IiByeD0iMTIiIGZpbGw9IiNmY2U3ZWQiIHN0cm9rZT0iIzk2YTdiZCIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48dGV4dCB4PSIxMTAiIHk9IjczIiBmb250LXNpemU9IjE3IiBmb250LXdlaWdodD0iNzAwIj5OZ8aw4budaSBkw7luZzwvdGV4dD48dGV4dCB4PSIxMTAiIHk9IjkzIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNDQ1NDZhIj50csOsbmggZHV54buHdDwvdGV4dD4KPHJlY3QgeD0iMjQ1IiB5PSI1MCIgd2lkdGg9IjE5MCIgaGVpZ2h0PSI1NCIgcng9IjEyIiBmaWxsPSIjZGZmM2VlIiBzdHJva2U9IiM5NmE3YmQiIHN0cm9rZS13aWR0aD0iMS41Ii8+PHRleHQgeD0iMzQwIiB5PSI3MyIgZm9udC1zaXplPSIxNyIgZm9udC13ZWlnaHQ9IjcwMCI+U1BBIChSZWFjdCk8L3RleHQ+PHRleHQgeD0iMzQwIiB5PSI5MyIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzQ0NTQ2YSI+a2V5Y2xvYWstanMsIHRva2VuIHRyb25nIGLhu5kgbmjhu5s8L3RleHQ+CjxyZWN0IHg9IjUwNSIgeT0iNTAiIHdpZHRoPSIxOTAiIGhlaWdodD0iNTQiIHJ4PSIxMiIgZmlsbD0iI2ZmZjBjNSIgc3Ryb2tlPSIjOTZhN2JkIiBzdHJva2Utd2lkdGg9IjEuNSIvPjx0ZXh0IHg9IjYwMCIgeT0iNzMiIGZvbnQtc2l6ZT0iMTciIGZvbnQtd2VpZ2h0PSI3MDAiPktleWNsb2FrPC90ZXh0Pjx0ZXh0IHg9IjYwMCIgeT0iOTMiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM0NDU0NmEiPnRyYW5nIMSRxINuZyBuaOG6rXAsIGPhuqVwIHRva2VuPC90ZXh0Pgo8cmVjdCB4PSI4MDUiIHk9IjUwIiB3aWR0aD0iMTkwIiBoZWlnaHQ9IjU0IiByeD0iMTIiIGZpbGw9IiNlNmVkZmEiIHN0cm9rZT0iIzk2YTdiZCIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48dGV4dCB4PSI5MDAiIHk9IjczIiBmb250LXNpemU9IjE3IiBmb250LXdlaWdodD0iNzAwIj5BUEkgR2F0ZXdheTwvdGV4dD48dGV4dCB4PSI5MDAiIHk9IjkzIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNDQ1NDZhIj5raeG7g20gdHJhIEpXVCB2w6AgcXV54buBbjwvdGV4dD4KPHJlY3QgeD0iMjAiIHk9IjExNiIgd2lkdGg9IjEwNjAiIGhlaWdodD0iMzAiIHJ4PSI4IiBmaWxsPSIjMjc2NWIzIiBvcGFjaXR5PSIwLjE0Ii8+PHRleHQgeD0iMzUiIHk9IjEzNiIgdGV4dC1hbmNob3I9InN0YXJ0IiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMjc2NWIzIj5BIMK3IMSQxIJORyBOSOG6rFA6IEF1dGhvcml6YXRpb24gQ29kZSArIFBLQ0UgKG3huq10IGto4bqpdSBraMO0bmcgxJFpIHF1YSBTUEEpPC90ZXh0Pgo8bGluZSB4MT0iMTEwIiB5MT0iMTc2IiB4Mj0iMzQwIiB5Mj0iMTc2IiBzdHJva2U9IiMyNzY1YjMiIHN0cm9rZS13aWR0aD0iMi40IiBtYXJrZXItZW5kPSJ1cmwoI2IpIi8+PHRleHQgeD0iMjI1LjAiIHk9IjE2OCIgZm9udC1zaXplPSIxMy41IiBmaWxsPSIjMjc2NWIzIiBmb250LXdlaWdodD0iNjAwIj4xLiBN4bufIC9hcHAgKGNoxrBhIGPDsyB0b2tlbik8L3RleHQ+CjxyZWN0IHg9IjM1NCIgeT0iMTg4IiB3aWR0aD0iMzMwIiBoZWlnaHQ9IjU2IiByeD0iOSIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjMWQ3YTVmIiBzdHJva2Utd2lkdGg9IjEuNiIvPgo8dGV4dCB4PSI1MTkuMCIgeT0iMjEwIiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiMxZDdhNWYiPlNpbmggY29kZV92ZXJpZmllciwgc3RhdGU8L3RleHQ+Cjx0ZXh0IHg9IjUxOS4wIiB5PSIyMzIiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iIzFkN2E1ZiI+Y29kZV9jaGFsbGVuZ2UgPSBTMjU2KGNvZGVfdmVyaWZpZXIpPC90ZXh0Pgo8bGluZSB4MT0iMzQwIiB5MT0iMjc4IiB4Mj0iNjAwIiB5Mj0iMjc4IiBzdHJva2U9IiMyNzY1YjMiIHN0cm9rZS13aWR0aD0iMi40IiBtYXJrZXItZW5kPSJ1cmwoI2IpIi8+PHRleHQgeD0iNDcwLjAiIHk9IjI3MCIgZm9udC1zaXplPSIxMy41IiBmaWxsPSIjMjc2NWIzIiBmb250LXdlaWdodD0iNjAwIj4yLiBDaHV54buDbiBoxrDhu5tuZyAvYXV0aCArIGNvZGVfY2hhbGxlbmdlPC90ZXh0Pgo8bGluZSB4MT0iNjAwIiB5MT0iMzA4IiB4Mj0iMTEwIiB5Mj0iMzA4IiBzdHJva2U9IiNhNDVjMTAiIHN0cm9rZS13aWR0aD0iMi40IiBzdHJva2UtZGFzaGFycmF5PSI3IDUiIG1hcmtlci1lbmQ9InVybCgjbykiLz48dGV4dCB4PSIzNTUuMCIgeT0iMzAwIiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiNhNDVjMTAiIGZvbnQtd2VpZ2h0PSI2MDAiPjMuIFRyYW5nIMSRxINuZyBuaOG6rXAgKHRoZW1lIEtleWNsb2FrKTwvdGV4dD4KPGxpbmUgeDE9IjExMCIgeTE9IjMzOCIgeDI9IjYwMCIgeTI9IjMzOCIgc3Ryb2tlPSIjMjc2NWIzIiBzdHJva2Utd2lkdGg9IjIuNCIgbWFya2VyLWVuZD0idXJsKCNiKSIvPjx0ZXh0IHg9IjM1NS4wIiB5PSIzMzAiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iIzI3NjViMyIgZm9udC13ZWlnaHQ9IjYwMCI+NC4gTmjhuq1wIHVzZXJuYW1lICsgcGFzc3dvcmQ8L3RleHQ+CjxsaW5lIHgxPSI2MDAiIHkxPSIzNzAiIHgyPSIzNDAiIHkyPSIzNzAiIHN0cm9rZT0iI2E0NWMxMCIgc3Ryb2tlLXdpZHRoPSIyLjQiIHN0cm9rZS1kYXNoYXJyYXk9IjcgNSIgbWFya2VyLWVuZD0idXJsKCNvKSIvPjx0ZXh0IHg9IjQ3MC4wIiB5PSIzNjIiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iI2E0NWMxMCIgZm9udC13ZWlnaHQ9IjYwMCI+NS4gMzAyIC9jYWxsYmFjaz9jb2RlPS4uLiZhbXA7c3RhdGU9Li4uPC90ZXh0Pgo8cmVjdCB4PSIzNTQiIHk9IjM4MiIgd2lkdGg9IjMzMCIgaGVpZ2h0PSIzNCIgcng9IjkiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzFkN2E1ZiIgc3Ryb2tlLXdpZHRoPSIxLjYiLz4KPHRleHQgeD0iNTE5LjAiIHk9IjQwNCIgZm9udC1zaXplPSIxMy41IiBmaWxsPSIjMWQ3YTVmIj5LaeG7g20gdHJhIHN0YXRlOyBjaMawYSBjw7MgdG9rZW48L3RleHQ+CjxsaW5lIHgxPSIzNDAiIHkxPSI0NTAiIHgyPSI2MDAiIHkyPSI0NTAiIHN0cm9rZT0iIzI3NjViMyIgc3Ryb2tlLXdpZHRoPSIyLjQiIG1hcmtlci1lbmQ9InVybCgjYikiLz48dGV4dCB4PSI0NzAuMCIgeT0iNDQyIiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiMyNzY1YjMiIGZvbnQtd2VpZ2h0PSI2MDAiPjYuIMSQ4buVaSBtw6M6IGNvZGUgKyBjb2RlX3ZlcmlmaWVyPC90ZXh0Pgo8bGluZSB4MT0iNjAwIiB5MT0iNDgwIiB4Mj0iMzQwIiB5Mj0iNDgwIiBzdHJva2U9IiNhNDVjMTAiIHN0cm9rZS13aWR0aD0iMi40IiBzdHJva2UtZGFzaGFycmF5PSI3IDUiIG1hcmtlci1lbmQ9InVybCgjbykiLz48dGV4dCB4PSI0NzAuMCIgeT0iNDcyIiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiNhNDVjMTAiIGZvbnQtd2VpZ2h0PSI2MDAiPmFjY2VzcyAoNSBwaMO6dCkgKyByZWZyZXNoICsgaWRfdG9rZW48L3RleHQ+CjxyZWN0IHg9IjM1NCIgeT0iNDkyIiB3aWR0aD0iMzMwIiBoZWlnaHQ9IjU2IiByeD0iOSIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjMWQ3YTVmIiBzdHJva2Utd2lkdGg9IjEuNiIvPgo8dGV4dCB4PSI1MTkuMCIgeT0iNTE0IiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiMxZDdhNWYiPlRva2VuIGNo4buJIGdp4buvIHRyb25nIGLhu5kgbmjhu5s8L3RleHQ+Cjx0ZXh0IHg9IjUxOS4wIiB5PSI1MzYiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iIzFkN2E1ZiI+VuG7gSB0cmFuZyDEkcOjIG5o4bubIChjaOG7iSDEkcaw4budbmcgZOG6q24gbuG7mWkgYuG7mSk8L3RleHQ+CjxsaW5lIHgxPSIzNDAiIHkxPSI1ODIiIHgyPSI5MDAiIHkyPSI1ODIiIHN0cm9rZT0iIzI3NjViMyIgc3Ryb2tlLXdpZHRoPSIyLjQiIG1hcmtlci1lbmQ9InVybCgjYikiLz48dGV4dCB4PSI2MjAuMCIgeT0iNTc0IiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiMyNzY1YjMiIGZvbnQtd2VpZ2h0PSI2MDAiPjcuIEdFVCAvbWUvcGVybWlzc2lvbnMgKyBCZWFyZXI8L3RleHQ+CjxsaW5lIHgxPSI5MDAiIHkxPSI2MTAiIHgyPSIzNDAiIHkyPSI2MTAiIHN0cm9rZT0iI2E0NWMxMCIgc3Ryb2tlLXdpZHRoPSIyLjQiIHN0cm9rZS1kYXNoYXJyYXk9IjcgNSIgbWFya2VyLWVuZD0idXJsKCNvKSIvPjx0ZXh0IHg9IjYyMC4wIiB5PSI2MDIiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iI2E0NWMxMCIgZm9udC13ZWlnaHQ9IjYwMCI+eyByb2xlLCBwZXJtaXNzaW9uc1tdIH0g4oaSIHJlbmRlcjwvdGV4dD4KPHJlY3QgeD0iMjAiIHk9IjY0NiIgd2lkdGg9IjEwNjAiIGhlaWdodD0iMzAiIHJ4PSI4IiBmaWxsPSIjMjc2NWIzIiBvcGFjaXR5PSIwLjE0Ii8+PHRleHQgeD0iMzUiIHk9IjY2NiIgdGV4dC1hbmNob3I9InN0YXJ0IiBmb250LXNpemU9IjE2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMjc2NWIzIj5CIMK3IMSQxIJORyBYVeG6pFQ6IHjDs2EgdG9rZW4g4bufIFVJIHbDoCBo4buneSBwaGnDqm4gU1NPIOG7nyBLZXljbG9hazwvdGV4dD4KPGxpbmUgeDE9IjExMCIgeTE9IjcwNiIgeDI9IjM0MCIgeTI9IjcwNiIgc3Ryb2tlPSIjMjc2NWIzIiBzdHJva2Utd2lkdGg9IjIuNCIgbWFya2VyLWVuZD0idXJsKCNiKSIvPjx0ZXh0IHg9IjIyNS4wIiB5PSI2OTgiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iIzI3NjViMyIgZm9udC13ZWlnaHQ9IjYwMCI+OC4gQuG6pW0gxJDEg25nIHh14bqldDwvdGV4dD4KPHJlY3QgeD0iMzU0IiB5PSI3MTgiIHdpZHRoPSIzMzAiIGhlaWdodD0iMzQiIHJ4PSI5IiBmaWxsPSIjZmZmIiBzdHJva2U9IiMxZDdhNWYiIHN0cm9rZS13aWR0aD0iMS42Ii8+Cjx0ZXh0IHg9IjUxOS4wIiB5PSI3NDAiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iIzFkN2E1ZiI+WMOzYSB0b2tlbiwgY+G7nSBwaGnDqm4gdsOgIHRyYW5nIMSRw6Mgbmjhu5s8L3RleHQ+CjxsaW5lIHgxPSIzNDAiIHkxPSI3ODYiIHgyPSI2MDAiIHkyPSI3ODYiIHN0cm9rZT0iIzI3NjViMyIgc3Ryb2tlLXdpZHRoPSIyLjQiIG1hcmtlci1lbmQ9InVybCgjYikiLz48dGV4dCB4PSI0NzAuMCIgeT0iNzc4IiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiMyNzY1YjMiIGZvbnQtd2VpZ2h0PSI2MDAiPjkuIC9sb2dvdXQgKyBpZF90b2tlbl9oaW50ICsgcG9zdF9sb2dvdXRfcmVkaXJlY3RfdXJpPC90ZXh0Pgo8bGluZSB4MT0iNjAwIiB5MT0iODIwIiB4Mj0iMTEwIiB5Mj0iODIwIiBzdHJva2U9IiNhNDVjMTAiIHN0cm9rZS13aWR0aD0iMi40IiBzdHJva2UtZGFzaGFycmF5PSI3IDUiIG1hcmtlci1lbmQ9InVybCgjbykiLz48dGV4dCB4PSIzNTUuMCIgeT0iODEyIiBmb250LXNpemU9IjEzLjUiIGZpbGw9IiNhNDVjMTAiIGZvbnQtd2VpZ2h0PSI2MDAiPjEwLiAzMDIgduG7gSAvIChjaMawYSDEkcSDbmcgbmjhuq1wKTwvdGV4dD4KPHJlY3QgeD0iNjE0IiB5PSI4MzIiIHdpZHRoPSIzMzAiIGhlaWdodD0iNTYiIHJ4PSI5IiBmaWxsPSIjZmZmIiBzdHJva2U9IiNiMzMwNGEiIHN0cm9rZS13aWR0aD0iMS42Ii8+Cjx0ZXh0IHg9Ijc3OS4wIiB5PSI4NTQiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iI2IzMzA0YSI+QWNjZXNzIHRva2VuIGPFqSB24bqrbiBo4bujcCBs4buHIMSR4bq/biBraGkgaOG6v3QgaOG6oW48L3RleHQ+Cjx0ZXh0IHg9Ijc3OS4wIiB5PSI4NzYiIGZvbnQtc2l6ZT0iMTMuNSIgZmlsbD0iI2IzMzA0YSI+KHJlZnJlc2ggdG9rZW4gxJHDoyBi4buLIHbDtCBoaeG7h3UgY8O5bmcgcGhpw6puKTwvdGV4dD4KPC9nPjwvc3ZnPg==\" alt=\"Đăng nhập và đăng xuất trên UI\">\u003c/p>\n","notes":"\u003cp>code_verifier sinh ngẫu nhiên, code_challenge = SHA256. Đổi mã sai verifier trả 400. redirect_uri lạ trả 400. state chống CSRF, nonce chống phát lại, iss trong phản hồi chống mix-up.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Các loại token\u003c/h2>\n\u003cp>Access: Bearer, aud w-identity, 5 phút. ID: aud pm-web, có nonce. Refresh: 30 phút, xoay vòng.\u003c/p>\n\u003cp>Cùng sid cho cả ba token.\u003c/p>\n","notes":"\u003cp>JWT chỉ mã hóa base64url, không bí mật. sub đến từ client scope basic: fixture từng thiếu nên token không có sub và gateway trả 401.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Session và vòng đời token\u003c/h2>\n\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMTAwIDY0MCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsbGVkYnk9InRpdGxlIGRlc2MiPgo8dGl0bGUgaWQ9InRpdGxlIj5Ww7JuZyDEkeG7nWkgdG9rZW4gdsOgIHNlc3Npb248L3RpdGxlPgo8ZGVzYyBpZD0iZGVzYyI+VHLhu6VjIHRo4budaSBnaWFuOiDEkcSDbmcgbmjhuq1wIHThuqFvIHBoacOqbiBTU08gKDMwIHBow7p0IGtow7RuZyBob+G6oXQgxJHhu5luZywgdOG7kWkgxJFhIDEwIGdp4budKSwgYWNjZXNzIHRva2VuIHPhu5FuZyA1IHBow7p0IMSRxrDhu6NjIGzDoG0gbeG7m2kgYuG6sW5nIHJlZnJlc2ggdG9rZW4geG9heSB2w7JuZzsgc2F1IMSRxINuZyB4deG6pXQgcmVmcmVzaCB0b2tlbiB2w6AgdXNlcmluZm8gYuG7iyB04burIGNo4buRaSwgbmjGsG5nIGdhdGV3YXkgeMOhYyBtaW5oIGPhu6VjIGLhu5kgduG6q24gY2jhuqVwIG5o4bqtbiBhY2Nlc3MgdG9rZW4gxJHhur9uIGtoaSBo4bq/dCBo4bqhbi48L2Rlc2M+CjxkZWZzPjxtYXJrZXIgaWQ9ImIiIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPjxwYXRoIGQ9Ik0wIDBMMTAgNUwwIDEwWiIgZmlsbD0iIzI3NjViMyIvPjwvbWFya2VyPjxtYXJrZXIgaWQ9Im8iIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPjxwYXRoIGQ9Ik0wIDBMMTAgNUwwIDEwWiIgZmlsbD0iI2E0NWMxMCIvPjwvbWFya2VyPjxtYXJrZXIgaWQ9InIiIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPjxwYXRoIGQ9Ik0wIDBMMTAgNUwwIDEwWiIgZmlsbD0iI2IzMzA0YSIvPjwvbWFya2VyPjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjExMDAiIGhlaWdodD0iNjQwIiByeD0iMjAiIGZpbGw9IiNmOGZhZmMiLz4KPGcgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmaWxsPSIjMTcyYjRkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4KPHRleHQgeD0iMzUiIHk9IjM2IiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMjMiIGZvbnQtd2VpZ2h0PSI3MDAiPlbDkk5HIMSQ4bucSSBUT0tFTiBWw4AgU0VTU0lPTjwvdGV4dD4KPHRleHQgeD0iMjAiIHk9IjExMCIgdGV4dC1hbmNob3I9InN0YXJ0IiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIj5QaGnDqm4gU1NPPC90ZXh0Pjx0ZXh0IHg9IjIwIiB5PSIxMjgiIHRleHQtYW5jaG9yPSJzdGFydCIgZm9udC1zaXplPSIxMi41IiBmaWxsPSIjNDQ1NDZhIj4oS2V5Y2xvYWspPC90ZXh0Pgo8dGV4dCB4PSIyMCIgeT0iMjEwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMTUiIGZvbnQtd2VpZ2h0PSI3MDAiPkFjY2VzcyB0b2tlbjwvdGV4dD48dGV4dCB4PSIyMCIgeT0iMjI4IiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMTIuNSIgZmlsbD0iIzQ0NTQ2YSI+KDUgcGjDunQpPC90ZXh0Pgo8dGV4dCB4PSIyMCIgeT0iMzEwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMTUiIGZvbnQtd2VpZ2h0PSI3MDAiPlJlZnJlc2ggdG9rZW48L3RleHQ+PHRleHQgeD0iMjAiIHk9IjMyOCIgdGV4dC1hbmNob3I9InN0YXJ0IiBmb250LXNpemU9IjEyLjUiIGZpbGw9IiM0NDU0NmEiPih4b2F5IHbDsm5nKTwvdGV4dD4KPHRleHQgeD0iMjAiIHk9IjQxMCIgdGV4dC1hbmNob3I9InN0YXJ0IiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIj5HYXRld2F5PC90ZXh0Pjx0ZXh0IHg9IjIwIiB5PSI0MjgiIHRleHQtYW5jaG9yPSJzdGFydCIgZm9udC1zaXplPSIxMi41IiBmaWxsPSIjNDQ1NDZhIj4oeMOhYyBtaW5oIGPhu6VjIGLhu5kpPC90ZXh0Pgo8bGluZSB4MT0iMTcwIiB5MT0iNzAiIHgyPSIxNzAiIHkyPSI1MjAiIHN0cm9rZT0iIzI3NjViMyIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtZGFzaGFycmF5PSI2IDYiLz48dGV4dCB4PSIxNzAiIHk9IjY0IiBmb250LXNpemU9IjE0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMjc2NWIzIj7EkMSDbmcgbmjhuq1wPC90ZXh0Pgo8bGluZSB4MT0iNTIwIiB5MT0iNzAiIHgyPSI1MjAiIHkyPSI1MjAiIHN0cm9rZT0iI2E0NWMxMCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtZGFzaGFycmF5PSI2IDYiLz48dGV4dCB4PSI1MjAiIHk9IjY0IiBmb250LXNpemU9IjE0IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjYTQ1YzEwIj5Mw6BtIG3hu5tpICh+NDozMCk8L3RleHQ+CjxsaW5lIHgxPSI3NjAiIHkxPSI3MCIgeDI9Ijc2MCIgeTI9IjUyMCIgc3Ryb2tlPSIjYjMzMDRhIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1kYXNoYXJyYXk9IjYgNiIvPjx0ZXh0IHg9Ijc2MCIgeT0iNjQiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNiMzMwNGEiPsSQxINuZyB4deG6pXQ8L3RleHQ+CjxyZWN0IHg9IjE3MCIgeT0iOTAiIHdpZHRoPSI1OTAiIGhlaWdodD0iNDQiIHJ4PSIxMCIgZmlsbD0iI2ZmZjBjNSIgc3Ryb2tlPSIjYTQ1YzEwIiBzdHJva2Utd2lkdGg9IjEuNiIvPjx0ZXh0IHg9IjQ2NS4wIiB5PSIxMTAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNhNDVjMTAiPlBoacOqbiBTU08gY8OybiBz4buRbmc8L3RleHQ+Cjx0ZXh0IHg9IjQ2NS4wIiB5PSIxMjciIGZvbnQtc2l6ZT0iMTIuNSIgZmlsbD0iI2E0NWMxMCI+aWRsZSAzMCBwaMO6dDsgdOG7kWkgxJFhIDEwIGdp4budOyBjb29raWUgS0VZQ0xPQUtfSURFTlRJVFk8L3RleHQ+CjxyZWN0IHg9Ijc2MCIgeT0iOTAiIHdpZHRoPSIyODAiIGhlaWdodD0iNDQiIHJ4PSIxMCIgZmlsbD0iI2ZiZTNlOCIgc3Ryb2tlPSIjYjMzMDRhIiBzdHJva2Utd2lkdGg9IjEuNiIvPjx0ZXh0IHg9IjkwMC4wIiB5PSIxMTAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNiMzMwNGEiPsSQw6MgaOG7p3k8L3RleHQ+Cjx0ZXh0IHg9IjkwMC4wIiB5PSIxMjciIGZvbnQtc2l6ZT0iMTIuNSIgZmlsbD0iI2IzMzA0YSI+Y29va2llIGLhu4sgeMOzYTwvdGV4dD4KPHJlY3QgeD0iMTcwIiB5PSIxOTAiIHdpZHRoPSIzNzAiIGhlaWdodD0iNDQiIHJ4PSIxMCIgZmlsbD0iI2RmZjNlZSIgc3Ryb2tlPSIjMWQ3YTVmIiBzdHJva2Utd2lkdGg9IjEuNiIvPjx0ZXh0IHg9IjM1NS4wIiB5PSIyMTAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxZDdhNWYiPkFjY2VzcyAjMTwvdGV4dD4KPHRleHQgeD0iMzU1LjAiIHk9IjIyNyIgZm9udC1zaXplPSIxMi41IiBmaWxsPSIjMWQ3YTVmIj5leHAgNSBwaMO6dDwvdGV4dD4KPHJlY3QgeD0iNTUwIiB5PSIxOTAiIHdpZHRoPSIzMjAiIGhlaWdodD0iNDQiIHJ4PSIxMCIgZmlsbD0iI2RmZjNlZSIgc3Ryb2tlPSIjMWQ3YTVmIiBzdHJva2Utd2lkdGg9IjEuNiIvPjx0ZXh0IHg9IjcxMC4wIiB5PSIyMTAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxZDdhNWYiPkFjY2VzcyAjMiAodG9rZW4gbeG7m2kpPC90ZXh0Pgo8dGV4dCB4PSI3MTAuMCIgeT0iMjI3IiBmb250LXNpemU9IjEyLjUiIGZpbGw9IiMxZDdhNWYiPmjhur90IGjhuqFuIDUgcGjDunQgc2F1IGzDumMgbMOgbSBt4bubaTwvdGV4dD4KPHJlY3QgeD0iMTcwIiB5PSIyOTAiIHdpZHRoPSIzNTAiIGhlaWdodD0iNDQiIHJ4PSIxMCIgZmlsbD0iI2U2ZWRmYSIgc3Ryb2tlPSIjMjc2NWIzIiBzdHJva2Utd2lkdGg9IjEuNiIvPjx0ZXh0IHg9IjM0NS4wIiB5PSIzMTAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMyNzY1YjMiPlJlZnJlc2ggIzE8L3RleHQ+Cjx0ZXh0IHg9IjM0NS4wIiB5PSIzMjciIGZvbnQtc2l6ZT0iMTIuNSIgZmlsbD0iIzI3NjViMyI+YuG7iyB2w7QgaGnhu4d1IGtoaSBsw6BtIG3hu5tpPC90ZXh0Pgo8cmVjdCB4PSI1MjAiIHk9IjI5MCIgd2lkdGg9IjI0MCIgaGVpZ2h0PSI0NCIgcng9IjEwIiBmaWxsPSIjZTZlZGZhIiBzdHJva2U9IiMyNzY1YjMiIHN0cm9rZS13aWR0aD0iMS42Ii8+PHRleHQgeD0iNjQwLjAiIHk9IjMxMCIgZm9udC1zaXplPSIxNCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzI3NjViMyI+UmVmcmVzaCAjMjwvdGV4dD4KPHRleHQgeD0iNjQwLjAiIHk9IjMyNyIgZm9udC1zaXplPSIxMi41IiBmaWxsPSIjMjc2NWIzIj5kw7luZyBs4bqhaSAjMSDihpIgNDAwPC90ZXh0Pgo8cmVjdCB4PSI3NjAiIHk9IjI5MCIgd2lkdGg9IjI4MCIgaGVpZ2h0PSI0NCIgcng9IjEwIiBmaWxsPSIjZmJlM2U4IiBzdHJva2U9IiNiMzMwNGEiIHN0cm9rZS13aWR0aD0iMS42Ii8+PHRleHQgeD0iOTAwLjAiIHk9IjMxMCIgZm9udC1zaXplPSIxNCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2IzMzA0YSI+QuG7iyB04burIGNo4buRaSAoNDAwKTwvdGV4dD4KPHRleHQgeD0iOTAwLjAiIHk9IjMyNyIgZm9udC1zaXplPSIxMi41IiBmaWxsPSIjYjMzMDRhIj5waGnDqm4gxJHDoyBo4buneTwvdGV4dD4KPHJlY3QgeD0iMTcwIiB5PSIzOTAiIHdpZHRoPSI3MDAiIGhlaWdodD0iNDQiIHJ4PSIxMCIgZmlsbD0iI2VlZjBmMyIgc3Ryb2tlPSIjNDQ1NDZhIiBzdHJva2Utd2lkdGg9IjEuNiIvPjx0ZXh0IHg9IjUyMC4wIiB5PSI0MTAiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiM0NDU0NmEiPkNo4bqlcCBuaOG6rW4gbeG7jWkgYWNjZXNzIHRva2VuIGPDsm4gaOG6oW48L3RleHQ+Cjx0ZXh0IHg9IjUyMC4wIiB5PSI0MjciIGZvbnQtc2l6ZT0iMTIuNSIgZmlsbD0iIzQ0NTQ2YSI+Y2jhu68ga8O9ICsgaXNzICsgYXVkICsgZXhwPC90ZXh0Pgo8cmVjdCB4PSI4NzAiIHk9IjM5MCIgd2lkdGg9IjE3MCIgaGVpZ2h0PSI0NCIgcng9IjEwIiBmaWxsPSIjZmJlM2U4IiBzdHJva2U9IiNiMzMwNGEiIHN0cm9rZS13aWR0aD0iMS42Ii8+PHRleHQgeD0iOTU1LjAiIHk9IjQxMCIgZm9udC1zaXplPSIxNCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iI2IzMzA0YSI+VG9rZW4gaOG6v3QgaOG6oW4g4oaSIDQwMTwvdGV4dD4KPHRleHQgeD0iODMwIiB5PSIyNTYiIGZvbnQtc2l6ZT0iMTMiIGZpbGw9IiNiMzMwNGEiIGZvbnQtd2VpZ2h0PSI3MDAiPnbhuqtuIGjhu6NwIGzhu4cgxJHhur9uIGV4cDwvdGV4dD4KPHJlY3QgeD0iMzUiIHk9IjQ3MCIgd2lkdGg9IjEwMzAiIGhlaWdodD0iMTQwIiByeD0iMTIiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzk2YTdiZCIgc3Ryb2tlLXdpZHRoPSIxLjUiLz4KPHRleHQgeD0iNTUiIHk9IjUwMCIgdGV4dC1hbmNob3I9InN0YXJ0IiBmb250LXNpemU9IjE0IiBmb250LXdlaWdodD0iNjAwIiBmaWxsPSIjYjMzMDRhIj5TYXUgxJHEg25nIHh14bqldDogL3VzZXJpbmZvIOKGkiA0MDEsIGludHJvc3BlY3Rpb24g4oaSIGFjdGl2ZTpmYWxzZSwgcmVmcmVzaCB0b2tlbiDihpIgNDAwLCBwcm9tcHQ9bm9uZSDihpIgbG9naW5fcmVxdWlyZWQuPC90ZXh0Pgo8dGV4dCB4PSI1NSIgeT0iNTMwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI2MDAiIGZpbGw9IiNiMzMwNGEiPkdhdGV3YXkgeMOhYyBtaW5oIGPhu6VjIGLhu5kgS0jDlE5HIGJp4bq/dCBwaGnDqm4gxJHDoyBi4buLIGjhu6d5OiBhY2Nlc3MgdG9rZW4gY8WpIGPDsm4gZMO5bmcgxJHGsOG7o2MgdOG7kWkgxJFhIDUgcGjDunQuPC90ZXh0Pgo8dGV4dCB4PSI1NSIgeT0iNTYwIiB0ZXh0LWFuY2hvcj0ic3RhcnQiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI2MDAiIGZpbGw9IiMxZDdhNWYiPlbDrCB24bqteSBhY2Nlc3MgdG9rZW4gc+G7kW5nIG5n4bqvbjsgcmVmcmVzaCB0b2tlbiBjaOG6v3QgY8O5bmcgcGhpw6puOyBraeG7g20gdHJhIHTDoGkga2hv4bqjbiBraMOzYSDhu58gbOG7m3AgcGjDom4gcXV54buBbi48L3RleHQ+Cjx0ZXh0IHg9IjU1IiB5PSI1OTAiIHRleHQtYW5jaG9yPSJzdGFydCIgZm9udC1zaXplPSIxNCIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iIzI3NjViMyI+RjUgbeG6pXQgdG9rZW4gKGNo4buJIHRyb25nIGLhu5kgbmjhu5spLCBuaMawbmcgcGhpw6puIFNTTyBjw7JuIHRow6wgS2V5Y2xvYWsgY+G6pXAgbcOjIG3hu5tpIG3DoCBraMO0bmcgaOG7j2kgbeG6rXQga2jhuql1LjwvdGV4dD4KPC9nPjwvc3ZnPg==\" alt=\"Vòng đời token và session\">\u003c/p>\n","notes":"\u003cp>Phiên SSO ở Keycloak (cookie), token ở client. F5 mất token nhưng phiên còn thì không hỏi lại mật khẩu.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Làm mới và xoay vòng\u003c/h2>\n\u003cp>Làm mới trước khi gọi API; 401 thì làm mới và thử lại đúng một lần.\u003c/p>\n\u003cp>Dùng lại refresh token cũ → 400 invalid_grant.\u003c/p>\n","notes":"\u003cp>Làm mới song song với rotation làm một yêu cầu thất bại: gom thành một lần (single-flight).\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Đăng xuất\u003c/h2>\n\u003cp>Xóa token ở UI và chuyển hướng tới /logout với id_token_hint.\u003c/p>\n\u003cp>Sau đó: userinfo 401, introspection inactive, refresh 400. Gateway xác minh cục bộ vẫn nhận token đến khi hết hạn.\u003c/p>\n","notes":"\u003cp>Vì vậy access token sống ngắn. Front-channel và back-channel logout giúp các client khác biết phiên đã kết thúc.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Bảo mật phía client\u003c/h2>\n\u003cp>Token trong bộ nhớ, không localStorage. redirect_uri khớp chính xác. CORS không bảo vệ API.\u003c/p>\n","notes":"\u003cp>Tấn công và biện pháp: chặn mã (PKCE), CSRF (state), phát lại (nonce), chuyển hướng lạ (redirect_uri), mix-up (iss), XSS (CSP, không localStorage).\u003c/p>\n"},{"cover":false,"html":"\u003ch2>SPA nhìn từ vòng đời trang\u003c/h2>\n\u003cp>Chưa có phiên → cả trang chuyển sang Keycloak → quay về /callback#code → đổi mã lấy token trong bộ nhớ.\u003c/p>\n\u003cp>F5: mất token, còn phiên SSO → đi–về mà không hỏi mật khẩu.\u003c/p>\n","notes":"\u003cp>keycloak-js xóa mã khỏi URL bằng history.replaceState và ghi tạm state, nonce, code_verifier vào localStorage (dùng một lần). Production cần history fallback cho /callback; redirectUri, client và CORS phải cùng một origin.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>SPA gọi API\u003c/h2>\n\u003cp>401 → làm mới và thử lại đúng một lần. 403 → không đăng xuất. 5xx hoặc mất mạng → lỗi tạm thời.\u003c/p>\n\u003cp>Authorization Bearer, preflight OPTIONS, origin chính xác ở gateway.\u003c/p>\n","notes":"\u003cp>keycloak-js xếp hàng các lời gọi updateToken đồng thời. XSS vẫn dùng được token trong bộ nhớ; BFF là hướng nâng cấp, chưa làm. UI ẩn nút chỉ để tiện dùng, quyết định thật ở gateway và service.\u003c/p>\n"}]}</script>
+<script>
+(() => {
+  // Mở nhầm file template (chưa có dữ liệu) thì báo rõ thay vì hỏng im lặng.
+  const raw = document.getElementById('data').textContent.trim();
+  if (!raw.startsWith('{')) {
+    document.querySelector('main').innerHTML =
+      '<div class="panel" style="padding:24px;margin-top:24px"><h2>Đây là file template, chưa có dữ liệu</h2>' +
+      '<p>Hãy mở <code>knowledge-base/index.html#oidc</code> (file đã sinh). ' +
+      'Nếu chưa có, chạy <code>npm run docs:knowledge-base</code> ở thư mục gốc.</p></div>';
+    return;
+  }
+  const DATA = JSON.parse(raw);
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const el = (tag, attrs = {}, html) => {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') node.className = v;
+      else if (k === 'text') node.textContent = v;
+      else node.setAttribute(k, v);
+    }
+    if (html !== undefined) node.innerHTML = html;
+    return node;
+  };
+  const STATUS_LABEL = { done: 'Đã làm', theory: 'Lý thuyết', todo: 'Chưa học' };
+  const LEVEL_LABEL = { basic: 'Cơ bản', mid: 'Trung bình', hard: 'Nâng cao' };
+  const topicByN = new Map(DATA.topics.map((t) => [t.n, t]));
+
+  // ---------- storage (có thể bị chặn: luôn bọc try/catch) ----------
+  const store = {
+    get(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* bỏ qua */ } },
+  };
+  let marks = store.get('oidc-practice-marks', {});
+
+  // ---------- theme ----------
+  const themeBtn = $('#theme-btn');
+  const THEMES = ['system', 'light', 'dark'];
+  const THEME_LABEL = { system: 'hệ thống', light: 'sáng', dark: 'tối' };
+  let theme = store.get('oidc-theme', 'system');
+  function applyTheme() {
+    if (theme === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.textContent = 'Giao diện: ' + THEME_LABEL[theme];
+  }
+  themeBtn.addEventListener('click', () => {
+    theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    store.set('oidc-theme', theme);
+    applyTheme();
+  });
+  applyTheme();
+
+  const generated = new Date(DATA.generatedAt);
+  $('#gen-date').textContent = 'cập nhật ' + generated.toLocaleDateString('vi-VN');
+  $('#footer').textContent = 'Sinh tự động từ documents/KNOWLEDGE.md và documents/INTERVIEW-QUESTIONS.md lúc ' +
+    generated.toLocaleString('vi-VN') + '. Sửa nội dung trong file markdown rồi chạy lại: npm run docs:knowledge';
+
+  // ================= OVERVIEW: meter =================
+  function renderMeter() {
+    const counts = { done: 0, theory: 0, todo: 0 };
+    DATA.topics.forEach((t) => counts[t.status]++);
+    const total = DATA.topics.length;
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    const review = DATA.questions.filter((q) => marks[q.id] === 'review').length;
+    const qTotal = DATA.questions.length;
+    const pct = (n, of) => (of ? (n / of) * 100 : 0) + '%';
+    $('#meter').innerHTML = `
+      <span class="eyebrow">Tiến độ</span>
+      <div class="meter-row">
+        <div class="label"><span>Chủ đề</span><b>${counts.done} đã làm · ${counts.theory} lý thuyết · ${counts.todo} chưa học</b></div>
+        <div class="bar"><i class="b-done" style="width:${pct(counts.done, total)}"></i><i class="b-theory" style="width:${pct(counts.theory, total)}"></i></div>
+      </div>
+      <div class="meter-row">
+        <div class="label"><span>Câu hỏi luyện</span><b>${known}/${qTotal} đã thuộc · ${review} cần ôn</b></div>
+        <div class="bar"><i class="b-known" style="width:${pct(known, qTotal)}"></i><i class="b-review" style="width:${pct(review, qTotal)}"></i></div>
+      </div>
+      <div class="legend"><a class="btn" href="#topic-0">Đọc bài đầu tiên</a><a class="btn primary" href="#practice">Luyện câu hỏi</a></div>`;
+  }
+
+  // ================= KNOWLEDGE =================
+  const LABELS = [
+    ['Câu hỏi phỏng vấn', 'questions'],
+    ['Bẫy phỏng vấn', 'trap'],
+    ['Ví dụ w-identity', 'incode'],
+    ['Kịch bản thiết kế', 'incode'],
+    ['Bẫy thực tế', 'trap'],
+    ['Bẫy cần nhớ', 'trap'],
+    ['Mẫu trả lời', 'sample'],
+    ['Trong code', 'incode'],
+    ['Tự trả lời', 'self'],
+    ['Tự viết', 'self'],
+  ];
+  function decorate(root) {
+    root.querySelectorAll('table').forEach((t) => {
+      const w = el('div', { class: 'table-wrap' });
+      t.replaceWith(w);
+      w.appendChild(t);
+    });
+    [...root.querySelectorAll(':scope > p')].forEach((p) => {
+      const strong = p.firstElementChild;
+      if (!strong || strong.tagName !== 'STRONG' || p.firstChild !== strong) return;
+      const hit = LABELS.find(([label]) => strong.textContent.startsWith(label));
+      if (!hit) return;
+      const box = el('div', { class: 'callout ' + hit[1] });
+      p.before(box);
+      const next = p.nextElementSibling;
+      box.appendChild(p);
+      if (p.textContent.trim().length > strong.textContent.trim().length + 2) return; // nội dung nằm ngay trong đoạn
+      if (next && /^(UL|OL|BLOCKQUOTE|PRE|DIV)$/.test(next.tagName)) box.appendChild(next);
+    });
+  }
+
+  const questionsByTopic = new Map();
+  DATA.questions.forEach((q) => q.refs.forEach((r) => questionsByTopic.set(r, (questionsByTopic.get(r) ?? 0) + 1)));
+
+  function renderToc(currentN) {
+    const filter = $('#toc-search').value.trim().toLowerCase();
+    const list = $('#toc-list');
+    list.innerHTML = '';
+    DATA.topics
+      .filter((t) => !filter || (t.n + '. ' + t.title).toLowerCase().includes(filter))
+      .forEach((t) => {
+        const li = el('li');
+        const a = el('a', { href: '#topic-' + t.n, title: STATUS_LABEL[t.status] });
+        if (t.n === currentN) a.setAttribute('aria-current', 'true');
+        a.innerHTML = `<span class="num">${String(t.n).padStart(2, '0')}</span><span></span><span class="dot ${t.status}"></span>`;
+        a.children[1].textContent = t.title;
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+    if (!list.children.length) list.appendChild(el('li', { class: 'empty', text: 'Không tìm thấy chủ đề phù hợp.' }));
+  }
+  function renderTopic(n) {
+    const idx = DATA.topics.findIndex((t) => t.n === n);
+    const t = DATA.topics[idx] ?? DATA.topics[0];
+    currentTopic = t.n;
+    const prev = DATA.topics[idx - 1];
+    const next = DATA.topics[idx + 1];
+    const qCount = questionsByTopic.get(t.n) ?? 0;
+    const art = $('#topic');
+    art.innerHTML = `
+      <div class="topic-head">
+        <span class="eyebrow">Chủ đề ${String(t.n).padStart(2, '0')} · ${t.step}</span>
+        <h1></h1>
+        <div class="topic-meta"><span class="chip ${t.status}">${STATUS_LABEL[t.status]}</span><span class="status-note"></span></div>
+      </div>
+      <div class="prose" id="prose">${t.html}</div>
+      ${qCount ? `<div class="panel practice-link"><span>Có <b>${qCount}</b> câu hỏi luyện tập liên quan tới chủ đề này.</span><a class="btn primary" href="#practice" data-topic="${t.n}">Luyện ngay</a></div>` : ''}
+      <div class="topic-foot">
+        ${prev ? `<a class="btn" href="#topic-${prev.n}">← ${prev.n}. </a>` : '<span></span>'}
+        ${next ? `<a class="btn" href="#topic-${next.n}">${next.n}. →</a>` : '<span></span>'}
+      </div>`;
+    $('h1', art).textContent = t.title;
+    $('.status-note', art).textContent = t.statusNote;
+    const foot = art.querySelectorAll('.topic-foot a');
+    if (prev) foot[0].textContent = '← ' + prev.n + '. ' + prev.title;
+    if (next) foot[foot.length - 1].textContent = next.n + '. ' + next.title + ' →';
+    decorate($('#prose'));
+    const link = art.querySelector('[data-topic]');
+    if (link) link.addEventListener('click', () => { practiceState.topic = t.n; practiceState.pos = 0; });
+    renderToc(t.n);
+  }
+  let currentTopic = 0;
+  $('#toc-search').addEventListener('input', () => renderToc(currentTopic));
+  $('#toc-toggle').addEventListener('click', () => {
+    const toc = $('#toc');
+    const collapsed = toc.classList.toggle('collapsed');
+    $('#toc-toggle').setAttribute('aria-expanded', String(!collapsed));
+  });
+  if (matchMedia('(max-width: 920px)').matches) $('#toc').classList.add('collapsed');
+
+  // ================= PRACTICE =================
+  const PARTS = [...new Map(DATA.questions.map((q) => [q.part, q.partTitle])).entries()];
+  const practiceState = { part: 'all', level: 'all', onlyReview: false, topic: null, order: DATA.questions.map((_, i) => i), pos: 0, revealed: false };
+
+  function filtered() {
+    return practiceState.order
+      .map((i) => DATA.questions[i])
+      .filter((q) => practiceState.part === 'all' || q.part === practiceState.part)
+      .filter((q) => practiceState.level === 'all' || q.level === practiceState.level)
+      .filter((q) => !practiceState.onlyReview || marks[q.id] !== 'known')
+      .filter((q) => practiceState.topic === null || q.refs.includes(practiceState.topic));
+  }
+  function pillGroup(label, options, key) {
+    const g = el('div', { class: 'fgroup', role: 'group', 'aria-label': label });
+    g.appendChild(el('span', { class: 'eyebrow', text: label }));
+    options.forEach(([value, text]) => {
+      const b = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState[key] === value) });
+      b.textContent = text;
+      b.addEventListener('click', () => { practiceState[key] = value; practiceState.pos = 0; practiceState.revealed = false; renderPractice(); });
+      g.appendChild(b);
+    });
+    return g;
+  }
+  function renderFilters() {
+    const f = $('#filters');
+    f.innerHTML = '';
+    f.appendChild(pillGroup('Phần', [['all', 'Tất cả'], ...PARTS.map(([id, title]) => [id, id + ' · ' + title])], 'part'));
+    f.appendChild(pillGroup('Mức', [['all', 'Tất cả'], ['basic', 'Cơ bản'], ['mid', 'Trung bình'], ['hard', 'Nâng cao']], 'level'));
+    const extra = el('div', { class: 'fgroup' });
+    const rb = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState.onlyReview) });
+    rb.textContent = 'Ẩn câu đã thuộc';
+    rb.addEventListener('click', () => { practiceState.onlyReview = !practiceState.onlyReview; practiceState.pos = 0; renderPractice(); });
+    extra.appendChild(rb);
+    if (practiceState.topic !== null) {
+      const t = topicByN.get(practiceState.topic);
+      const tb = el('button', { type: 'button', class: 'pill', 'aria-pressed': 'true', title: 'Bỏ lọc theo chủ đề' });
+      tb.textContent = 'Chủ đề ' + practiceState.topic + (t ? ' · ' + t.title : '') + '  ✕';
+      tb.addEventListener('click', () => { practiceState.topic = null; practiceState.pos = 0; renderPractice(); });
+      extra.appendChild(tb);
+    }
+    f.appendChild(extra);
+  }
+  function setMark(q, value) {
+    if (marks[q.id] === value) delete marks[q.id]; else marks[q.id] = value;
+    store.set('oidc-practice-marks', marks);
+  }
+  function renderPractice() {
+    renderFilters();
+    const list = filtered();
+    if (practiceState.pos >= list.length) practiceState.pos = Math.max(0, list.length - 1);
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    $('#counter').textContent = list.length
+      ? `Câu ${practiceState.pos + 1}/${list.length} trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`
+      : `0 câu trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`;
+    const card = $('#card');
+    if (!list.length) {
+      card.className = 'panel empty';
+      card.innerHTML = 'Không còn câu nào khớp bộ lọc. Bỏ bớt bộ lọc hoặc tắt "Ẩn câu đã thuộc".';
+      return;
+    }
+    const q = list[practiceState.pos];
+    const mark = marks[q.id];
+    card.className = 'panel card';
+    card.innerHTML = `
+      <div class="card-meta">
+        <span class="eyebrow">Phần ${q.part}${q.group ? ' · ' + q.group : ''}</span>
+        ${q.level ? `<span class="chip ${q.level}">${LEVEL_LABEL[q.level]}</span>` : ''}
+        ${mark ? `<span class="mark ${mark}">${mark === 'known' ? '✓ đã thuộc' : '↺ cần ôn lại'}</span>` : ''}
+      </div>
+      <div class="card-q">${q.text}</div>
+      <div id="hint-area"></div>
+      <div class="card-actions">
+        <button class="btn" id="prev-btn" type="button" ${practiceState.pos === 0 ? 'disabled' : ''}>← Trước</button>
+        <button class="btn primary" id="reveal-btn" type="button">${practiceState.revealed ? 'Ẩn ý chính' : 'Hiện ý chính'}</button>
+        <span class="spacer"></span>
+        <button class="btn again" id="again-btn" type="button">Cần ôn lại</button>
+        <button class="btn good" id="known-btn" type="button">Đã thuộc</button>
+        <button class="btn" id="next-btn" type="button" ${practiceState.pos >= list.length - 1 ? 'disabled' : ''}>Sau →</button>
+      </div>`;
+    if (practiceState.revealed) {
+      const area = $('#hint-area');
+      const refs = q.refs.map((r) => topicByN.get(r)).filter(Boolean);
+      area.innerHTML = `
+        ${q.hint ? `<div class="hint"><span class="eyebrow">${q.hintLabel ?? 'Ý chính'}</span>${q.hint}</div>` : '<div class="hint"><span class="eyebrow">Gợi ý</span>Tự trả lời theo khung: định nghĩa → vì sao / đánh đổi → ví dụ từ dự án.</div>'}
+        ${refs.length ? `<div class="refs"><span class="eyebrow">Đọc lại</span>${refs.map((t) => `<a href="#topic-${t.n}">#${t.n} ${escapeHtml(t.title)}</a>`).join('')}</div>` : ''}`;
+    }
+    $('#prev-btn').addEventListener('click', () => move(-1));
+    $('#next-btn').addEventListener('click', () => move(1));
+    $('#reveal-btn').addEventListener('click', toggleReveal);
+    $('#again-btn').addEventListener('click', () => { setMark(q, 'review'); move(1, true); });
+    $('#known-btn').addEventListener('click', () => { setMark(q, 'known'); move(1, true); });
+  }
+  function move(delta, afterMark) {
+    const list = filtered();
+    const nextPos = practiceState.pos + delta;
+    if (nextPos >= 0 && nextPos < list.length) practiceState.pos = nextPos;
+    practiceState.revealed = false;
+    renderPractice();
+    if (afterMark) renderMeter();
+  }
+  function toggleReveal() { practiceState.revealed = !practiceState.revealed; renderPractice(); }
+  $('#shuffle-btn').addEventListener('click', () => {
+    const o = practiceState.order;
+    for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+    practiceState.pos = 0; practiceState.revealed = false; renderPractice();
+  });
+  const resetBtn = $('#reset-btn');
+  let resetArmed = false;
+  resetBtn.addEventListener('click', () => {
+    if (!resetArmed) { resetArmed = true; resetBtn.textContent = 'Bấm lần nữa để xoá'; setTimeout(() => { resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu'; }, 3000); return; }
+    marks = {}; store.set('oidc-practice-marks', marks); resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu';
+    renderPractice(); renderMeter();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'practice' || e.target.closest('input, textarea')) return;
+    const list = filtered();
+    const q = list[practiceState.pos];
+    if (e.key === ' ') { e.preventDefault(); toggleReveal(); }
+    else if (e.key === 'ArrowRight') move(1);
+    else if (e.key === 'ArrowLeft') move(-1);
+    else if (e.key === '1' && q) { setMark(q, 'review'); move(1, true); }
+    else if (e.key === '2' && q) { setMark(q, 'known'); move(1, true); }
+  });
+
+  // ================= GLOSSARY =================
+  function renderGlossary() {
+    const filter = $('#gloss-search').value.trim().toLowerCase();
+    const box = $('#gloss');
+    box.innerHTML = '';
+    DATA.glossary
+      .filter((g) => !filter || (g.term + ' ' + g.def).toLowerCase().includes(filter))
+      .forEach((g) => box.appendChild(el('div', { class: 'panel term' }, `<b>${g.term}</b><span>${g.def}</span>`)));
+    if (!box.children.length) box.appendChild(el('p', { class: 'panel empty', text: 'Không tìm thấy thuật ngữ phù hợp.' }));
+  }
+  $('#gloss-search').addEventListener('input', renderGlossary);
+
+  // ================= SLIDES =================
+  let slideIdx = 0;
+  let showNotes = false;
+  /** Chèn lại sơ đồ của tab Tổng quan vào slide. Đổi id của marker trong SVG để không trùng. */
+  function embed(sourceId, suffix) {
+    const clone = document.getElementById(sourceId).cloneNode(true);
+    clone.removeAttribute('id');
+    clone.querySelectorAll('[id]').forEach((n) => { n.id = n.id + suffix; });
+    clone.querySelectorAll('[marker-start],[marker-end]').forEach((n) => {
+      ['marker-start', 'marker-end'].forEach((attr) => {
+        const v = n.getAttribute(attr);
+        if (v) n.setAttribute(attr, v.replace(/url\(#([^)]+)\)/, `url(#$1${suffix})`));
+      });
+    });
+    return clone;
+  }
+  const EMBEDS = { '{{architecture}}': 'arch-diagram', '{{planes}}': 'planes' };
+  function renderSlide() {
+    const total = DATA.slides.length;
+    slideIdx = Math.max(0, Math.min(slideIdx, total - 1));
+    const s = DATA.slides[slideIdx];
+    const slide = $('#slide');
+    slide.className = 'slide' + (s.cover ? ' cover' : '');
+    slide.innerHTML = s.html +
+      `<span class="slide-brand">Keycloak và OIDC</span><span class="slide-no">${String(slideIdx + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}</span>`;
+    slide.querySelectorAll('p').forEach((p) => {
+      const id = EMBEDS[p.textContent.trim()];
+      if (id) p.replaceWith(embed(id, '-s' + slideIdx));
+    });
+    $('#slide-counter').textContent = `Slide ${slideIdx + 1}/${total}`;
+    $('#slide-progress').style.width = ((slideIdx + 1) / total) * 100 + '%';
+    $('#slide-prev').disabled = slideIdx === 0;
+    $('#slide-next').disabled = slideIdx === total - 1;
+    const notes = $('#slide-notes');
+    notes.hidden = !showNotes;
+    notes.innerHTML = '<span class="eyebrow">Ghi chú người nói</span>' + (s.notes || '<p>Không có ghi chú cho slide này.</p>');
+    $('#slide-notes-btn').setAttribute('aria-pressed', String(showNotes));
+  }
+  function slideGo(i) {
+    slideIdx = i;
+    renderSlide();
+    // Đổi slide không tạo thêm mục trong lịch sử (Back quay về tab trước, không lùi từng slide).
+    try { history.replaceState(null, '', '#slide-' + (slideIdx + 1)); } catch { /* bỏ qua */ }
+  }
+  function toggleFullscreen() {
+    const stage = $('#stage');
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else stage.requestFullscreen?.().catch(() => undefined);
+    } catch { /* trình xem không hỗ trợ toàn màn hình */ }
+  }
+  $('#slide-prev').addEventListener('click', () => slideGo(slideIdx - 1));
+  $('#slide-next').addEventListener('click', () => slideGo(slideIdx + 1));
+  $('#slide-full').addEventListener('click', toggleFullscreen);
+  $('#slide-notes-btn').addEventListener('click', () => { showNotes = !showNotes; renderSlide(); });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'slides' || e.target.closest('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+    const last = DATA.slides.length - 1;
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); slideGo(Math.min(slideIdx + 1, last)); }
+    else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); slideGo(Math.max(slideIdx - 1, 0)); }
+    else if (e.key === 'Home') slideGo(0);
+    else if (e.key === 'End') slideGo(last);
+    else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+    else if (e.key === 'n' || e.key === 'N') { showNotes = !showNotes; renderSlide(); }
+  });
+
+  function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+
+  // ================= ROUTING (#overview, #knowledge, #topic-N, #practice, #glossary) =================
+  // Không dựa vào sự kiện hashchange để chuyển view: một số trình xem (preview trong IDE, app desktop,
+  // file:// bị chặn điều hướng) không đổi hash khi bấm link. Bấm link nội bộ → gọi go() trực tiếp;
+  // cập nhật URL chỉ là phụ, lỗi thì bỏ qua.
+  let currentView = 'overview';
+  function go(hash, updateUrl = true) {
+    route(hash);
+    if (!updateUrl) return;
+    try {
+      if (location.hash !== '#' + hash) history.pushState(null, '', '#' + hash);
+    } catch { /* trình xem không cho đổi URL: view vẫn đã chuyển */ }
+  }
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    go(a.getAttribute('href').slice(1));
+  });
+  function route(hash) {
+    const topicMatch = /^topic-(\d+)$/.exec(hash);
+    const slideMatch = /^slide-(\d+)$/.exec(hash);
+    const view = topicMatch ? 'knowledge'
+      : slideMatch ? 'slides'
+      : ['overview', 'knowledge', 'practice', 'glossary', 'slides'].includes(hash) ? hash : 'overview';
+    currentView = view;
+    document.querySelectorAll('[data-view-panel]').forEach((p) => { p.hidden = p.dataset.viewPanel !== view; });
+    document.querySelectorAll('nav.tabs a').forEach((a) => {
+      if (a.dataset.view === view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    if (view === 'knowledge') renderTopic(topicMatch ? Number(topicMatch[1]) : DATA.topics[0].n);
+    if (view === 'practice') renderPractice();
+    if (view === 'glossary') renderGlossary();
+    if (view === 'overview') renderMeter();
+    if (view === 'slides') {
+      if (slideMatch) slideIdx = Number(slideMatch[1]) - 1;
+      renderSlide();
+    }
+    window.scrollTo(0, 0);
+  }
+  // Nút Back/Forward của trình duyệt, hoặc người dùng tự sửa hash.
+  const fromUrl = () => route(location.hash.slice(1));
+  window.addEventListener('hashchange', fromUrl);
+  window.addEventListener('popstate', fromUrl);
+
+  fromUrl();
+})();
+</script>
+</body>
+</html>

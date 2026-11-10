@@ -16,5 +16,33 @@
     "name": "Clean Architecture",
     "app": "apps/w-identity",
     "tagline": "Dependency Rule · Ports & Adapters · Ôn phỏng vấn với w-identity"
+  },
+  {
+    "id": "ddd",
+    "name": "Domain-Driven Design",
+    "app": "apps/w-identity",
+    "docs": "documents/ddd",
+    "tagline": "Bounded Context · Aggregate · Ubiquitous Language · Ôn phỏng vấn"
+  },
+  {
+    "id": "authz",
+    "name": "Phân quyền",
+    "app": "apps/w-identity",
+    "docs": "documents/authz",
+    "tagline": "AuthN vs AuthZ · RBAC · Gateway · Ôn phỏng vấn"
+  },
+  {
+    "id": "oidc",
+    "name": "Keycloak và OIDC",
+    "app": "apps/w-identity",
+    "docs": "documents/oidc",
+    "tagline": "OIDC · PKCE · Token · Session · Đăng xuất"
+  },
+  {
+    "id": "outbox",
+    "name": "Transactional Outbox",
+    "app": "apps/w-identity",
+    "docs": "documents/outbox",
+    "tagline": "Dual write · Relay · At-least-once · Ôn phỏng vấn"
   }
 ]

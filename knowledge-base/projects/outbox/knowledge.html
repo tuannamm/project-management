@@ -1,0 +1,1112 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ tay Transactional Outbox</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Cùng hệ giao diện với sổ tay API Gateway và Service Registry.
+   Nội dung được sinh từ markdown; tiến độ ôn tập dùng khóa riêng outbox-practice-marks. */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #e9edf2;
+  --ink: #17202b;
+  --muted: #5a6574;
+  --line: #d6dce4;
+  --accent: #c2410c;
+  --accent-soft: #fbe5d8;
+  --control: #4352c9;
+  --control-soft: #e3e6fb;
+  --data: #0d7d72;
+  --data-soft: #d6f0ec;
+  --ok: #2b7a3f;
+  --ok-soft: #dcf0e1;
+  --learn: #2559c7;
+  --learn-soft: #dfe8fb;
+  --todo: #6b7482;
+  --todo-soft: #e6e9ee;
+  --danger: #b4321f;
+  --danger-soft: #f9e0db;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+    --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+    --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+    --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+  --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+  --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+  --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+[hidden] { display: none !important; }
+a { color: var(--learn); }
+code, pre, kbd { font-family: var(--font-mono); font-size: 0.86em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.eyebrow { font: 600 11px/1 var(--font-mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- Header ---------- */
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-block: 10px; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand b { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
+.brand span { font: 500 12px var(--font-mono); color: var(--muted); }
+nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+nav.tabs a {
+  text-decoration: none; color: var(--muted); font-weight: 600; font-size: 14px;
+  padding: 6px 12px; border-radius: 999px;
+}
+nav.tabs a:hover { color: var(--ink); background: var(--surface-2); }
+nav.tabs a[aria-current="page"] { color: var(--surface); background: var(--ink); }
+.icon-btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px;
+  font: 600 12px var(--font-mono); padding: 6px 10px; cursor: pointer;
+}
+main { padding-block: 28px 64px; }
+
+/* ---------- Shared bits ---------- */
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--font-mono); padding: 4px 8px; border-radius: 999px; white-space: nowrap; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.done { color: var(--ok); background: var(--ok-soft); }
+.chip.theory { color: var(--learn); background: var(--learn-soft); }
+.chip.todo { color: var(--todo); background: var(--todo-soft); }
+.chip.basic { color: var(--ok); background: var(--ok-soft); }
+.chip.mid { color: #a16207; background: #fbefcf; }
+.chip.hard { color: var(--danger); background: var(--danger-soft); }
+:root[data-theme="dark"] .chip.mid { color: #e8c062; background: #3a2f14; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip.mid { color: #e8c062; background: #3a2f14; } }
+.status-code { font: 700 13px var(--font-mono); padding: 2px 7px; border-radius: 6px; background: var(--surface-2); }
+.status-code.s2 { color: var(--ok); background: var(--ok-soft); }
+.status-code.s4 { color: #a16207; background: #fbefcf; }
+.status-code.s5 { color: var(--danger); background: var(--danger-soft); }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font: 600 14px var(--font-body); padding: 8px 14px; border-radius: 8px; cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn.good { background: var(--ok); color: var(--surface); border-color: var(--ok); }
+.btn.again { color: var(--accent); border-color: var(--accent); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.section-head h2 { font-size: 21px; font-weight: 700; }
+.section-head p { margin: 0; color: var(--muted); max-width: 62ch; }
+section.block { margin-top: 44px; }
+
+/* ---------- Overview ---------- */
+.hero { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 32px; align-items: end; }
+.hero h1 { font-size: clamp(30px, 4.6vw, 46px); font-weight: 800; letter-spacing: -0.025em; margin-top: 10px; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero p.lead { font-size: 17px; color: var(--muted); max-width: 58ch; margin: 14px 0 0; }
+.meter { padding: 18px; display: grid; gap: 14px; }
+.meter-row { display: grid; gap: 6px; }
+.meter-row .label { display: flex; justify-content: space-between; font-size: 13.5px; }
+.meter-row .label b { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.bar { height: 10px; border-radius: 999px; background: var(--surface-2); display: flex; overflow: hidden; }
+.bar i { display: block; height: 100%; }
+.bar .b-done { background: var(--ok); } .bar .b-theory { background: var(--learn); } .bar .b-known { background: var(--ok); } .bar .b-review { background: var(--accent); }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.diagram { overflow-x: auto; padding: 16px; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.diagram .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+.diagram .node.gw rect { fill: var(--accent-soft); stroke: var(--accent); }
+.diagram .node.svc rect { fill: var(--data-soft); stroke: var(--data); }
+.diagram .node.infra rect { fill: var(--control-soft); stroke: var(--control); }
+.diagram text { fill: var(--ink); font-family: var(--font-body); font-size: 14px; font-weight: 600; }
+.diagram text.small { fill: var(--muted); font: 500 11.5px var(--font-mono); }
+.diagram .edge { stroke: var(--ink); stroke-width: 1.6; fill: none; }
+.diagram .edge.tcp { stroke: var(--data); }
+.diagram .edge.dash { stroke: var(--control); stroke-dasharray: 5 5; }
+.diagram .edge.event { stroke: var(--muted); stroke-dasharray: 2 4; }
+.diagram marker path { fill: context-stroke; }
+.diagram .arrow-ink { fill: var(--ink); } .diagram .arrow-data { fill: var(--data); } .diagram .arrow-ctrl { fill: var(--control); } .diagram .arrow-muted { fill: var(--muted); }
+
+.planes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.plane { padding: 20px; border-top: 4px solid var(--control); }
+.plane.data { border-top-color: var(--data); }
+.plane h3 { font-size: 18px; margin-bottom: 4px; }
+.plane .when { font: 500 12.5px var(--font-mono); color: var(--muted); }
+.plane ol { margin: 14px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+.plane ol code { color: var(--muted); }
+.plane .rule { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 14px; color: var(--muted); }
+
+/* ---------- Knowledge ---------- */
+.kgrid { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 28px; align-items: start; }
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); max-height: calc(100vh - 100px); overflow-y: auto; padding: 10px; }
+.toc input { width: 100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 8px 10px; font: inherit; margin-bottom: 8px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.toc a { display: grid; grid-template-columns: 26px minmax(0, 1fr) 10px; gap: 6px; align-items: center; text-decoration: none; color: var(--ink); padding: 6px 8px; border-radius: 6px; font-size: 13.5px; line-height: 1.35; }
+.toc a:hover { background: var(--surface-2); }
+.toc a[aria-current="true"] { background: var(--surface-2); font-weight: 600; }
+.toc .num { font: 600 11.5px var(--font-mono); color: var(--muted); }
+.toc .dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.done { background: var(--ok); } .dot.theory { background: var(--learn); } .dot.todo { background: transparent; box-shadow: inset 0 0 0 1.5px var(--todo); }
+.toc-toggle { display: none; }
+
+article.topic { min-width: 0; }
+.topic-head { display: grid; gap: 10px; padding-bottom: 18px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.topic-head h1 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; letter-spacing: -0.02em; }
+.topic-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13.5px; }
+.prose { max-width: 76ch; }
+.prose img { display: block; max-width: 100%; height: auto; margin: 16px auto; border-radius: 12px; }
+.prose p, .prose li { overflow-wrap: break-word; }
+.prose p { margin: 0 0 12px; }
+.prose ul, .prose ol { margin: 0 0 14px; padding-left: 22px; display: grid; gap: 4px; }
+.prose code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.prose pre { background: var(--surface-2); padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 16px; line-height: 1.5; }
+.prose pre code { background: none; padding: 0; }
+.prose blockquote { margin: 0 0 14px; padding: 10px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+.prose h3 { font-size: 17px; margin: 22px 0 10px; }
+.table-wrap { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 8px; }
+.prose table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.prose th, .prose td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.prose th { background: var(--surface-2); font-weight: 600; font-size: 13px; }
+.prose tr:last-child td { border-bottom: 0; }
+.callout { border-radius: var(--radius); padding: 14px 16px 2px; margin: 0 0 16px; border: 1px solid var(--line); background: var(--surface); }
+.callout > p:first-child { font-size: 12px; font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+.callout > p:first-child strong { font-weight: 700; }
+.callout.questions { border-color: var(--learn); background: var(--learn-soft); }
+.callout.questions > p:first-child { color: var(--learn); }
+.callout.trap { border-color: var(--accent); background: var(--accent-soft); }
+.callout.trap > p:first-child { color: var(--accent); }
+.callout.sample { border-color: var(--ok); background: var(--ok-soft); }
+.callout.sample > p:first-child { color: var(--ok); }
+.callout.incode { border-color: var(--control); background: var(--control-soft); }
+.callout.incode > p:first-child { color: var(--control); }
+.callout.self { border-style: dashed; background: transparent; }
+.callout.self blockquote { border: 0; padding: 0; font-style: italic; }
+.topic-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--line); }
+.topic-foot a { text-decoration: none; }
+.practice-link { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; margin-top: 22px; }
+
+/* ---------- Practice ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; margin-bottom: 16px; }
+.fgroup { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.fgroup .eyebrow { margin-right: 4px; }
+.pill { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 5px 11px; font: 600 13px var(--font-body); cursor: pointer; }
+.pill[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.card { padding: 26px; display: grid; gap: 18px; min-height: 320px; align-content: start; }
+.card-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13px; }
+.card-q { font-size: clamp(19px, 2.4vw, 24px); font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; text-wrap: pretty; }
+.card-q strong { font-weight: 700; }
+.hint { border-left: 3px solid var(--ok); padding: 10px 14px; background: var(--ok-soft); border-radius: 0 8px 8px 0; }
+.hint .eyebrow { color: var(--ok); display: block; margin-bottom: 6px; }
+.refs { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13.5px; }
+.refs a { text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; color: var(--ink); }
+.refs a:hover { border-color: var(--learn); color: var(--learn); }
+.card-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.card-actions .spacer { flex: 1; }
+.mark { font: 600 12px var(--font-mono); }
+.mark.known { color: var(--ok); } .mark.review { color: var(--accent); }
+.practice-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.counter { font: 600 13px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.kbd-help { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); }
+.empty { padding: 40px 26px; text-align: center; color: var(--muted); }
+
+/* ---------- Glossary ---------- */
+.gloss-search { width: min(100%, 420px); border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 9px 12px; font: inherit; margin-bottom: 16px; }
+.gloss { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.term { padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.term b { font-weight: 700; }
+.term span { color: var(--muted); font-size: 14px; }
+.term code { background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+
+footer { color: var(--muted); font-size: 12.5px; padding-block: 0 32px; }
+
+/* ---------- Slides ---------- */
+.slide-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.stage { display: grid; place-items: center; }
+.slide-frame {
+  width: min(100%, calc((100vh - 240px) * 16 / 9)); aspect-ratio: 16 / 9; max-width: 100%;
+  container-type: inline-size; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+}
+.stage:fullscreen { background: var(--bg); width: 100vw; height: 100vh; }
+.stage:fullscreen .slide-frame { width: min(100vw, calc(100vh * 16 / 9)); border-radius: 0; border: 0; }
+.slide {
+  height: 100%; overflow: auto; display: flex; flex-direction: column; justify-content: center; gap: 2.2cqw;
+  padding: 5cqw 7cqw 6cqw; font-size: 2.15cqw; line-height: 1.5; position: relative;
+  border-top: 0.6cqw solid var(--accent);
+}
+.slide > * { margin: 0; }
+.slide h1 { font-size: 6cqw; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+.slide h2 { font-size: 3.6cqw; font-weight: 800; letter-spacing: -0.02em; }
+.slide.cover { justify-content: flex-end; padding-bottom: 8cqw; background: linear-gradient(135deg, var(--accent-soft), transparent 60%); }
+.slide.cover h1 { color: var(--ink); max-width: 18ch; }
+.slide.cover p:first-of-type { font-size: 2.8cqw; color: var(--ink); max-width: 36ch; }
+.slide.cover p { color: var(--muted); }
+.slide ul, .slide ol { padding-left: 1.4em; display: grid; gap: 0.9cqw; }
+.slide strong { color: var(--accent); }
+.slide code { font-size: 0.85em; background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 0.3em; }
+.slide pre { background: var(--surface-2); border-radius: 1cqw; padding: 1.6cqw 2cqw; font-size: 1.6cqw; line-height: 1.45; overflow: auto; }
+.slide pre code { background: none; padding: 0; font-size: 1em; }
+.slide table { border-collapse: collapse; width: 100%; font-size: 1.85cqw; }
+.slide th, .slide td { text-align: left; vertical-align: top; padding: 1cqw 1.4cqw; border-bottom: 1px solid var(--line); }
+.slide th { color: var(--muted); font-weight: 600; font-size: 1.5cqw; text-transform: uppercase; letter-spacing: 0.06em; }
+.slide th:empty { padding: 0; border: 0; }
+.slide td strong { color: var(--ink); }
+.slide .slide-no { position: absolute; right: 3cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); }
+.slide .slide-brand { position: absolute; left: 7cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.slide .diagram { padding: 0; border: 0; background: none; overflow: visible; }
+.slide .diagram svg { min-width: 0; max-height: 34cqw; }
+.slide .planes { gap: 2cqw; }
+.slide .plane { padding: 1.8cqw 2cqw; border-radius: 1cqw; }
+.slide .plane h3 { font-size: 2.1cqw; margin-bottom: 0; }
+.slide .plane .eyebrow { font-size: 1.15cqw; }
+.slide .plane .when, .slide .plane .rule { display: none; }
+.slide .plane ol { font-size: 1.55cqw; gap: 0.4cqw; margin-top: 1.2cqw; line-height: 1.4; }
+.slide .plane ol code { font-size: 0.78em; background: none; padding: 0; }
+.slide-progress { height: 3px; background: var(--surface-2); border-radius: 999px; margin-top: 12px; overflow: hidden; }
+.slide-progress i { display: block; height: 100%; background: var(--accent); }
+.slide-notes { margin-top: 14px; padding: 14px 18px; font-size: 15px; }
+.slide-notes p { margin: 0; }
+.slide-notes .eyebrow { display: block; margin-bottom: 6px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 920px) {
+  .hero, .planes { grid-template-columns: minmax(0, 1fr); }
+  .kgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc { position: static; max-height: none; }
+  .toc-toggle { display: inline-flex; margin-bottom: 10px; }
+  .toc.collapsed ol, .toc.collapsed input { display: none; }
+}
+@media (max-width: 480px) {
+  .card { padding: 18px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pill, .btn, nav.tabs a { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+}
+
+/* ---------- Clean Architecture overview ---------- */
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.design-note { display: flex; align-items: center; gap: 12px; margin-top: 24px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+.design-note p { margin: 0; color: var(--muted); font-size: 13px; }
+.flow { display: grid; justify-items: center; gap: 8px; margin-top: 20px; }
+.flow span { width: 100%; text-align: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font: 500 13px var(--font-mono); overflow-wrap: anywhere; }
+.flow b { color: var(--muted); line-height: 1; }
+.flow .flow-core { color: var(--control); border-color: var(--control); background: var(--control-soft); }
+.data .flow-core { color: var(--data); border-color: var(--data); background: var(--data-soft); }
+.text-link { display: inline-block; color: var(--learn); font-size: 13px; font-weight: 600; margin-top: 14px; }
+.study-path { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.study-step { display: flex; flex-direction: column; padding: 22px; color: var(--ink); text-decoration: none; }
+.study-step:hover { border-color: var(--accent); }
+.study-step h3 { font-size: 18px; margin-top: 14px; }
+.study-step p { color: var(--muted); font-size: 14px; margin: 12px 0 18px; }
+.study-step .text-link { margin-top: auto; }
+.meter-row .label { flex-wrap: wrap; gap: 4px 10px; }
+button:disabled { opacity: 0.45; cursor: default; }
+.topic-foot .btn { max-width: 100%; overflow-wrap: anywhere; }
+@media (max-width: 920px) {
+  .study-path { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .brand { flex-wrap: wrap; gap: 4px 10px; }
+  nav.tabs { width: 100%; }
+  nav.tabs a { padding: 6px 9px; font-size: 13px; }
+  .design-note { align-items: flex-start; flex-direction: column; }
+  .gloss { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- Mô phỏng outbox ---- */
+.sim { padding: 18px; }
+.sim-row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 8px; }
+.sim-row .lbl { font: 600 12px/1 var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.sim .btn[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.sim select { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.sim-stage { position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 18px 0 14px; }
+@media (max-width: 820px) { .sim-stage { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.node { border: 1.5px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--surface-2); font-size: 13px; line-height: 1.5; min-height: 104px; }
+.node h4 { margin: 0 0 6px; font-size: 13px; }
+.node .kv { display: block; font: 500 12px/1.6 var(--font-mono); color: var(--muted); }
+.node .kv b { color: var(--ink); }
+.node.active { border-color: var(--control); background: var(--control-soft); }
+.node.crash { border-color: var(--danger); background: var(--danger-soft); }
+.node.off { opacity: .35; }
+.sim-token { position: absolute; left: 0; top: 0; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); opacity: 0; pointer-events: none; z-index: 2; }
+.sim-token.show { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) { .sim-token { transition: transform .7s ease, opacity .2s; } }
+.sim-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.sim-log li { padding: 8px 12px; border-radius: 8px; background: var(--surface-2); border-left: 4px solid var(--line); font-size: 13.5px; }
+.sim-log li.cur { border-left-color: var(--control); background: var(--control-soft); }
+.sim-log li.fail { border-left-color: var(--danger); background: var(--danger-soft); }
+.sim-log li .n { font: 700 11.5px/1 var(--font-mono); color: var(--muted); margin-right: 8px; }
+.sim-verdict { margin-top: 12px; padding: 12px 14px; border-radius: 8px; font-weight: 600; }
+.sim-verdict.ok { background: var(--ok-soft); color: var(--ok); }
+.sim-verdict.bad { background: var(--danger-soft); color: var(--danger); }
+.sim-verdict.warn { background: var(--learn-soft); color: var(--learn); }
+.sim-verdict small { display: block; font-weight: 400; color: var(--ink); margin-top: 2px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Sổ tay Transactional Outbox</b><span id="gen-date"></span></div>
+    <nav class="tabs" aria-label="Các phần">
+      <a href="#overview" data-view="overview">Tổng quan</a>
+      <a href="#knowledge" data-view="knowledge">Kiến thức</a>
+      <a href="#practice" data-view="practice">Luyện câu hỏi</a>
+      <a href="#glossary" data-view="glossary">Từ điển</a>
+      <a href="#slides" data-view="slides">Slide</a>
+    </nav>
+    <button class="icon-btn" id="theme-btn" type="button" title="Đổi giao diện sáng/tối">Giao diện: hệ thống</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ================= OVERVIEW ================= -->
+  <section id="view-overview" data-view-panel="overview">
+    <div class="hero">
+      <div>
+        <span class="eyebrow">Outbox · Relay · At-least-once · Idempotent</span>
+        <h1>Ghi DB rồi publish event.<br><em>Làm sao không mất event, không gửi event cho việc chưa xảy ra?</em></h1>
+        <p class="lead">Nắm Transactional Outbox: vì sao dual write hỏng, outbox và relay hoạt động ra sao, và phải tự lo gì (trùng, thứ tự, dọn dẹp).</p>
+        <div class="hero-actions"><a class="btn primary" href="#topic-0">Bắt đầu học →</a><a class="btn" href="#practice">Luyện phỏng vấn</a></div>
+      </div>
+      <div class="panel meter" id="meter" aria-live="polite"></div>
+    </div>
+    <div class="design-note"><span class="chip theory">Thiết kế</span><p>Đây là tài liệu lý thuyết và thiết kế cho dự án. Ví dụ code (Mongoose, RabbitMQ) là minh họa chưa chạy thử; dự án chưa cài outbox.</p></div>
+
+    <section class="block" id="sim-block">
+      <div class="section-head"><h2>Mô phỏng: chèn lỗi và xem điều gì xảy ra</h2><p>Chọn cách làm và một sự cố, rồi bấm từng bước (hoặc tự chạy). Chấm cam là thông điệp đang đi; ô đỏ là chỗ hỏng.</p></div>
+      <div class="panel sim" id="sim">
+        <div class="sim-row"><span class="lbl">Cách làm</span>
+          <button class="btn" type="button" data-mode="direct" aria-pressed="true">Ghi DB rồi publish thẳng</button>
+          <button class="btn" type="button" data-mode="outbox" aria-pressed="false">Transactional Outbox</button>
+        </div>
+        <div class="sim-row"><span class="lbl">Sự cố</span><select id="sim-fail" aria-label="Sự cố"></select></div>
+        <div class="sim-stage" id="sim-stage">
+          <div class="node" id="n-svc"><h4>Service</h4><span class="kv" id="v-svc">chờ request</span></div>
+          <div class="node" id="n-db"><h4>Database</h4><span class="kv" id="v-db"></span></div>
+          <div class="node" id="n-relay"><h4>Relay</h4><span class="kv" id="v-relay"></span></div>
+          <div class="node" id="n-broker"><h4>Broker</h4><span class="kv" id="v-broker"></span></div>
+          <div class="node" id="n-cons"><h4>Consumer</h4><span class="kv" id="v-cons"></span></div>
+          <div class="sim-token" id="sim-token"></div>
+        </div>
+        <div class="sim-row">
+          <button class="btn primary" type="button" id="sim-next">Bước tiếp →</button>
+          <button class="btn" type="button" id="sim-auto">Tự chạy</button>
+          <button class="btn" type="button" id="sim-reset">Làm lại</button>
+        </div>
+        <ol class="sim-log" id="sim-log" aria-live="polite"></ol>
+        <div id="sim-verdict"></div>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="section-head"><h2>Hai nửa của pattern</h2><p>Nửa đồng bộ chỉ ghi DB trong một transaction; nửa bất đồng bộ lặp lại được cho đến khi broker xác nhận.</p></div>
+      <div class="planes" id="arch-diagram">
+        <div class="panel plane">
+          <span class="eyebrow">01 · Ghi</span><h3>Một transaction, hai dòng</h3>
+          <div class="flow"><span>Ghi dữ liệu nghiệp vụ</span><b aria-hidden="true">+</b><span>Ghi dòng outbox</span><b aria-hidden="true">↓</b><span class="flow-core">Commit hoặc rollback cùng nhau</span></div>
+          <div class="rule">Không gọi broker bên trong transaction.</div>
+          <a class="text-link" href="#topic-3">Cấu trúc outbox →</a>
+        </div>
+        <div class="panel plane data">
+          <span class="eyebrow">02 · Gửi</span><h3>Relay lặp lại cho đến khi confirm</h3>
+          <div class="flow"><span>Claim dòng pending (lease)</span><b aria-hidden="true">↓</b><span>Publish, đợi confirm</span><b aria-hidden="true">↓</b><span class="flow-core">Đánh dấu published</span></div>
+          <div class="rule">Chết giữa chừng thì gửi lại: at-least-once, consumer phải idempotent.</div>
+          <a class="text-link" href="#topic-4">Relay từng bước →</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="section-head"><h2>Lộ trình học và ôn tập</h2><p>Đọc hai chủ đề mỗi ngày, tự giải thích trong 60–90 giây rồi luyện câu hỏi liên quan.</p></div>
+      <div class="study-path" id="planes">
+        <a class="panel study-step" href="#topic-0"><span class="eyebrow">01 · Vấn đề</span><h3>Hiểu dual write trước</h3><p>Outbox trong 60 giây, ba kiểu hỏng, các lời giải sai.</p><span class="text-link">Đọc bài nền tảng →</span></a>
+        <a class="panel study-step" href="#topic-3"><span class="eyebrow">02 · Cơ chế và độ tin cậy</span><h3>Outbox, relay, idempotent</h3><p>Transaction, lease, at-least-once, inbox, thứ tự và retry.</p><span class="text-link">Khám phá cơ chế →</span></a>
+        <a class="panel study-step" href="#topic-9"><span class="eyebrow">03 · Thực hành</span><h3>Nói trôi chảy khi phỏng vấn</h3><p>Khung trả lời 90 giây và các câu hỏi thường gặp.</p><span class="text-link">Đọc bài kết →</span></a>
+      </div>
+    </section>
+  </section>
+
+  <!-- ================= KNOWLEDGE ================= -->
+  <section id="view-knowledge" data-view-panel="knowledge" hidden>
+    <div class="kgrid">
+      <aside class="panel toc" id="toc">
+        <button class="btn toc-toggle" id="toc-toggle" type="button" aria-expanded="false">Danh sách chủ đề</button>
+        <input id="toc-search" type="search" placeholder="Tìm chủ đề…" aria-label="Tìm chủ đề">
+        <ol id="toc-list"></ol>
+      </aside>
+      <article class="topic" id="topic"></article>
+    </div>
+  </section>
+
+  <!-- ================= PRACTICE ================= -->
+  <section id="view-practice" data-view-panel="practice" hidden>
+    <div class="section-head">
+      <h2>Luyện câu hỏi</h2>
+      <p>Nói thành tiếng câu trả lời trước, rồi mới mở ý chính để đối chiếu. Đánh dấu được lưu trong trình duyệt này.</p>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="practice-top">
+      <span class="counter" id="counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="shuffle-btn" type="button">Xáo thứ tự</button>
+        <button class="btn" id="reset-btn" type="button">Xoá đánh dấu</button>
+      </div>
+    </div>
+    <div class="panel" id="card"></div>
+    <p class="kbd-help"><kbd>Space</kbd> mở ý chính · <kbd>←</kbd> <kbd>→</kbd> câu trước/sau · <kbd>1</kbd> cần ôn lại · <kbd>2</kbd> đã thuộc</p>
+  </section>
+
+  <!-- ================= GLOSSARY ================= -->
+  <section id="view-glossary" data-view-panel="glossary" hidden>
+    <div class="section-head">
+      <h2>Từ điển nhanh</h2>
+      <p>Thuật ngữ gặp trong dự án và trong phỏng vấn.</p>
+    </div>
+    <input class="gloss-search" id="gloss-search" type="search" placeholder="Tìm thuật ngữ…" aria-label="Tìm thuật ngữ">
+    <div class="gloss" id="gloss"></div>
+  </section>
+
+  <!-- ================= SLIDES ================= -->
+  <section id="view-slides" data-view-panel="slides" hidden>
+    <div class="slide-bar">
+      <span class="counter" id="slide-counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="slide-prev" type="button">← Trước</button>
+        <button class="btn primary" id="slide-next" type="button">Sau →</button>
+        <button class="btn" id="slide-notes-btn" type="button" aria-pressed="false">Ghi chú người nói</button>
+        <button class="btn" id="slide-full" type="button">Toàn màn hình</button>
+      </div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="slide-frame">
+        <div class="slide" id="slide"></div>
+      </div>
+    </div>
+    <div class="slide-progress" aria-hidden="true"><i id="slide-progress"></i></div>
+    <div class="panel slide-notes" id="slide-notes" hidden></div>
+    <p class="kbd-help"><kbd>→</kbd> <kbd>Space</kbd> slide sau · <kbd>←</kbd> slide trước · <kbd>F</kbd> toàn màn hình · <kbd>N</kbd> ghi chú · <kbd>Home</kbd> <kbd>End</kbd> đầu/cuối. Nội dung sửa trong <code>documents/SLIDES.md</code>.</p>
+  </section>
+</main>
+<footer class="wrap" id="footer"></footer>
+
+<script id="data" type="application/json">{"generatedAt":"2026-11-09T11:21:58.538Z","topics":[{"n":0,"title":"Outbox trong 60 giây","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003cp>Khi một action vừa \u003cstrong>đổi dữ liệu trong DB\u003c/strong> vừa \u003cstrong>phải thông báo cho service khác qua message broker\u003c/strong>, hai việc đó nằm ở hai hệ thống nên không có transaction chung. Một trong hai có thể thành công còn cái kia thất bại.\u003c/p>\n\u003cp>\u003cstrong>Transactional Outbox\u003c/strong> giải quyết bằng cách đổi việc &quot;publish&quot; thành việc &quot;ghi một dòng vào DB&quot;:\u003c/p>\n\u003col>\n\u003cli>Trong \u003cstrong>cùng một transaction\u003c/strong> với dữ liệu nghiệp vụ, ghi thêm event vào bảng/collection \u003ccode>outbox\u003c/code>.\u003c/li>\n\u003cli>Một tiến trình riêng, \u003cstrong>relay\u003c/strong>, đọc các dòng chưa gửi trong \u003ccode>outbox\u003c/code>, publish lên broker, rồi đánh dấu đã gửi.\u003c/li>\n\u003c/ol>\n\u003cp>Nhờ bước 1, &quot;đổi dữ liệu&quot; và &quot;có event&quot; cùng thành công hoặc cùng thất bại. Nhờ bước 2, broker down chỉ làm event đến chậm, không làm mất.\u003c/p>\n\u003cp>Cái giá: event được giao \u003cstrong>ít nhất một lần\u003c/strong> (có thể trùng), nên consumer phải chịu được trùng.\u003c/p>\n\u003ch3>Ví dụ đời thường: khay thư đi\u003c/h3>\n\u003cp>Một công ty có thư ký và bưu tá. Mỗi khi ký xong hợp đồng, thư ký cần \u003cstrong>ghi vào sổ\u003c/strong> và \u003cstrong>báo cho khách\u003c/strong> bằng thư.\u003c/p>\n\u003cul>\n\u003cli>\u003cstrong>Cách dễ hỏng:\u003c/strong> thư ký ghi sổ xong rồi tự chạy ra bưu điện. Giữa đường bị ốm thì sổ đã ghi nhưng khách không nhận được thư. Hoặc chạy ra gửi thư trước, quay về thì hợp đồng bị hủy: khách nhận thư về một hợp đồng không tồn tại.\u003c/li>\n\u003cli>\u003cstrong>Cách outbox:\u003c/strong> thư ký ghi sổ \u003cstrong>và\u003c/strong> bỏ thư vào khay &quot;thư đi&quot; trong cùng một thao tác, không ra khỏi bàn. Bưu tá đi qua định kỳ, lấy thư trong khay mang đi, và chỉ gạch tên thư khỏi khay sau khi bưu điện đóng dấu nhận. Nếu bưu tá ốm, người khác đến lấy tiếp; thư vẫn còn trong khay.\u003c/li>\n\u003c/ul>\n\u003cp>Khay thư chính là bảng \u003ccode>outbox\u003c/code>, bưu tá chính là relay. Điều đáng nhớ: việc &quot;báo cho khách&quot; không còn nằm trong tay người đang ghi sổ.\u003c/p>\n\u003ch3>Ví dụ xuyên suốt: đặt hàng online\u003c/h3>\n\u003cp>Khách đặt đơn \u003cstrong>A1001\u003c/strong>, tổng 250.000đ. Khi đặt xong, ba nơi cần biết:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Nơi nhận\u003c/th>\n\u003cth>Cần làm gì với event \u003ccode>shop.order.placed\u003c/code>\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Service Email\u003c/td>\n\u003ctd>Gửi mail xác nhận cho khách\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Service Giao hàng\u003c/td>\n\u003ctd>Tạo phiếu giao và gọi shipper\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Activity log\u003c/td>\n\u003ctd>Ghi &quot;khách K gửi đơn A1001 lúc 10:02&quot;\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Ví dụ này dùng lại ở bài 1, 4 và 5.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nói outbox cho &quot;exactly-once&quot;. Không đúng: nó cho at-least-once ở phía publish; exactly-once hiệu dụng chỉ đạt khi consumer idempotent.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> giải thích outbox cho người chưa biết gì, trong ba câu, không dùng từ &quot;pattern&quot;.\u003c/p>\n"},{"n":1,"title":"Vấn đề dual write","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003cpre>\u003ccode class=\"language-ts\">await users.insertOne(user);          // (1) ghi DB\nawait rabbit.publish(userCreated);    // (2) publish\n\u003c/code>\u003c/pre>\n\u003cp>Hai thao tác này không nguyên tử. Mọi điểm hỏng giữa chúng đều để lại trạng thái sai:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Điểm hỏng\u003c/th>\n\u003cth>Trạng thái\u003c/th>\n\u003cth>Hậu quả\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Process chết sau (1), trước (2)\u003c/td>\n\u003ctd>Có user, không có event\u003c/td>\n\u003ctd>Activity log thiếu, service khác không biết user mới\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Broker down lúc (2), (1) đã commit\u003c/td>\n\u003ctd>Như trên\u003c/td>\n\u003ctd>Như trên\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Đảo thứ tự: (2) xong, (1) lỗi/rollback\u003c/td>\n\u003ctd>Có event, không có user\u003c/td>\n\u003ctd>Service khác xử lý một việc \u003cstrong>chưa từng xảy ra\u003c/strong>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Mạng đứt sau khi broker nhận (2) nhưng trước khi client nhận confirm\u003c/td>\n\u003ctd>Client tưởng lỗi, retry\u003c/td>\n\u003ctd>Event trùng\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Hai kiểu hỏng khác nhau về bản chất: \u003cstrong>mất event\u003c/strong> (thiếu) và \u003cstrong>event ma\u003c/strong> (thừa). Với audit và activity log, cả hai đều là lỗi nghiêm trọng: audit thiếu thì không chứng minh được ai làm gì, audit thừa thì ghi nhận một hành động không có thật.\u003c/p>\n\u003cp>Đây là hệ quả của việc không có giao dịch phân tán rẻ và đáng tin giữa DB và broker. Hai-phase commit (XA) về lý thuyết giải quyết được nhưng RabbitMQ và MongoDB không phối hợp được theo cách đó trong thực tế, và nó làm giảm khả dụng.\u003c/p>\n\u003ch3>Ví dụ thực tế: đơn A1001 gặp sự cố\u003c/h3>\n\u003cp>Dùng cách \u003ccode>await orders.insert(...)\u003c/code> rồi \u003ccode>await rabbit.publish(orderPlaced)\u003c/code>:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Sự cố\u003c/th>\n\u003cth>Trạng thái đơn A1001\u003c/th>\n\u003cth>Khách và vận hành thấy gì\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Server bị deploy lại ngay sau khi lưu đơn\u003c/td>\n\u003ctd>Đơn có trong DB, trạng thái \u003ccode>placed\u003c/code>\u003c/td>\n\u003ctd>Khách đã trả tiền nhưng \u003cstrong>không nhận mail\u003c/strong>; kho \u003cstrong>không có phiếu giao\u003c/strong>; đơn nằm yên cho đến khi khách gọi khiếu nại. Activity log không có dòng nào\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>RabbitMQ đang bảo trì 5 phút\u003c/td>\n\u003ctd>Như trên\u003c/td>\n\u003ctd>Mọi đơn đặt trong 5 phút đó đều thiếu mail và phiếu giao\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Lập trình viên đổi thứ tự: publish trước, lưu DB sau, và DB lỗi (hết kết nối)\u003c/td>\n\u003ctd>\u003cstrong>Không có đơn nào\u003c/strong>\u003c/td>\n\u003ctd>Khách nhận mail &quot;đặt hàng thành công&quot;, shipper được gọi đến nhà khách, nhưng hệ thống không có đơn để giao hay hoàn tiền\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Dòng 1 và 2 là \u003cstrong>mất event\u003c/strong>; dòng 3 là \u003cstrong>event ma\u003c/strong>. Dòng 3 thường tốn kém hơn vì kéo theo hành động ngoài đời (gọi shipper, gửi mail) không thu hồi được.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Cho rằng chỉ cần \u003ccode>try/catch\u003c/code> bao hai dòng là xong. \u003ccode>catch\u003c/code> không chạy khi process bị kill hoặc mất điện giữa hai dòng.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> vẽ lại dòng thời gian của ba kịch bản hỏng và nói mỗi kịch bản để lại trạng thái gì.\u003c/p>\n"},{"n":2,"title":"Các lời giải sai và vì sao sai","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Cách làm\u003c/th>\n\u003cth>Vì sao không đủ\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Publish \u003cstrong>trước\u003c/strong>, ghi DB sau\u003c/td>\n\u003ctd>Đổi &quot;mất event&quot; thành &quot;event ma&quot;. DB lỗi thì event đã đi rồi, không thu hồi được\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Publish \u003cstrong>sau\u003c/strong> commit, bỏ qua lỗi\u003c/td>\n\u003ctd>Mất event khi publish lỗi hoặc process chết\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Publish sau commit, retry tại chỗ\u003c/td>\n\u003ctd>Retry nằm trong bộ nhớ; process chết thì mất hết\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Publish \u003cstrong>bên trong\u003c/strong> transaction (trước commit)\u003c/td>\n\u003ctd>Broker nhận rồi mà commit vẫn có thể thất bại: event ma. Và giữ transaction mở trong lúc gọi mạng làm giảm hiệu năng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Consumer tự quét DB của producer\u003c/td>\n\u003ctd>Phá ranh giới service (xem sổ tay \u003ccode>#ddd\u003c/code>: mỗi service sở hữu dữ liệu của nó)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Dùng 2PC/XA\u003c/td>\n\u003ctd>Không có hỗ trợ thực tế giữa Mongo và RabbitMQ, cộng thêm vấn đề khả dụng\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Điểm chung của mọi cách sai: \u003cstrong>vẫn còn hai thao tác độc lập cần cùng thành công\u003c/strong>. Outbox loại bỏ vấn đề tận gốc bằng cách chỉ còn \u003cstrong>một\u003c/strong> thao tác nguyên tử (một transaction vào một DB) ở đường chính; phần gửi sang broker trở thành việc có thể lặp lại an toàn ở nền.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Đề xuất &quot;publish trước cho chắc&quot;. Hậu quả là event ma, thường tệ hơn mất event vì consumer đã hành động.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> chọn một cách sai ở bảng và chỉ ra kịch bản cụ thể làm nó hỏng.\u003c/p>\n"},{"n":3,"title":"Cấu trúc outbox và transaction","status":"theory","statusNote":"","step":"Cơ chế","html":"\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA3NjAgMzAwIiBmb250LWZhbWlseT0ic3lzdGVtLXVpLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMiPgo8ZGVmcz48bWFya2VyIGlkPSJhIiBtYXJrZXJXaWR0aD0iOCIgbWFya2VySGVpZ2h0PSI4IiByZWZYPSI3IiByZWZZPSI0IiBvcmllbnQ9ImF1dG8iPjxwYXRoIGQ9Ik0wLDAgTDgsNCBMMCw4eiIgZmlsbD0iIzQ3NTU2OSIvPjwvbWFya2VyPjwvZGVmcz4KPHJlY3Qgd2lkdGg9Ijc2MCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiNmOGZhZmMiLz4KPHJlY3QgeD0iMjAiIHk9IjQwIiB3aWR0aD0iMzAwIiBoZWlnaHQ9IjEzMCIgcng9IjEwIiBmaWxsPSIjZTBmMmZlIiBzdHJva2U9IiMwMjg0YzciLz4KPHRleHQgeD0iMzQiIHk9IjYyIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMGM0YTZlIj4xIERCIHRyYW5zYWN0aW9uIChjw7luZyBjb21taXQgLyByb2xsYmFjayk8L3RleHQ+CjxyZWN0IHg9IjQwIiB5PSI3OCIgd2lkdGg9IjEyMCIgaGVpZ2h0PSI0NCIgcng9IjYiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAyODRjNyIvPjx0ZXh0IHg9IjEwMCIgeT0iMTA1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj51c2VyczwvdGV4dD4KPHJlY3QgeD0iMTgwIiB5PSI3OCIgd2lkdGg9IjEyMCIgaGVpZ2h0PSI0NCIgcng9IjYiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAyODRjNyIvPjx0ZXh0IHg9IjI0MCIgeT0iMTA1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5vdXRib3ggKHBlbmRpbmcpPC90ZXh0Pgo8dGV4dCB4PSIxNzAiIHk9IjE1MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzBjNGE2ZSI+a2jDtG5nIGfhu41pIGJyb2tlciDhu58gxJHDonk8L3RleHQ+CjxyZWN0IHg9IjM2MCIgeT0iNjAiIHdpZHRoPSIxNTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgZmlsbD0iI2ZlZjNjNyIgc3Ryb2tlPSIjZDk3NzA2Ii8+Cjx0ZXh0IHg9IjQzNSIgeT0iODYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiM3ODM1MGYiPlJlbGF5PC90ZXh0Pgo8dGV4dCB4PSI0MzUiIHk9IjEwOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzc4MzUwZiI+Y2xhaW0gKGxlYXNlKTwvdGV4dD4KPHRleHQgeD0iNDM1IiB5PSIxMjYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM3ODM1MGYiPnB1Ymxpc2ggKyBjb25maXJtPC90ZXh0Pgo8dGV4dCB4PSI0MzUiIHk9IjE0NCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzc4MzUwZiI+bWFyayBwdWJsaXNoZWQ8L3RleHQ+CjxyZWN0IHg9IjU2MCIgeT0iNjAiIHdpZHRoPSIxODAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgZmlsbD0iI2RjZmNlNyIgc3Ryb2tlPSIjMTZhMzRhIi8+Cjx0ZXh0IHg9IjY1MCIgeT0iOTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNDUzMmQiPlJhYmJpdE1RPC90ZXh0Pgo8dGV4dCB4PSI2NTAiIHk9IjExNiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzE0NTMyZCI+dG9waWMgZXhjaGFuZ2U8L3RleHQ+Cjx0ZXh0IHg9IjY1MCIgeT0iMTM0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMTQ1MzJkIj7ihpIgY29uc3VtZXIgKGluYm94KTwvdGV4dD4KPGxpbmUgeDE9IjMwMCIgeTE9IjEwMCIgeDI9IjM1OCIgeTI9IjEwMCIgc3Ryb2tlPSIjNDc1NTY5IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+CjxsaW5lIHgxPSI1MTAiIHkxPSIxMDAiIHgyPSI1NTgiIHkyPSIxMDAiIHN0cm9rZT0iIzQ3NTU2OSIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8cGF0aCBkPSJNNDM1IDE1MCBDNDM1IDIxNSAyNDAgMjE1IDI0MCAxMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLWRhc2hhcnJheT0iNSA0IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+Cjx0ZXh0IHg9IjMzOCIgeT0iMjMyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNDc1NTY5Ij7EkeG7jWMgZMOybmcgcGVuZGluZyAvIMSRw6FuaCBk4bqldSBwdWJsaXNoZWQ8L3RleHQ+Cjx0ZXh0IHg9IjM4MCIgeT0iMjc2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjN2YxZDFkIj5DaOG6v3Qgc2F1IGNvbmZpcm0sIHRyxrDhu5tjIG1hcmsg4oaSIGfhu61pIGzhuqFpIOKGkiB0csO5bmcg4oaSIGNvbnN1bWVyIHBo4bqjaSBpZGVtcG90ZW50PC90ZXh0Pgo8L3N2Zz4K\" alt=\"Luồng Transactional Outbox\">\u003c/p>\n\u003ch3>Một dòng outbox\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">interface OutboxRecord {\n  _id: string;            // = event.id (UUIDv7); unique, cũng là khóa idempotency cho consumer\n  type: string;           // &#39;identity.user.created&#39; → routing key\n  payload: DomainEvent;   // toàn bộ envelope (xem thiết kế event)\n  aggregateId: string;    // để giữ thứ tự theo aggregate\n  createdAt: Date;\n  status: &#39;pending&#39; | &#39;published&#39;;\n  publishedAt?: Date;\n  attempts: number;       // số lần relay đã thử\n  lastError?: string;\n  lockedUntil?: Date;     // lease của relay đang xử lý (xem bài 4)\n}\n\u003c/code>\u003c/pre>\n\u003cp>Index cần có: \u003ccode>{ status: 1, createdAt: 1 }\u003c/code> để relay lấy dòng pending theo thứ tự; \u003ccode>{ aggregateId: 1, createdAt: 1 }\u003c/code> nếu cần thứ tự theo aggregate; TTL index trên \u003ccode>publishedAt\u003c/code> để tự dọn.\u003c/p>\n\u003ch3>Ghi nghiệp vụ và outbox cùng transaction\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">await connection.transaction(async (session) =&gt; {\n  await users.insertOne(user, { session });\n  await outbox.insertOne(\n    { _id: event.id, type: event.type, payload: event, aggregateId: user.id,\n      createdAt: new Date(), status: &#39;pending&#39;, attempts: 0 },\n    { session },\n  );\n});\n// Không publish ở đây. Hết transaction là xong phần đồng bộ.\n\u003c/code>\u003c/pre>\n\u003cp>Quy tắc: \u003cstrong>không gọi broker trong transaction\u003c/strong>. Transaction chỉ chứa ghi DB.\u003c/p>\n\u003ch3>Ràng buộc riêng của MongoDB\u003c/h3>\n\u003cul>\n\u003cli>\u003cstrong>Transaction đa-document cần replica set\u003c/strong> (hoặc sharded cluster). Mongo standalone không có. Môi trường dev dùng \u003ccode>mongod --replSet\u003c/code> một node là đủ.\u003c/li>\n\u003cli>Hai collection (\u003ccode>users\u003c/code>, \u003ccode>outbox\u003c/code>) phải \u003cstrong>cùng database/cluster\u003c/strong> thì mới chung transaction. Đây là lý do outbox là của \u003cem>từng service\u003c/em> và nằm trong DB của service đó, không phải một outbox dùng chung.\u003c/li>\n\u003cli>Phương án thay thế khi không muốn transaction: nhúng event vào \u003cstrong>chính document aggregate\u003c/strong> (mảng \u003ccode>pendingEvents\u003c/code>) rồi relay lấy ra. Một thao tác ghi đơn document thì nguyên tử sẵn trong Mongo, nhưng bạn phải tự xóa phần tử khỏi mảng và nó làm document phình ra. Hợp với aggregate ít event, kém hợp với audit khối lượng lớn.\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Để outbox ở DB khác với dữ liệu nghiệp vụ &quot;cho gọn&quot;. Khi đó lại là dual write giữa hai DB.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> vì sao outbox phải cùng DB với dữ liệu nghiệp vụ? Điều gì xảy ra nếu tách?\u003c/p>\n"},{"n":4,"title":"Relay: polling, claim, publish, đánh dấu","status":"theory","statusNote":"","step":"Cơ chế","html":"\u003cp>Relay là vòng lặp nền:\u003c/p>\n\u003cpre>\u003ccode>loop mỗi ~500ms:\n  1. CLAIM    lấy tối đa N dòng pending, gắn lease (lockedUntil = now + 30s)\n  2. PUBLISH  gửi từng dòng lên broker, đợi publisher confirm\n  3. MARK     đặt status = published, publishedAt = now\n  lỗi ở bước 2: tăng attempts, ghi lastError, bỏ lease để thử lại\n\u003c/code>\u003c/pre>\n\u003ch3>Claim an toàn khi có nhiều replica\u003c/h3>\n\u003cp>Nếu hai replica của service cùng chạy relay, cả hai có thể đọc cùng dòng và cùng publish → trùng. Claim bằng thao tác nguyên tử:\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">const row = await outbox.findOneAndUpdate(\n  { status: &#39;pending&#39;, $or: [{ lockedUntil: null }, { lockedUntil: { $lt: new Date() } }] },\n  { $set: { lockedUntil: new Date(Date.now() + 30_000) }, $inc: { attempts: 1 } },\n  { sort: { createdAt: 1 }, returnDocument: &#39;after&#39; },\n);\n\u003c/code>\u003c/pre>\n\u003cp>\u003ccode>findOneAndUpdate\u003c/code> là nguyên tử trên một document nên chỉ một relay nhận được dòng. \u003cstrong>Lease\u003c/strong> (\u003ccode>lockedUntil\u003c/code>) quan trọng: relay chết giữa chừng thì sau 30 giây dòng tự được nhả cho relay khác, không kẹt vĩnh viễn như khi dùng cờ \u003ccode>processing\u003c/code> không hạn.\u003c/p>\n\u003ch3>Publish và confirm\u003c/h3>\n\u003cp>Phải \u003cstrong>đợi publisher confirm\u003c/strong> của broker trước khi đánh dấu \u003ccode>published\u003c/code>. Nếu đánh dấu khi chưa có confirm, broker nhận hụt thì event mất. Lib rabbitmq của dự án đã nói publisher confirm xác nhận broker nhận message, đúng thứ ta cần.\u003c/p>\n\u003ch3>Khoảng hở còn lại\u003c/h3>\n\u003cp>Publish xong (có confirm) nhưng relay chết \u003cstrong>trước\u003c/strong> khi đánh dấu → sau khi lease hết, relay khác publish lại → \u003cstrong>trùng\u003c/strong>. Không thể loại bỏ hoàn toàn khoảng hở này (lại là dual write giữa broker và DB, nhưng lần này an toàn vì lặp lại được). Đây chính là lý do bài 5.\u003c/p>\n\u003ch3>Ví dụ chạy từng bước: đơn A1001\u003c/h3>\n\u003cp>Dùng id ngắn \u003ccode>evt-0001\u003c/code> cho dễ đọc (thực tế là UUIDv7). Nội dung hai collection theo thời gian:\u003c/p>\n\u003cp>\u003cstrong>t1. Khách đặt đơn, service Đơn hàng chạy một transaction:\u003c/strong>\u003c/p>\n\u003cpre>\u003ccode class=\"language-json\">// collection orders\n{ &quot;_id&quot;: &quot;A1001&quot;, &quot;customer&quot;: &quot;K&quot;, &quot;total&quot;: 250000, &quot;status&quot;: &quot;placed&quot; }\n\n// collection outbox\n{ &quot;_id&quot;: &quot;evt-0001&quot;, &quot;type&quot;: &quot;shop.order.placed&quot;, &quot;aggregateId&quot;: &quot;A1001&quot;,\n  &quot;status&quot;: &quot;pending&quot;, &quot;attempts&quot;: 0, &quot;lockedUntil&quot;: null,\n  &quot;payload&quot;: { &quot;orderId&quot;: &quot;A1001&quot;, &quot;total&quot;: 250000 } }\n\u003c/code>\u003c/pre>\n\u003cp>Server trả \u003ccode>201 Created\u003c/code> cho khách ngay tại đây. Khách không phải đợi mail hay shipper.\u003c/p>\n\u003cp>\u003cstrong>t2. Relay claim (sau ~500ms):\u003c/strong> dòng outbox thành \u003ccode>attempts: 1\u003c/code>, \u003ccode>lockedUntil: now + 30s\u003c/code>.\u003c/p>\n\u003cp>\u003cstrong>t3. Relay publish\u003c/strong> \u003ccode>shop.order.placed\u003c/code> lên topic exchange, \u003cstrong>đợi confirm\u003c/strong> từ RabbitMQ.\u003c/p>\n\u003cp>\u003cstrong>t4. Relay đánh dấu:\u003c/strong> \u003ccode>status: &quot;published&quot;\u003c/code>, \u003ccode>publishedAt: ...\u003c/code>. Một tuần sau TTL index tự xóa dòng này.\u003c/p>\n\u003cp>\u003cstrong>t5. Ba consumer nhận event:\u003c/strong> Email gửi mail, Giao hàng tạo phiếu, Activity log ghi dòng.\u003c/p>\n\u003cp>\u003cstrong>Kịch bản lỗi: relay chết ở giữa t3 và t4.\u003c/strong> RabbitMQ đã nhận event nhưng dòng outbox vẫn \u003ccode>pending\u003c/code> với \u003ccode>lockedUntil\u003c/code> còn hạn.\u003c/p>\n\u003cul>\n\u003cli>Sau 30 giây, lease hết. Relay của replica khác claim lại (\u003ccode>attempts: 2\u003c/code>) và publish \u003cstrong>lần hai\u003c/strong>.\u003c/li>\n\u003cli>RabbitMQ giờ có hai bản \u003ccode>evt-0001\u003c/code>. Đây chính là trùng.\u003c/li>\n\u003cli>Nếu Email consumer không phòng bị, khách nhận \u003cstrong>hai mail xác nhận\u003c/strong>. Bài 5 nói cách chặn.\u003c/li>\n\u003c/ul>\n\u003cp>So sánh với cách publish thẳng: cùng sự cố &quot;chết giữa chừng&quot; chỉ cho \u003cstrong>một\u003c/strong> kết cục tệ (mất mail và phiếu giao, không ai biết); còn outbox cho kết cục nhẹ hơn (trùng, xử lý được).\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Đánh dấu \u003ccode>published\u003c/code> trước khi gửi &quot;để tránh gửi hai lần&quot;. Process chết giữa hai bước thì event mất vĩnh viễn: tệ hơn trùng.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> liệt kê các điểm relay có thể chết và nói mỗi điểm dẫn tới mất, trùng, hay không sao.\u003c/p>\n"},{"n":5,"title":"At-least-once và idempotent consumer (inbox)","status":"theory","statusNote":"","step":"Độ tin cậy","html":"\u003cp>Outbox cho \u003cstrong>at-least-once\u003c/strong>: mỗi event đến broker ít nhất một lần, có thể nhiều hơn. Chọn at-least-once thay vì at-most-once là cố ý: với audit, trùng sửa được còn mất thì không.\u003c/p>\n\u003cp>Hệ quả bắt buộc: \u003cstrong>consumer phải idempotent\u003c/strong>, nghĩa là xử lý cùng event hai lần cho kết quả như một lần.\u003c/p>\n\u003cp>Ba cách, từ rẻ đến chắc:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Cách\u003c/th>\n\u003cth>Mô tả\u003c/th>\n\u003cth>Dùng khi\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Thao tác tự nhiên idempotent\u003c/td>\n\u003ctd>\u003ccode>upsert\u003c/code> theo khóa, \u003ccode>set\u003c/code> thay vì \u003ccode>increment\u003c/code>\u003c/td>\n\u003ctd>Luôn ưu tiên nếu được\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>Inbox / bảng đã xử lý\u003c/strong>\u003c/td>\n\u003ctd>Lưu \u003ccode>event.id\u003c/code> đã xử lý với unique index; trùng thì bỏ qua\u003c/td>\n\u003ctd>Hiệu ứng không tự idempotent (gửi mail, trừ tiền)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Version / optimistic concurrency\u003c/td>\n\u003ctd>So \u003ccode>event.version\u003c/code> hoặc số thứ tự của aggregate với trạng thái hiện có\u003c/td>\n\u003ctd>Cập nhật bản sao dữ liệu\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Inbox pattern (đối xứng với outbox)\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">await connection.transaction(async (session) =&gt; {\n  try {\n    await inbox.insertOne({ _id: event.id, handledAt: new Date() }, { session });\n  } catch (e) {\n    if (isDuplicateKey(e)) return;   // đã xử lý, bỏ qua\n    throw e;\n  }\n  await applyEffect(event, session); // hiệu ứng và dấu &quot;đã xử lý&quot; cùng transaction\n});\n\u003c/code>\u003c/pre>\n\u003cp>Dấu &quot;đã xử lý&quot; và hiệu ứng phải \u003cstrong>cùng transaction\u003c/strong>, nếu không lại có khoảng hở giống bài 1.\u003c/p>\n\u003cp>Với \u003cstrong>activity log\u003c/strong> cụ thể, idempotency rất rẻ: dùng \u003ccode>event.id\u003c/code> làm \u003ccode>_id\u003c/code> của bản ghi log. Ghi lại lần hai bị unique index từ chối, và ta coi đó là thành công.\u003c/p>\n\u003ch3>Ví dụ: ba consumer của đơn A1001 xử lý bản trùng\u003c/h3>\n\u003cp>Event \u003ccode>evt-0001\u003c/code> đến \u003cstrong>hai lần\u003c/strong>. Mỗi consumer có hậu quả khác nhau nên cách phòng bị cũng khác:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Consumer\u003c/th>\n\u003cth>Nếu không phòng bị\u003c/th>\n\u003cth>Cách chặn\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Giao hàng\u003c/td>\n\u003ctd>Tạo hai phiếu giao cho một đơn\u003c/td>\n\u003ctd>Dùng \u003ccode>upsert\u003c/code> theo \u003ccode>orderId = A1001\u003c/code>: ghi lần hai không tạo bản mới. Tự idempotent, không cần inbox\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Activity log\u003c/td>\n\u003ctd>Hai dòng log giống nhau\u003c/td>\n\u003ctd>Dùng \u003ccode>event.id\u003c/code> làm \u003ccode>_id\u003c/code> của bản ghi: lần hai bị unique index từ chối, coi như xong\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Email\u003c/td>\n\u003ctd>\u003cstrong>Khách nhận hai mail\u003c/strong> (gửi mail không thể &quot;upsert&quot;)\u003c/td>\n\u003ctd>\u003cstrong>Inbox\u003c/strong>: trong một transaction, chèn \u003ccode>evt-0001\u003c/code> vào bảng \u003ccode>inbox\u003c/code> rồi mới gửi. Lần hai chèn trùng khóa nên bỏ qua\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Chú ý thứ tự ở Email: nếu gửi mail trước rồi mới ghi inbox, process chết giữa hai bước làm lần sau gửi lại mail. Nếu ghi inbox trước rồi mới gửi mà chết giữa chừng thì lại \u003cstrong>không bao giờ gửi mail\u003c/strong>. Với hiệu ứng ra ngoài hệ thống như mail, không có cách chắc chắn tuyệt đối; thực tế người ta chấp nhận &quot;hiếm khi trùng&quot; hơn là &quot;hiếm khi mất&quot;, và gửi kèm mã đơn để khách hiểu mail lặp lại.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Hứa &quot;exactly-once delivery&quot;. Hệ phân tán không có điều đó; cái đạt được là \u003cem>effectively-once processing\u003c/em> = at-least-once + idempotent.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> worker activity log nhận event trùng thì điều gì xảy ra, và cần thêm gì để nó vẫn đúng?\u003c/p>\n"},{"n":6,"title":"Thứ tự, retry, poison message","status":"theory","statusNote":"","step":"Độ tin cậy","html":"\u003ch3>Thứ tự\u003c/h3>\n\u003cul>\n\u003cli>Outbox lưu theo \u003ccode>createdAt\u003c/code>, nhưng thứ tự \u003cstrong>đến consumer\u003c/strong> chỉ được đảm bảo nếu một relay xử lý tuần tự và broker giữ thứ tự. Nhiều relay song song, retry, hoặc nhiều consumer đều làm xáo trộn.\u003c/li>\n\u003cli>Thứ tự toàn cục hiếm khi cần. Thứ tự \u003cstrong>theo aggregate\u003c/strong> (mọi event của user 123 theo đúng trình tự) mới là nhu cầu thật.\u003c/li>\n\u003cli>Cách thực tế: consumer không tin thứ tự mà dùng \u003ccode>version\u003c/code>/\u003ccode>occurredAt\u003c/code> của aggregate để bỏ qua event cũ hơn trạng thái hiện có, hoặc event mang đủ dữ liệu để xử lý độc lập.\u003c/li>\n\u003cli>Nếu buộc phải giữ thứ tự theo aggregate ở relay: chỉ claim dòng \u003cem>đầu tiên\u003c/em> chưa gửi của mỗi \u003ccode>aggregateId\u003c/code>, và không gửi dòng sau khi dòng trước còn pending/lỗi.\u003c/li>\n\u003c/ul>\n\u003ch3>Retry\u003c/h3>\n\u003cul>\n\u003cli>Dòng lỗi ở bước publish được thử lại ở vòng sau với \u003cstrong>backoff\u003c/strong> (\u003ccode>attempts\u003c/code> tăng thì \u003ccode>nextAttemptAt\u003c/code> lùi xa dần), tránh dồn dập khi broker đang sập.\u003c/li>\n\u003cli>Lỗi tạm thời (broker down) thì thử vô hạn; lỗi vĩnh viễn thì không.\u003c/li>\n\u003c/ul>\n\u003ch3>Poison message\u003c/h3>\n\u003cp>Một dòng luôn thất bại (payload không serialize được, routing key sai) sẽ bị thử mãi và, nếu giữ thứ tự, \u003cstrong>chặn cả hàng\u003c/strong>. Cách xử lý: sau \u003ccode>maxAttempts\u003c/code>, chuyển \u003ccode>status = &#39;failed&#39;\u003c/code>, ghi \u003ccode>lastError\u003c/code>, bắn cảnh báo, và để người xử lý thủ công. Tuyệt đối không xóa im lặng.\u003c/p>\n\u003cp>Lưu ý khác: lỗi ở \u003cstrong>consumer\u003c/strong> (handler ném exception) không phải việc của outbox. Đó là việc của ack/nack và DLQ của lib rabbitmq. Outbox chỉ bảo đảm event \u003cem>đến được broker\u003c/em>.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nghĩ outbox đảm bảo consumer xử lý thành công. Nó chỉ đảm bảo event được \u003cem>giao cho broker\u003c/em>.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> phân biệt ba nơi có thể thất bại: ghi outbox, relay publish, consumer xử lý. Mỗi nơi do cơ chế nào bảo vệ?\u003c/p>\n"},{"n":7,"title":"Polling hay CDC / change stream","status":"theory","statusNote":"","step":"Biến thể","html":"\u003cp>Có hai cách để relay biết có dòng mới.\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>\u003c/th>\n\u003cth>Polling\u003c/th>\n\u003cth>CDC / change stream\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Cách hoạt động\u003c/td>\n\u003ctd>Truy vấn định kỳ \u003ccode>status = pending\u003c/code>\u003c/td>\n\u003ctd>Đăng ký nghe thay đổi của collection (Mongo change stream, Debezium đọc oplog/WAL)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Độ trễ\u003c/td>\n\u003ctd>Bằng chu kỳ poll (vài trăm ms đến vài giây)\u003c/td>\n\u003ctd>Gần như tức thời\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Độ phức tạp\u003c/td>\n\u003ctd>Thấp: một vòng lặp và một index\u003c/td>\n\u003ctd>Cao hơn: cần resume token, xử lý đứt kết nối, replica set\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Tải DB\u003c/td>\n\u003ctd>Truy vấn đều đặn kể cả khi rỗng\u003c/td>\n\u003ctd>Thấp khi rỗng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Cần thêm hạ tầng\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003ctd>Mongo change stream: không (chỉ cần replica set); Debezium: có\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Thứ tự\u003c/td>\n\u003ctd>Tự đảm bảo bằng sort\u003c/td>\n\u003ctd>Theo thứ tự oplog\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Khuyến nghị cho dự án học tập này:\u003c/strong> bắt đầu bằng \u003cstrong>polling\u003c/strong>. Đơn giản, dễ test, dễ hiểu, và Mongo transaction đã đòi replica set rồi nên sau này nâng lên change stream không cần thêm hạ tầng. Chỉ chuyển khi độ trễ hoặc tải truy vấn trở thành vấn đề đo được.\u003c/p>\n\u003cp>Có thể kết hợp: dùng change stream làm \u003cem>tín hiệu đánh thức\u003c/em> relay, còn polling vẫn chạy chậm làm lưới an toàn phòng khi bỏ lỡ tín hiệu.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nói CDC &quot;tốt hơn&quot; polling một cách tuyệt đối. Nó đổi độ trễ lấy độ phức tạp vận hành.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> với lưu lượng 5 event/giây và yêu cầu trễ dưới 2 giây, bạn chọn gì và vì sao?\u003c/p>\n"},{"n":8,"title":"Vận hành: dọn dẹp, giám sát, nhiều replica","status":"theory","statusNote":"","step":"Vận hành","html":"\u003ch3>Dọn dẹp\u003c/h3>\n\u003cp>Outbox chỉ tăng. Nếu không dọn, collection phình và index chậm. Hai cách: TTL index trên \u003ccode>publishedAt\u003c/code> (ví dụ giữ 7 ngày để còn điều tra), hoặc job xóa định kỳ. \u003cstrong>Chỉ xóa dòng \u003ccode>published\u003c/code>\u003c/strong>; dòng \u003ccode>pending\u003c/code>/\u003ccode>failed\u003c/code> giữ lại.\u003c/p>\n\u003cp>Lưu ý: outbox \u003cstrong>không phải nơi lưu audit lâu dài\u003c/strong>. Nơi lưu lâu dài là collection của worker activity log, nơi event được ghi bền vững sau khi tới.\u003c/p>\n\u003ch3>Giám sát\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Chỉ số\u003c/th>\n\u003cth>Ý nghĩa\u003c/th>\n\u003cth>Báo động khi\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Số dòng \u003ccode>pending\u003c/code>\u003c/td>\n\u003ctd>Hàng đợi chưa gửi\u003c/td>\n\u003ctd>Tăng liên tục\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Tuổi dòng pending cũ nhất\u003c/td>\n\u003ctd>Độ trễ thật của relay\u003c/td>\n\u003ctd>Vượt ngưỡng (vd 30s)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Số dòng \u003ccode>failed\u003c/code>\u003c/td>\n\u003ctd>Poison message\u003c/td>\n\u003ctd>Khác 0\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>attempts\u003c/code> cao\u003c/td>\n\u003ctd>Broker chập chờn\u003c/td>\n\u003ctd>Nhiều dòng &gt; 5\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Nhiều replica\u003c/h3>\n\u003cp>Relay chạy trong mọi replica được: claim bằng \u003ccode>findOneAndUpdate\u003c/code> (bài 4) khiến chúng không giẫm nhau. Đổi lại thứ tự không còn được bảo đảm theo thời gian. Nếu cần thứ tự nghiêm, chạy \u003cstrong>một\u003c/strong> relay (leader election hoặc một instance riêng) hoặc dùng cách &quot;một dòng đầu mỗi aggregate&quot;.\u003c/p>\n\u003ch3>Kiểm thử\u003c/h3>\n\u003cp>Các kịch bản đáng viết test: crash giữa ghi và publish (event vẫn còn trong outbox); broker down rồi lên lại (event được gửi sau); hai relay cùng chạy (không trùng ở trạng thái bình thường); relay chết sau publish trước mark (trùng, consumer chịu được); rollback transaction (không có dòng outbox).\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Quên dọn dẹp rồi ngạc nhiên khi collection vài chục triệu dòng làm relay chậm.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> chỉ số nào cho bạn biết relay đang hỏng mà không cần đọc log?\u003c/p>\n"},{"n":9,"title":"Cách nói khi phỏng vấn","status":"theory","statusNote":"","step":"Thực hành","html":"\u003cp>Khung trả lời 90 giây:\u003c/p>\n\u003col>\n\u003cli>\u003cstrong>Vấn đề:\u003c/strong> ghi DB và publish message là hai hệ thống nên không nguyên tử; hỏng giữa chừng thì mất event hoặc có event ma.\u003c/li>\n\u003cli>\u003cstrong>Giải pháp:\u003c/strong> ghi event vào bảng outbox cùng transaction với dữ liệu; relay riêng đọc outbox và publish, đánh dấu sau khi broker confirm.\u003c/li>\n\u003cli>\u003cstrong>Đánh đổi:\u003c/strong> at-least-once nên consumer phải idempotent (inbox hoặc khóa tự nhiên); thêm độ trễ nhỏ; thêm một relay và việc dọn dẹp.\u003c/li>\n\u003cli>\u003cstrong>Biến thể:\u003c/strong> polling cho đơn giản, CDC cho độ trễ thấp.\u003c/li>\n\u003cli>\u003cstrong>Liên hệ thực tế:\u003c/strong> nói rõ phần nào bạn đã làm, phần nào là thiết kế.\u003c/li>\n\u003c/ol>\n\u003cp>Câu hỏi thường gặp và ý chính:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Câu hỏi\u003c/th>\n\u003cth>Ý chính\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Outbox khác gì &quot;publish rồi retry&quot;?\u003c/td>\n\u003ctd>Retry trong bộ nhớ mất khi process chết; outbox bền vì nằm trong DB cùng transaction\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Có exactly-once không?\u003c/td>\n\u003ctd>Không; at-least-once cộng idempotent consumer cho effectively-once\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Relay chết giữa chừng thì sao?\u003c/td>\n\u003ctd>Lease hết hạn, relay khác nhận lại; có thể trùng, consumer chịu được\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Sao không dùng 2PC?\u003c/td>\n\u003ctd>Không có hỗ trợ thực tế, giảm khả dụng, coupling chặt\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Thứ tự được đảm bảo không?\u003c/td>\n\u003ctd>Chỉ theo aggregate và chỉ khi thiết kế cho nó; đừng giả định thứ tự toàn cục\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Khi nào không cần outbox?\u003c/td>\n\u003ctd>Mất thi thoảng một event chấp nhận được (thông báo không quan trọng)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Outbox khác event sourcing?\u003c/td>\n\u003ctd>Outbox là kênh gửi tin đáng tin; event sourcing dùng chuỗi event làm nguồn sự thật của trạng thái\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Trả lời tuôn tên công cụ (Debezium, Kafka Connect) mà không giải thích được vấn đề cốt lõi là dual write.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> nói lại khung 90 giây bằng lời của bạn, thu âm, rồi nghe xem có bước nào bạn bỏ sót.\u003c/p>\n"}],"glossary":[{"term":"Dual write","def":"Ghi vào hai hệ thống độc lập (DB và broker) mà không có transaction chung"},{"term":"Transactional Outbox","def":"Ghi event vào bảng outbox cùng transaction với dữ liệu, rồi gửi sau"},{"term":"Relay / Message relay","def":"Tiến trình nền đọc outbox và publish lên broker"},{"term":"Lease","def":"Khóa có hạn gắn vào dòng đang xử lý; hết hạn thì relay khác nhận lại"},{"term":"Publisher confirm","def":"Xác nhận của broker rằng đã nhận message"},{"term":"At-least-once","def":"Mỗi event đến ít nhất một lần, có thể trùng"},{"term":"Idempotent","def":"Xử lý nhiều lần cho kết quả như một lần"},{"term":"Inbox","def":"Bảng lưu \u003ccode>event.id\u003c/code> đã xử lý để consumer bỏ qua event trùng"},{"term":"Effectively-once","def":"At-least-once cộng idempotent consumer"},{"term":"CDC / Change stream","def":"Nghe thay đổi của DB thay vì truy vấn định kỳ"},{"term":"Poison message","def":"Dòng luôn thất bại, có thể chặn hàng đợi"},{"term":"DLQ","def":"Hàng đợi chứa message xử lý thất bại ở phía consumer"},{"term":"Event ma","def":"Event được gửi cho một việc chưa từng commit"}],"intro":"\u003cp>Sổ tay về Transactional Outbox Pattern: vì sao ghi DB rồi publish message là không an toàn, outbox sửa điều đó thế nào, relay hoạt động ra sao, và những gì phải tự lo (trùng lặp, thứ tự, dọn dẹp). Ví dụ dùng MongoDB/Mongoose và RabbitMQ như dự án này. Đây là \u003cstrong>tài liệu thiết kế/lý thuyết\u003c/strong>: dự án chưa cài outbox, và \u003ccode>@lib-infrastructure/rabbitmq\u003c/code> hiện ghi rõ là &quot;không outbox/deduplication, không exactly-once&quot;. Các đoạn code là minh họa, chưa được chạy thử.\u003c/p>\n\u003cp>Học theo thứ tự 0–9. Mỗi ngày đọc hai chủ đề, tự nói câu trả lời trong 60–90 giây. Trạng thái 📖 là tài liệu lý thuyết, không khẳng định bạn đã học thuộc.\u003c/p>\n","questions":[{"id":"d9603d3f4c","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Dual write","level":"basic","text":"Dual write là gì? Vì sao nguy hiểm?","hintLabel":"Ý chính","hint":"Ghi vào hai hệ thống độc lập (DB và broker) mà không có transaction chung nên có thể thành công một nửa. Hậu quả: mất event hoặc event ma. \u003cstrong>Bẫy cần tránh:\u003c/strong> nghĩ \u003ccode>try/catch\u003c/code> là đủ; process bị kill thì \u003ccode>catch\u003c/code> không chạy.","refs":[1]},{"id":"df4b238985","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Dual write","level":"mid","text":"&quot;Mất event&quot; và &quot;event ma&quot; khác nhau thế nào? Cái nào tệ hơn với audit?","hintLabel":"Ý chính","hint":"Mất: DB đã đổi mà không có event. Ma: event đã đi mà DB rollback. Cả hai làm audit sai; event ma còn nguy hiểm vì consumer đã hành động trên việc chưa xảy ra.","refs":[1]},{"id":"1baeae12b8","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Dual write","level":"mid","text":"Vì sao &quot;publish trước rồi ghi DB&quot; không phải lời giải?","hintLabel":"Ý chính","hint":"Chỉ đổi mất event thành event ma; DB lỗi thì event đã đi, không thu hồi được.","refs":[2]},{"id":"76f3d01392","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Dual write","level":"mid","text":"Vì sao không dùng 2PC/XA?","hintLabel":"Ý chính","hint":"Mongo và RabbitMQ không phối hợp theo cách đó trong thực tế, và 2PC giảm khả dụng, ràng buộc chặt các hệ thống.","refs":[2]},{"id":"7be0150687","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Outbox","level":"basic","text":"Transactional Outbox hoạt động thế nào?","hintLabel":"Ý chính","hint":"Ghi event vào bảng outbox cùng transaction với dữ liệu; relay riêng đọc outbox, publish, rồi đánh dấu đã gửi. Nghiệp vụ và event cùng tồn tại hoặc cùng không.","refs":[0]},{"id":"f19ae27dca","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Outbox","level":"mid","text":"Vì sao outbox phải nằm cùng DB với dữ liệu nghiệp vụ?","hintLabel":"Ý chính","hint":"Chỉ khi cùng DB mới chung được transaction. Tách DB lại thành dual write. Vì vậy outbox là của từng service.","refs":[3]},{"id":"bdd4280957","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Outbox","level":"mid","text":"Vì sao không được gọi broker bên trong transaction?","hintLabel":"Ý chính","hint":"Broker nhận rồi mà commit vẫn có thể lỗi (event ma), và giữ transaction mở trong lúc gọi mạng làm giảm hiệu năng.","refs":[3]},{"id":"f01a1bc04b","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Outbox","level":"mid","text":"Outbox khác &quot;publish rồi retry trong code&quot; thế nào?","hintLabel":"Ý chính","hint":"Retry trong bộ nhớ mất khi process chết; outbox bền vì nằm trong DB cùng transaction.","refs":[9]},{"id":"b625f72e2d","part":"B","partTitle":"Relay và độ tin cậy","group":"Relay","level":"mid","text":"Relay claim dòng thế nào khi có nhiều replica?","hintLabel":"Ý chính","hint":"\u003ccode>findOneAndUpdate\u003c/code> nguyên tử gắn lease (\u003ccode>lockedUntil\u003c/code>) cho dòng pending; chỉ một relay nhận được. Lease hết hạn thì dòng tự nhả, không kẹt vĩnh viễn.","refs":[4]},{"id":"8a3076bff8","part":"B","partTitle":"Relay và độ tin cậy","group":"Relay","level":"hard","text":"Vì sao phải đợi publisher confirm rồi mới đánh dấu \u003ccode>published\u003c/code>? Đánh dấu trước có sao không?","hintLabel":"Ý chính","hint":"Đánh dấu trước rồi chết thì event mất vĩnh viễn; đánh dấu sau confirm chết thì chỉ trùng, sửa được. Chọn trùng thay vì mất.","refs":[4]},{"id":"834e53cc08","part":"B","partTitle":"Relay và độ tin cậy","group":"Relay","level":"hard","text":"Relay chết ở từng điểm (sau claim, sau publish, sau mark) thì kết quả là gì?","hintLabel":"Ý chính","hint":"Sau claim: lease hết, gửi lại, không sao. Sau publish trước mark: gửi lại, trùng. Sau mark: không sao.","refs":[4]},{"id":"d5c97403a0","part":"B","partTitle":"Relay và độ tin cậy","group":"At-least-once","level":"basic","text":"Outbox đảm bảo exactly-once không?","hintLabel":"Ý chính","hint":"Không. Nó cho at-least-once; cộng consumer idempotent mới đạt effectively-once. \u003cstrong>Bẫy cần tránh:\u003c/strong> hứa exactly-once delivery.","refs":[5]},{"id":"092267f0fd","part":"B","partTitle":"Relay và độ tin cậy","group":"At-least-once","level":"mid","text":"Làm consumer idempotent bằng những cách nào?","hintLabel":"Ý chính","hint":"Thao tác tự nhiên idempotent (upsert); inbox lưu \u003ccode>event.id\u003c/code> đã xử lý với unique index, cùng transaction với hiệu ứng; so version của aggregate.","refs":[5]},{"id":"fd33bb4964","part":"B","partTitle":"Relay và độ tin cậy","group":"At-least-once","level":"mid","text":"Worker activity log nhận event trùng thì sao?","hintLabel":"Ý chính","hint":"Dùng \u003ccode>event.id\u003c/code> làm \u003ccode>_id\u003c/code> của bản ghi log; lần ghi thứ hai bị unique index từ chối và coi là thành công.","refs":[5]},{"id":"9cf7f2984d","part":"B","partTitle":"Relay và độ tin cậy","group":"At-least-once","level":"hard","text":"Vì sao dấu &quot;đã xử lý&quot; và hiệu ứng phải cùng transaction?","hintLabel":"Ý chính","hint":"Tách ra thì lại có khoảng hở: xử lý xong mà chưa ghi dấu thì chạy lại, ghi dấu mà chưa xử lý thì mất.","refs":[5]},{"id":"917834c9b8","part":"C","partTitle":"Thứ tự, biến thể, vận hành","group":null,"level":"mid","text":"Outbox có đảm bảo thứ tự không?","hintLabel":"Ý chính","hint":"Chỉ khi một relay xử lý tuần tự và broker giữ thứ tự; nhiều relay hay retry làm xáo trộn. Thứ tự toàn cục hiếm khi cần, cần là theo aggregate. Consumer nên dùng version/occurredAt để bỏ event cũ.","refs":[6]},{"id":"ea9b886d0f","part":"C","partTitle":"Thứ tự, biến thể, vận hành","group":null,"level":"mid","text":"Xử lý poison message trong outbox thế nào?","hintLabel":"Ý chính","hint":"Sau \u003ccode>maxAttempts\u003c/code> chuyển \u003ccode>failed\u003c/code>, ghi lỗi, cảnh báo, xử lý thủ công; không xóa im lặng, và không để nó chặn cả hàng.","refs":[6]},{"id":"76d72e64c2","part":"C","partTitle":"Thứ tự, biến thể, vận hành","group":null,"level":"hard","text":"Lỗi ở consumer có phải việc của outbox không?","hintLabel":"Ý chính","hint":"Không. Outbox chỉ bảo đảm event đến được broker. Lỗi xử lý ở consumer do ack/nack và DLQ lo.","refs":[6]},{"id":"03bbef671e","part":"C","partTitle":"Thứ tự, biến thể, vận hành","group":null,"level":"mid","text":"Polling hay change stream? Bạn chọn gì cho dự án này?","hintLabel":"Ý chính","hint":"Polling đơn giản, trễ bằng chu kỳ; CDC trễ thấp nhưng phức tạp (resume token, replica set). Bắt đầu bằng polling, nâng lên khi đo được vấn đề; có thể dùng change stream làm tín hiệu đánh thức.","refs":[7]},{"id":"2a37fdd4e1","part":"C","partTitle":"Thứ tự, biến thể, vận hành","group":null,"level":"mid","text":"Vận hành outbox cần lưu ý gì?","hintLabel":"Ý chính","hint":"Dọn dòng \u003ccode>published\u003c/code> (TTL index), giám sát số pending/tuổi dòng cũ nhất/số failed, quyết định nhiều relay hay một relay theo yêu cầu thứ tự.","refs":[8]},{"id":"9c78828d5d","part":"C","partTitle":"Thứ tự, biến thể, vận hành","group":null,"level":"mid","text":"Mongo cần gì để chạy transaction cho outbox?","hintLabel":"Ý chính","hint":"Replica set (hoặc sharded cluster); standalone sẽ lỗi \u003ccode>Transaction numbers are only allowed on a replica set member or mongos\u003c/code>. Hai collection phải cùng database.","refs":[3]},{"id":"47ccba3e4d","part":"D","partTitle":"Thực hành và phỏng vấn","group":null,"level":"basic","text":"Khi nào không cần outbox?","hintLabel":"Ý chính","hint":"Khi mất thi thoảng một event chấp nhận được (thông báo không quan trọng). Với audit/activity log thì nên có.","refs":[9]},{"id":"a4ac98500c","part":"D","partTitle":"Thực hành và phỏng vấn","group":null,"level":"mid","text":"Outbox khác event sourcing thế nào?","hintLabel":"Ý chính","hint":"Outbox là kênh gửi tin đáng tin; event sourcing dùng chuỗi event làm nguồn sự thật của trạng thái.","refs":[9]}],"slides":[{"cover":true,"html":"\u003ch1>Transactional Outbox\u003c/h1>\n\u003cp>Publish event đáng tin từ một service dùng MongoDB và RabbitMQ.\u003c/p>\n\u003cp>Tài liệu thiết kế, chưa triển khai trong dự án.\u003c/p>\n","notes":"\u003cp>Nói rõ đây là thiết kế; lib rabbitmq hiện chưa có outbox hay dedup.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Vấn đề: dual write\u003c/h2>\n\u003cp>Ghi DB rồi publish là hai hệ thống, không nguyên tử.\u003c/p>\n\u003cp>Hỏng giữa chừng: mất event hoặc event ma.\u003c/p>\n","notes":"\u003cp>process chết giữa hai dòng thì try/catch không chạy. Audit thiếu hoặc thừa đều nghiêm trọng.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Ý tưởng\u003c/h2>\n\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA3NjAgMzAwIiBmb250LWZhbWlseT0ic3lzdGVtLXVpLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMiPgo8ZGVmcz48bWFya2VyIGlkPSJhIiBtYXJrZXJXaWR0aD0iOCIgbWFya2VySGVpZ2h0PSI4IiByZWZYPSI3IiByZWZZPSI0IiBvcmllbnQ9ImF1dG8iPjxwYXRoIGQ9Ik0wLDAgTDgsNCBMMCw4eiIgZmlsbD0iIzQ3NTU2OSIvPjwvbWFya2VyPjwvZGVmcz4KPHJlY3Qgd2lkdGg9Ijc2MCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiNmOGZhZmMiLz4KPHJlY3QgeD0iMjAiIHk9IjQwIiB3aWR0aD0iMzAwIiBoZWlnaHQ9IjEzMCIgcng9IjEwIiBmaWxsPSIjZTBmMmZlIiBzdHJva2U9IiMwMjg0YzciLz4KPHRleHQgeD0iMzQiIHk9IjYyIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMGM0YTZlIj4xIERCIHRyYW5zYWN0aW9uIChjw7luZyBjb21taXQgLyByb2xsYmFjayk8L3RleHQ+CjxyZWN0IHg9IjQwIiB5PSI3OCIgd2lkdGg9IjEyMCIgaGVpZ2h0PSI0NCIgcng9IjYiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAyODRjNyIvPjx0ZXh0IHg9IjEwMCIgeT0iMTA1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj51c2VyczwvdGV4dD4KPHJlY3QgeD0iMTgwIiB5PSI3OCIgd2lkdGg9IjEyMCIgaGVpZ2h0PSI0NCIgcng9IjYiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAyODRjNyIvPjx0ZXh0IHg9IjI0MCIgeT0iMTA1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5vdXRib3ggKHBlbmRpbmcpPC90ZXh0Pgo8dGV4dCB4PSIxNzAiIHk9IjE1MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzBjNGE2ZSI+a2jDtG5nIGfhu41pIGJyb2tlciDhu58gxJHDonk8L3RleHQ+CjxyZWN0IHg9IjM2MCIgeT0iNjAiIHdpZHRoPSIxNTAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgZmlsbD0iI2ZlZjNjNyIgc3Ryb2tlPSIjZDk3NzA2Ii8+Cjx0ZXh0IHg9IjQzNSIgeT0iODYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiM3ODM1MGYiPlJlbGF5PC90ZXh0Pgo8dGV4dCB4PSI0MzUiIHk9IjEwOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzc4MzUwZiI+Y2xhaW0gKGxlYXNlKTwvdGV4dD4KPHRleHQgeD0iNDM1IiB5PSIxMjYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM3ODM1MGYiPnB1Ymxpc2ggKyBjb25maXJtPC90ZXh0Pgo8dGV4dCB4PSI0MzUiIHk9IjE0NCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzc4MzUwZiI+bWFyayBwdWJsaXNoZWQ8L3RleHQ+CjxyZWN0IHg9IjU2MCIgeT0iNjAiIHdpZHRoPSIxODAiIGhlaWdodD0iOTAiIHJ4PSIxMCIgZmlsbD0iI2RjZmNlNyIgc3Ryb2tlPSIjMTZhMzRhIi8+Cjx0ZXh0IHg9IjY1MCIgeT0iOTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNDUzMmQiPlJhYmJpdE1RPC90ZXh0Pgo8dGV4dCB4PSI2NTAiIHk9IjExNiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzE0NTMyZCI+dG9waWMgZXhjaGFuZ2U8L3RleHQ+Cjx0ZXh0IHg9IjY1MCIgeT0iMTM0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMTQ1MzJkIj7ihpIgY29uc3VtZXIgKGluYm94KTwvdGV4dD4KPGxpbmUgeDE9IjMwMCIgeTE9IjEwMCIgeDI9IjM1OCIgeTI9IjEwMCIgc3Ryb2tlPSIjNDc1NTY5IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+CjxsaW5lIHgxPSI1MTAiIHkxPSIxMDAiIHgyPSI1NTgiIHkyPSIxMDAiIHN0cm9rZT0iIzQ3NTU2OSIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8cGF0aCBkPSJNNDM1IDE1MCBDNDM1IDIxNSAyNDAgMjE1IDI0MCAxMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLWRhc2hhcnJheT0iNSA0IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+Cjx0ZXh0IHg9IjMzOCIgeT0iMjMyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNDc1NTY5Ij7EkeG7jWMgZMOybmcgcGVuZGluZyAvIMSRw6FuaCBk4bqldSBwdWJsaXNoZWQ8L3RleHQ+Cjx0ZXh0IHg9IjM4MCIgeT0iMjc2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjN2YxZDFkIj5DaOG6v3Qgc2F1IGNvbmZpcm0sIHRyxrDhu5tjIG1hcmsg4oaSIGfhu61pIGzhuqFpIOKGkiB0csO5bmcg4oaSIGNvbnN1bWVyIHBo4bqjaSBpZGVtcG90ZW50PC90ZXh0Pgo8L3N2Zz4K\" alt=\"Luồng Transactional Outbox\">\u003c/p>\n","notes":"\u003cp>Một transaction ghi dữ liệu và dòng outbox. Relay lo phần gửi, lặp lại được.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Relay\u003c/h2>\n\u003cp>Claim bằng lease, publish, đợi confirm, rồi mới mark.\u003c/p>\n\u003cp>Chết sau publish trước mark: gửi lại.\u003c/p>\n","notes":"\u003cp>Chọn trùng thay vì mất. findOneAndUpdate nguyên tử để nhiều replica không giẫm nhau.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>At-least-once\u003c/h2>\n\u003cp>Không có exactly-once; có effectively-once.\u003c/p>\n\u003cp>Consumer idempotent: event.id làm khóa, inbox cùng transaction.\u003c/p>\n","notes":"\u003cp>Activity log dùng event.id làm _id nên ghi lần hai bị từ chối là xong.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Thứ tự và lỗi\u003c/h2>\n\u003cp>Chỉ có thứ tự theo aggregate, và phải thiết kế cho nó.\u003c/p>\n\u003cp>Poison message: failed + cảnh báo, không xóa im lặng.\u003c/p>\n","notes":"\u003cp>Lỗi consumer là việc của ack/nack và DLQ, không phải của outbox.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Polling hay change stream\u003c/h2>\n\u003cp>Bắt đầu bằng polling; nâng cấp khi đo được vấn đề.\u003c/p>\n","notes":"\u003cp>Mongo transaction đã cần replica set nên change stream không cần thêm hạ tầng.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Vận hành\u003c/h2>\n\u003cp>Dọn dòng published, giám sát pending/tuổi/failed, quyết định số relay.\u003c/p>\n","notes":"\u003cp>Outbox không phải nơi lưu audit lâu dài; collection activity log mới là nơi đó.\u003c/p>\n"}]}</script>
+<script>
+(() => {
+  // Mở nhầm file template (chưa có dữ liệu) thì báo rõ thay vì hỏng im lặng.
+  const raw = document.getElementById('data').textContent.trim();
+  if (!raw.startsWith('{')) {
+    document.querySelector('main').innerHTML =
+      '<div class="panel" style="padding:24px;margin-top:24px"><h2>Đây là file template, chưa có dữ liệu</h2>' +
+      '<p>Hãy mở <code>knowledge-base/index.html#outbox</code> (file đã sinh). ' +
+      'Nếu chưa có, chạy <code>npm run docs:knowledge-base</code> ở thư mục gốc.</p></div>';
+    return;
+  }
+  const DATA = JSON.parse(raw);
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const el = (tag, attrs = {}, html) => {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') node.className = v;
+      else if (k === 'text') node.textContent = v;
+      else node.setAttribute(k, v);
+    }
+    if (html !== undefined) node.innerHTML = html;
+    return node;
+  };
+  const STATUS_LABEL = { done: 'Đã làm', theory: 'Lý thuyết', todo: 'Chưa học' };
+  const LEVEL_LABEL = { basic: 'Cơ bản', mid: 'Trung bình', hard: 'Nâng cao' };
+  const topicByN = new Map(DATA.topics.map((t) => [t.n, t]));
+
+  // ---------- storage (có thể bị chặn: luôn bọc try/catch) ----------
+  const store = {
+    get(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* bỏ qua */ } },
+  };
+  let marks = store.get('outbox-practice-marks', {});
+
+  // ---------- theme ----------
+  const themeBtn = $('#theme-btn');
+  const THEMES = ['system', 'light', 'dark'];
+  const THEME_LABEL = { system: 'hệ thống', light: 'sáng', dark: 'tối' };
+  let theme = store.get('outbox-theme', 'system');
+  function applyTheme() {
+    if (theme === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.textContent = 'Giao diện: ' + THEME_LABEL[theme];
+  }
+  themeBtn.addEventListener('click', () => {
+    theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    store.set('outbox-theme', theme);
+    applyTheme();
+  });
+  applyTheme();
+
+  const generated = new Date(DATA.generatedAt);
+  $('#gen-date').textContent = 'cập nhật ' + generated.toLocaleDateString('vi-VN');
+  $('#footer').textContent = 'Sinh tự động từ documents/KNOWLEDGE.md và documents/INTERVIEW-QUESTIONS.md lúc ' +
+    generated.toLocaleString('vi-VN') + '. Sửa nội dung trong file markdown rồi chạy lại: npm run docs:knowledge';
+
+  // ================= OVERVIEW: meter =================
+  function renderMeter() {
+    const counts = { done: 0, theory: 0, todo: 0 };
+    DATA.topics.forEach((t) => counts[t.status]++);
+    const total = DATA.topics.length;
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    const review = DATA.questions.filter((q) => marks[q.id] === 'review').length;
+    const qTotal = DATA.questions.length;
+    const pct = (n, of) => (of ? (n / of) * 100 : 0) + '%';
+    $('#meter').innerHTML = `
+      <span class="eyebrow">Tiến độ</span>
+      <div class="meter-row">
+        <div class="label"><span>Chủ đề</span><b>${counts.done} đã làm · ${counts.theory} lý thuyết · ${counts.todo} chưa học</b></div>
+        <div class="bar"><i class="b-done" style="width:${pct(counts.done, total)}"></i><i class="b-theory" style="width:${pct(counts.theory, total)}"></i></div>
+      </div>
+      <div class="meter-row">
+        <div class="label"><span>Câu hỏi luyện</span><b>${known}/${qTotal} đã thuộc · ${review} cần ôn</b></div>
+        <div class="bar"><i class="b-known" style="width:${pct(known, qTotal)}"></i><i class="b-review" style="width:${pct(review, qTotal)}"></i></div>
+      </div>
+      <div class="legend"><a class="btn" href="#topic-0">Đọc bài đầu tiên</a><a class="btn primary" href="#practice">Luyện câu hỏi</a></div>`;
+  }
+
+  // ================= KNOWLEDGE =================
+  const LABELS = [
+    ['Câu hỏi phỏng vấn', 'questions'],
+    ['Bẫy phỏng vấn', 'trap'],
+    ['Ví dụ w-identity', 'incode'],
+    ['Kịch bản thiết kế', 'incode'],
+    ['Bẫy thực tế', 'trap'],
+    ['Bẫy cần nhớ', 'trap'],
+    ['Mẫu trả lời', 'sample'],
+    ['Trong code', 'incode'],
+    ['Tự trả lời', 'self'],
+    ['Tự viết', 'self'],
+  ];
+  function decorate(root) {
+    root.querySelectorAll('table').forEach((t) => {
+      const w = el('div', { class: 'table-wrap' });
+      t.replaceWith(w);
+      w.appendChild(t);
+    });
+    [...root.querySelectorAll(':scope > p')].forEach((p) => {
+      const strong = p.firstElementChild;
+      if (!strong || strong.tagName !== 'STRONG' || p.firstChild !== strong) return;
+      const hit = LABELS.find(([label]) => strong.textContent.startsWith(label));
+      if (!hit) return;
+      const box = el('div', { class: 'callout ' + hit[1] });
+      p.before(box);
+      const next = p.nextElementSibling;
+      box.appendChild(p);
+      if (p.textContent.trim().length > strong.textContent.trim().length + 2) return; // nội dung nằm ngay trong đoạn
+      if (next && /^(UL|OL|BLOCKQUOTE|PRE|DIV)$/.test(next.tagName)) box.appendChild(next);
+    });
+  }
+
+  const questionsByTopic = new Map();
+  DATA.questions.forEach((q) => q.refs.forEach((r) => questionsByTopic.set(r, (questionsByTopic.get(r) ?? 0) + 1)));
+
+  function renderToc(currentN) {
+    const filter = $('#toc-search').value.trim().toLowerCase();
+    const list = $('#toc-list');
+    list.innerHTML = '';
+    DATA.topics
+      .filter((t) => !filter || (t.n + '. ' + t.title).toLowerCase().includes(filter))
+      .forEach((t) => {
+        const li = el('li');
+        const a = el('a', { href: '#topic-' + t.n, title: STATUS_LABEL[t.status] });
+        if (t.n === currentN) a.setAttribute('aria-current', 'true');
+        a.innerHTML = `<span class="num">${String(t.n).padStart(2, '0')}</span><span></span><span class="dot ${t.status}"></span>`;
+        a.children[1].textContent = t.title;
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+    if (!list.children.length) list.appendChild(el('li', { class: 'empty', text: 'Không tìm thấy chủ đề phù hợp.' }));
+  }
+  function renderTopic(n) {
+    const idx = DATA.topics.findIndex((t) => t.n === n);
+    const t = DATA.topics[idx] ?? DATA.topics[0];
+    currentTopic = t.n;
+    const prev = DATA.topics[idx - 1];
+    const next = DATA.topics[idx + 1];
+    const qCount = questionsByTopic.get(t.n) ?? 0;
+    const art = $('#topic');
+    art.innerHTML = `
+      <div class="topic-head">
+        <span class="eyebrow">Chủ đề ${String(t.n).padStart(2, '0')} · ${t.step}</span>
+        <h1></h1>
+        <div class="topic-meta"><span class="chip ${t.status}">${STATUS_LABEL[t.status]}</span><span class="status-note"></span></div>
+      </div>
+      <div class="prose" id="prose">${t.html}</div>
+      ${qCount ? `<div class="panel practice-link"><span>Có <b>${qCount}</b> câu hỏi luyện tập liên quan tới chủ đề này.</span><a class="btn primary" href="#practice" data-topic="${t.n}">Luyện ngay</a></div>` : ''}
+      <div class="topic-foot">
+        ${prev ? `<a class="btn" href="#topic-${prev.n}">← ${prev.n}. </a>` : '<span></span>'}
+        ${next ? `<a class="btn" href="#topic-${next.n}">${next.n}. →</a>` : '<span></span>'}
+      </div>`;
+    $('h1', art).textContent = t.title;
+    $('.status-note', art).textContent = t.statusNote;
+    const foot = art.querySelectorAll('.topic-foot a');
+    if (prev) foot[0].textContent = '← ' + prev.n + '. ' + prev.title;
+    if (next) foot[foot.length - 1].textContent = next.n + '. ' + next.title + ' →';
+    decorate($('#prose'));
+    const link = art.querySelector('[data-topic]');
+    if (link) link.addEventListener('click', () => { practiceState.topic = t.n; practiceState.pos = 0; });
+    renderToc(t.n);
+  }
+  let currentTopic = 0;
+  $('#toc-search').addEventListener('input', () => renderToc(currentTopic));
+  $('#toc-toggle').addEventListener('click', () => {
+    const toc = $('#toc');
+    const collapsed = toc.classList.toggle('collapsed');
+    $('#toc-toggle').setAttribute('aria-expanded', String(!collapsed));
+  });
+  if (matchMedia('(max-width: 920px)').matches) $('#toc').classList.add('collapsed');
+
+  // ================= PRACTICE =================
+  const PARTS = [...new Map(DATA.questions.map((q) => [q.part, q.partTitle])).entries()];
+  const practiceState = { part: 'all', level: 'all', onlyReview: false, topic: null, order: DATA.questions.map((_, i) => i), pos: 0, revealed: false };
+
+  function filtered() {
+    return practiceState.order
+      .map((i) => DATA.questions[i])
+      .filter((q) => practiceState.part === 'all' || q.part === practiceState.part)
+      .filter((q) => practiceState.level === 'all' || q.level === practiceState.level)
+      .filter((q) => !practiceState.onlyReview || marks[q.id] !== 'known')
+      .filter((q) => practiceState.topic === null || q.refs.includes(practiceState.topic));
+  }
+  function pillGroup(label, options, key) {
+    const g = el('div', { class: 'fgroup', role: 'group', 'aria-label': label });
+    g.appendChild(el('span', { class: 'eyebrow', text: label }));
+    options.forEach(([value, text]) => {
+      const b = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState[key] === value) });
+      b.textContent = text;
+      b.addEventListener('click', () => { practiceState[key] = value; practiceState.pos = 0; practiceState.revealed = false; renderPractice(); });
+      g.appendChild(b);
+    });
+    return g;
+  }
+  function renderFilters() {
+    const f = $('#filters');
+    f.innerHTML = '';
+    f.appendChild(pillGroup('Phần', [['all', 'Tất cả'], ...PARTS.map(([id, title]) => [id, id + ' · ' + title])], 'part'));
+    f.appendChild(pillGroup('Mức', [['all', 'Tất cả'], ['basic', 'Cơ bản'], ['mid', 'Trung bình'], ['hard', 'Nâng cao']], 'level'));
+    const extra = el('div', { class: 'fgroup' });
+    const rb = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState.onlyReview) });
+    rb.textContent = 'Ẩn câu đã thuộc';
+    rb.addEventListener('click', () => { practiceState.onlyReview = !practiceState.onlyReview; practiceState.pos = 0; renderPractice(); });
+    extra.appendChild(rb);
+    if (practiceState.topic !== null) {
+      const t = topicByN.get(practiceState.topic);
+      const tb = el('button', { type: 'button', class: 'pill', 'aria-pressed': 'true', title: 'Bỏ lọc theo chủ đề' });
+      tb.textContent = 'Chủ đề ' + practiceState.topic + (t ? ' · ' + t.title : '') + '  ✕';
+      tb.addEventListener('click', () => { practiceState.topic = null; practiceState.pos = 0; renderPractice(); });
+      extra.appendChild(tb);
+    }
+    f.appendChild(extra);
+  }
+  function setMark(q, value) {
+    if (marks[q.id] === value) delete marks[q.id]; else marks[q.id] = value;
+    store.set('outbox-practice-marks', marks);
+  }
+  function renderPractice() {
+    renderFilters();
+    const list = filtered();
+    if (practiceState.pos >= list.length) practiceState.pos = Math.max(0, list.length - 1);
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    $('#counter').textContent = list.length
+      ? `Câu ${practiceState.pos + 1}/${list.length} trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`
+      : `0 câu trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`;
+    const card = $('#card');
+    if (!list.length) {
+      card.className = 'panel empty';
+      card.innerHTML = 'Không còn câu nào khớp bộ lọc. Bỏ bớt bộ lọc hoặc tắt "Ẩn câu đã thuộc".';
+      return;
+    }
+    const q = list[practiceState.pos];
+    const mark = marks[q.id];
+    card.className = 'panel card';
+    card.innerHTML = `
+      <div class="card-meta">
+        <span class="eyebrow">Phần ${q.part}${q.group ? ' · ' + q.group : ''}</span>
+        ${q.level ? `<span class="chip ${q.level}">${LEVEL_LABEL[q.level]}</span>` : ''}
+        ${mark ? `<span class="mark ${mark}">${mark === 'known' ? '✓ đã thuộc' : '↺ cần ôn lại'}</span>` : ''}
+      </div>
+      <div class="card-q">${q.text}</div>
+      <div id="hint-area"></div>
+      <div class="card-actions">
+        <button class="btn" id="prev-btn" type="button" ${practiceState.pos === 0 ? 'disabled' : ''}>← Trước</button>
+        <button class="btn primary" id="reveal-btn" type="button">${practiceState.revealed ? 'Ẩn ý chính' : 'Hiện ý chính'}</button>
+        <span class="spacer"></span>
+        <button class="btn again" id="again-btn" type="button">Cần ôn lại</button>
+        <button class="btn good" id="known-btn" type="button">Đã thuộc</button>
+        <button class="btn" id="next-btn" type="button" ${practiceState.pos >= list.length - 1 ? 'disabled' : ''}>Sau →</button>
+      </div>`;
+    if (practiceState.revealed) {
+      const area = $('#hint-area');
+      const refs = q.refs.map((r) => topicByN.get(r)).filter(Boolean);
+      area.innerHTML = `
+        ${q.hint ? `<div class="hint"><span class="eyebrow">${q.hintLabel ?? 'Ý chính'}</span>${q.hint}</div>` : '<div class="hint"><span class="eyebrow">Gợi ý</span>Tự trả lời theo khung: định nghĩa → vì sao / đánh đổi → ví dụ từ dự án.</div>'}
+        ${refs.length ? `<div class="refs"><span class="eyebrow">Đọc lại</span>${refs.map((t) => `<a href="#topic-${t.n}">#${t.n} ${escapeHtml(t.title)}</a>`).join('')}</div>` : ''}`;
+    }
+    $('#prev-btn').addEventListener('click', () => move(-1));
+    $('#next-btn').addEventListener('click', () => move(1));
+    $('#reveal-btn').addEventListener('click', toggleReveal);
+    $('#again-btn').addEventListener('click', () => { setMark(q, 'review'); move(1, true); });
+    $('#known-btn').addEventListener('click', () => { setMark(q, 'known'); move(1, true); });
+  }
+  function move(delta, afterMark) {
+    const list = filtered();
+    const nextPos = practiceState.pos + delta;
+    if (nextPos >= 0 && nextPos < list.length) practiceState.pos = nextPos;
+    practiceState.revealed = false;
+    renderPractice();
+    if (afterMark) renderMeter();
+  }
+  function toggleReveal() { practiceState.revealed = !practiceState.revealed; renderPractice(); }
+  $('#shuffle-btn').addEventListener('click', () => {
+    const o = practiceState.order;
+    for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+    practiceState.pos = 0; practiceState.revealed = false; renderPractice();
+  });
+  const resetBtn = $('#reset-btn');
+  let resetArmed = false;
+  resetBtn.addEventListener('click', () => {
+    if (!resetArmed) { resetArmed = true; resetBtn.textContent = 'Bấm lần nữa để xoá'; setTimeout(() => { resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu'; }, 3000); return; }
+    marks = {}; store.set('outbox-practice-marks', marks); resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu';
+    renderPractice(); renderMeter();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'practice' || e.target.closest('input, textarea')) return;
+    const list = filtered();
+    const q = list[practiceState.pos];
+    if (e.key === ' ') { e.preventDefault(); toggleReveal(); }
+    else if (e.key === 'ArrowRight') move(1);
+    else if (e.key === 'ArrowLeft') move(-1);
+    else if (e.key === '1' && q) { setMark(q, 'review'); move(1, true); }
+    else if (e.key === '2' && q) { setMark(q, 'known'); move(1, true); }
+  });
+
+  // ================= GLOSSARY =================
+  function renderGlossary() {
+    const filter = $('#gloss-search').value.trim().toLowerCase();
+    const box = $('#gloss');
+    box.innerHTML = '';
+    DATA.glossary
+      .filter((g) => !filter || (g.term + ' ' + g.def).toLowerCase().includes(filter))
+      .forEach((g) => box.appendChild(el('div', { class: 'panel term' }, `<b>${g.term}</b><span>${g.def}</span>`)));
+    if (!box.children.length) box.appendChild(el('p', { class: 'panel empty', text: 'Không tìm thấy thuật ngữ phù hợp.' }));
+  }
+  $('#gloss-search').addEventListener('input', renderGlossary);
+
+  // ================= SLIDES =================
+  let slideIdx = 0;
+  let showNotes = false;
+  /** Chèn lại sơ đồ của tab Tổng quan vào slide. Đổi id của marker trong SVG để không trùng. */
+  function embed(sourceId, suffix) {
+    const clone = document.getElementById(sourceId).cloneNode(true);
+    clone.removeAttribute('id');
+    clone.querySelectorAll('[id]').forEach((n) => { n.id = n.id + suffix; });
+    clone.querySelectorAll('[marker-start],[marker-end]').forEach((n) => {
+      ['marker-start', 'marker-end'].forEach((attr) => {
+        const v = n.getAttribute(attr);
+        if (v) n.setAttribute(attr, v.replace(/url\(#([^)]+)\)/, `url(#$1${suffix})`));
+      });
+    });
+    return clone;
+  }
+  const EMBEDS = { '{{architecture}}': 'arch-diagram', '{{planes}}': 'planes' };
+  function renderSlide() {
+    const total = DATA.slides.length;
+    slideIdx = Math.max(0, Math.min(slideIdx, total - 1));
+    const s = DATA.slides[slideIdx];
+    const slide = $('#slide');
+    slide.className = 'slide' + (s.cover ? ' cover' : '');
+    slide.innerHTML = s.html +
+      `<span class="slide-brand">Transactional Outbox</span><span class="slide-no">${String(slideIdx + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}</span>`;
+    slide.querySelectorAll('p').forEach((p) => {
+      const id = EMBEDS[p.textContent.trim()];
+      if (id) p.replaceWith(embed(id, '-s' + slideIdx));
+    });
+    $('#slide-counter').textContent = `Slide ${slideIdx + 1}/${total}`;
+    $('#slide-progress').style.width = ((slideIdx + 1) / total) * 100 + '%';
+    $('#slide-prev').disabled = slideIdx === 0;
+    $('#slide-next').disabled = slideIdx === total - 1;
+    const notes = $('#slide-notes');
+    notes.hidden = !showNotes;
+    notes.innerHTML = '<span class="eyebrow">Ghi chú người nói</span>' + (s.notes || '<p>Không có ghi chú cho slide này.</p>');
+    $('#slide-notes-btn').setAttribute('aria-pressed', String(showNotes));
+  }
+  function slideGo(i) {
+    slideIdx = i;
+    renderSlide();
+    // Đổi slide không tạo thêm mục trong lịch sử (Back quay về tab trước, không lùi từng slide).
+    try { history.replaceState(null, '', '#slide-' + (slideIdx + 1)); } catch { /* bỏ qua */ }
+  }
+  function toggleFullscreen() {
+    const stage = $('#stage');
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else stage.requestFullscreen?.().catch(() => undefined);
+    } catch { /* trình xem không hỗ trợ toàn màn hình */ }
+  }
+  $('#slide-prev').addEventListener('click', () => slideGo(slideIdx - 1));
+  $('#slide-next').addEventListener('click', () => slideGo(slideIdx + 1));
+  $('#slide-full').addEventListener('click', toggleFullscreen);
+  $('#slide-notes-btn').addEventListener('click', () => { showNotes = !showNotes; renderSlide(); });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'slides' || e.target.closest('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+    const last = DATA.slides.length - 1;
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); slideGo(Math.min(slideIdx + 1, last)); }
+    else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); slideGo(Math.max(slideIdx - 1, 0)); }
+    else if (e.key === 'Home') slideGo(0);
+    else if (e.key === 'End') slideGo(last);
+    else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+    else if (e.key === 'n' || e.key === 'N') { showNotes = !showNotes; renderSlide(); }
+  });
+
+  function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+
+  // ================= ROUTING (#overview, #knowledge, #topic-N, #practice, #glossary) =================
+  // Không dựa vào sự kiện hashchange để chuyển view: một số trình xem (preview trong IDE, app desktop,
+  // file:// bị chặn điều hướng) không đổi hash khi bấm link. Bấm link nội bộ → gọi go() trực tiếp;
+  // cập nhật URL chỉ là phụ, lỗi thì bỏ qua.
+  let currentView = 'overview';
+  function go(hash, updateUrl = true) {
+    route(hash);
+    if (!updateUrl) return;
+    try {
+      if (location.hash !== '#' + hash) history.pushState(null, '', '#' + hash);
+    } catch { /* trình xem không cho đổi URL: view vẫn đã chuyển */ }
+  }
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    go(a.getAttribute('href').slice(1));
+  });
+  function route(hash) {
+    const topicMatch = /^topic-(\d+)$/.exec(hash);
+    const slideMatch = /^slide-(\d+)$/.exec(hash);
+    const view = topicMatch ? 'knowledge'
+      : slideMatch ? 'slides'
+      : ['overview', 'knowledge', 'practice', 'glossary', 'slides'].includes(hash) ? hash : 'overview';
+    currentView = view;
+    document.querySelectorAll('[data-view-panel]').forEach((p) => { p.hidden = p.dataset.viewPanel !== view; });
+    document.querySelectorAll('nav.tabs a').forEach((a) => {
+      if (a.dataset.view === view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    if (view === 'knowledge') renderTopic(topicMatch ? Number(topicMatch[1]) : DATA.topics[0].n);
+    if (view === 'practice') renderPractice();
+    if (view === 'glossary') renderGlossary();
+    if (view === 'overview') renderMeter();
+    if (view === 'slides') {
+      if (slideMatch) slideIdx = Number(slideMatch[1]) - 1;
+      renderSlide();
+    }
+    window.scrollTo(0, 0);
+  }
+  // Nút Back/Forward của trình duyệt, hoặc người dùng tự sửa hash.
+  const fromUrl = () => route(location.hash.slice(1));
+  window.addEventListener('hashchange', fromUrl);
+  window.addEventListener('popstate', fromUrl);
+
+  fromUrl();
+})();
+</script>
+<script>
+(() => {
+  const root = document.getElementById('sim');
+  if (!root) return;
+  const $ = (id) => document.getElementById(id);
+  const NODES = ['svc', 'db', 'relay', 'broker', 'cons'];
+  const INIT = { user: false, ob: null, attempts: 0, broker: 0, cons: 0, dup: 0 };
+
+  // Mỗi bước: [văn bản, node sáng, token [từ,đến] | null, hàm đổi trạng thái | null, kiểu, node hỏng | null]
+  const S = (msg, active, token, fn, kind, crash) => ({ msg, active, token, fn, kind: kind || 'ok', crash: crash || null });
+  const req = S('Client gửi request "tạo user" tới service.', ['svc'], null, null);
+
+  const SCEN = {
+    direct: {
+      none: { label: 'Không có sự cố', steps: [req,
+        S('Ghi user vào DB (commit).', ['svc','db'], ['svc','db'], (s) => { s.user = true; }),
+        S('Publish event lên broker.', ['svc','broker'], ['svc','broker'], (s) => { s.broker++; }),
+        S('Broker giao event cho consumer.', ['broker','cons'], ['broker','cons'], (s) => { s.cons++; })],
+        verdict: ['ok', 'Nhất quán', 'Có user và consumer đã nhận event. Đường đi vui thì ai cũng chạy được.'] },
+      crash: { label: 'Process chết giữa ghi DB và publish', steps: [req,
+        S('Ghi user vào DB (commit).', ['svc','db'], ['svc','db'], (s) => { s.user = true; }),
+        S('Process bị kill (OOM, deploy, mất điện) trước khi kịp publish.', ['svc'], null, null, 'fail', 'svc')],
+        verdict: ['bad', 'MẤT EVENT', 'DB có user nhưng không ai biết. Activity log thiếu; try/catch không giúp vì process đã chết.'] },
+      down: { label: 'Broker đang down lúc publish', steps: [req,
+        S('Ghi user vào DB (commit).', ['svc','db'], ['svc','db'], (s) => { s.user = true; }),
+        S('Publish thất bại vì broker không phản hồi. Event chỉ nằm trong bộ nhớ.', ['svc','broker'], null, null, 'fail', 'broker'),
+        S('Request kết thúc; không còn nơi nào nhớ event này.', ['svc'], null, null, 'fail')],
+        verdict: ['bad', 'MẤT EVENT', 'Retry trong bộ nhớ mất khi process khởi động lại. Không có gì để gửi lại.'] },
+      ghost: { label: 'Publish trước, rồi DB lỗi', steps: [req,
+        S('Publish event lên broker trước.', ['svc','broker'], ['svc','broker'], (s) => { s.broker++; }),
+        S('Broker giao event; consumer xử lý ngay.', ['broker','cons'], ['broker','cons'], (s) => { s.cons++; }),
+        S('Ghi DB thất bại (lỗi ràng buộc, mất kết nối) và rollback.', ['svc','db'], null, null, 'fail', 'db')],
+        verdict: ['bad', 'EVENT MA', 'Consumer đã hành động cho một user không hề tồn tại, và không thu hồi được event đã đi.'] },
+    },
+    outbox: {
+      none: { label: 'Không có sự cố', steps: [req,
+        S('Một transaction: ghi user và dòng outbox (pending). Chưa gọi broker.', ['svc','db'], ['svc','db'], (s) => { s.user = true; s.ob = 'pending'; }),
+        S('Commit xong, trả response cho client ngay; không đợi broker.', ['svc'], null, null),
+        S('Relay claim dòng pending (gắn lease).', ['relay','db'], ['db','relay'], (s) => { s.attempts++; }),
+        S('Relay publish và đợi publisher confirm.', ['relay','broker'], ['relay','broker'], (s) => { s.broker++; }),
+        S('Relay đánh dấu dòng là published.', ['relay','db'], ['relay','db'], (s) => { s.ob = 'published'; }),
+        S('Broker giao event cho consumer.', ['broker','cons'], ['broker','cons'], (s) => { s.cons++; })],
+        verdict: ['ok', 'Nhất quán', 'Có user, có event, và có dấu vết trong outbox.'] },
+      crash: { label: 'Process chết giữa ghi DB và publish', steps: [req,
+        S('Một transaction: ghi user và dòng outbox (pending).', ['svc','db'], ['svc','db'], (s) => { s.user = true; s.ob = 'pending'; }),
+        S('Process bị kill ngay sau commit. Không sao: event đã nằm bền trong DB.', ['svc'], null, null, 'fail', 'svc'),
+        S('Process (hoặc replica khác) chạy lại; relay thấy dòng pending và claim.', ['relay','db'], ['db','relay'], (s) => { s.attempts++; }),
+        S('Relay publish và đợi confirm.', ['relay','broker'], ['relay','broker'], (s) => { s.broker++; }),
+        S('Relay đánh dấu published.', ['relay','db'], ['relay','db'], (s) => { s.ob = 'published'; }),
+        S('Broker giao event cho consumer.', ['broker','cons'], ['broker','cons'], (s) => { s.cons++; })],
+        verdict: ['ok', 'KHÔNG MẤT EVENT', 'Cùng sự cố làm hỏng cách publish thẳng, nhưng ở đây event chỉ đến chậm hơn.'] },
+      down: { label: 'Broker đang down lúc publish', steps: [req,
+        S('Một transaction: ghi user và dòng outbox (pending).', ['svc','db'], ['svc','db'], (s) => { s.user = true; s.ob = 'pending'; }),
+        S('Relay claim dòng pending.', ['relay','db'], ['db','relay'], (s) => { s.attempts++; }),
+        S('Publish thất bại vì broker down. Dòng vẫn pending, lease sẽ hết hạn.', ['relay','broker'], null, null, 'fail', 'broker'),
+        S('Relay chờ (backoff) rồi claim lại dòng đó.', ['relay','db'], ['db','relay'], (s) => { s.attempts++; }),
+        S('Broker đã lên lại; publish thành công.', ['relay','broker'], ['relay','broker'], (s) => { s.broker++; }),
+        S('Relay đánh dấu published.', ['relay','db'], ['relay','db'], (s) => { s.ob = 'published'; }),
+        S('Broker giao event cho consumer.', ['broker','cons'], ['broker','cons'], (s) => { s.cons++; })],
+        verdict: ['ok', 'KHÔNG MẤT EVENT', 'Broker down chỉ làm chậm. Số lần thử tăng nhưng không mất gì.'] },
+      ghost: { label: 'Transaction lỗi và rollback', steps: [req,
+        S('Một transaction: ghi user và dòng outbox...', ['svc','db'], ['svc','db'], (s) => { s.user = true; s.ob = 'pending'; }),
+        S('...rồi gặp lỗi và rollback cả hai.', ['svc','db'], null, (s) => { s.user = false; s.ob = null; }, 'fail', 'db'),
+        S('Relay quét outbox: không có gì để gửi.', ['relay','db'], null, null)],
+        verdict: ['ok', 'KHÔNG CÓ EVENT MA', 'User và event cùng biến mất, vì cùng một transaction. Consumer không thấy gì.'] },
+      relaydie: { label: 'Relay chết sau publish, trước khi đánh dấu', steps: [req,
+        S('Một transaction: ghi user và dòng outbox (pending).', ['svc','db'], ['svc','db'], (s) => { s.user = true; s.ob = 'pending'; }),
+        S('Relay claim dòng pending.', ['relay','db'], ['db','relay'], (s) => { s.attempts++; }),
+        S('Relay publish và nhận confirm.', ['relay','broker'], ['relay','broker'], (s) => { s.broker++; }),
+        S('Relay chết trước khi kịp đánh dấu published. Dòng vẫn pending.', ['relay'], null, null, 'fail', 'relay'),
+        S('Lease hết hạn; relay khác claim lại cùng dòng.', ['relay','db'], ['db','relay'], (s) => { s.attempts++; }),
+        S('Relay publish lần hai: broker giờ có hai bản của cùng event.', ['relay','broker'], ['relay','broker'], (s) => { s.broker++; }),
+        S('Relay đánh dấu published.', ['relay','db'], ['relay','db'], (s) => { s.ob = 'published'; }),
+        S('Consumer nhận bản đầu và xử lý (ghi event.id vào inbox).', ['broker','cons'], ['broker','cons'], (s) => { s.cons++; }),
+        S('Consumer nhận bản thứ hai: thấy event.id đã có trong inbox nên bỏ qua.', ['broker','cons'], ['broker','cons'], (s) => { s.dup++; })],
+        verdict: ['warn', 'TRÙNG NHƯNG AN TOÀN', 'Outbox là at-least-once: chọn trùng thay vì mất. Consumer idempotent biến nó thành effectively-once.'] },
+    },
+  };
+
+  let mode = 'direct', fail = 'none', idx = 0, timer = null;
+  const scen = () => SCEN[mode][fail];
+
+  function stateAt(i) {
+    const st = { ...INIT };
+    scen().steps.slice(0, i).forEach((p) => p.fn && p.fn(st));
+    return st;
+  }
+
+  function fillSelect() {
+    const sel = $('sim-fail');
+    sel.innerHTML = '';
+    for (const [k, v] of Object.entries(SCEN[mode])) {
+      const o = document.createElement('option'); o.value = k; o.textContent = v.label; sel.appendChild(o);
+    }
+    if (!SCEN[mode][fail]) fail = 'none';
+    sel.value = fail;
+  }
+
+  function moveToken(from, to) {
+    const tok = $('sim-token'), stage = $('sim-stage');
+    const pos = (id) => {
+      const r = $('n-' + id).getBoundingClientRect(), b = stage.getBoundingClientRect();
+      return [r.left - b.left + r.width / 2, r.top - b.top + r.height / 2];
+    };
+    if (!from) { tok.classList.remove('show'); return; }
+    const [x0, y0] = pos(from), [x1, y1] = pos(to);
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    tok.style.transition = 'none';
+    tok.style.transform = `translate(${x0}px, ${y0}px)`;
+    tok.classList.add('show');
+    void tok.offsetWidth;
+    tok.style.transition = reduce ? 'none' : '';
+    tok.style.transform = `translate(${x1}px, ${y1}px)`;
+    clearTimeout(moveToken.t);
+    moveToken.t = setTimeout(() => tok.classList.remove('show'), reduce ? 400 : 1000);
+  }
+
+  function render() {
+    const sc = scen(), steps = sc.steps, cur = idx > 0 ? steps[idx - 1] : null;
+    const st = stateAt(idx);
+    NODES.forEach((n) => {
+      const node = $('n-' + n);
+      node.classList.toggle('active', !!cur && cur.active.includes(n) && cur.kind !== 'fail');
+      node.classList.toggle('crash', !!cur && cur.crash === n);
+      node.classList.toggle('off', mode === 'direct' && n === 'relay');
+    });
+    $('v-db').innerHTML = `users: <b>${st.user ? '1 dòng' : 'trống'}</b>` +
+      (mode === 'outbox' ? `<br>outbox: <b>${st.ob || 'trống'}</b>` + (st.attempts ? `<br>số lần claim: <b>${st.attempts}</b>` : '') : '');
+    $('v-relay').innerHTML = mode === 'outbox' ? (st.attempts ? `đã claim <b>${st.attempts}</b> lần` : 'đang rảnh') : 'không dùng';
+    $('v-broker').innerHTML = `thông điệp: <b>${st.broker}</b>`;
+    $('v-cons').innerHTML = `đã xử lý: <b>${st.cons}</b>` + (st.dup ? `<br>bỏ qua trùng: <b>${st.dup}</b>` : '');
+    $('v-svc').textContent = cur && cur.crash === 'svc' ? 'đã chết' : (idx ? 'đang xử lý' : 'chờ request');
+
+    const log = $('sim-log'); log.innerHTML = '';
+    steps.slice(0, idx).forEach((p, i) => {
+      const li = document.createElement('li');
+      li.className = (p.kind === 'fail' ? 'fail ' : '') + (i === idx - 1 ? 'cur' : '');
+      li.innerHTML = `<span class="n">${i + 1}</span>`; li.append(p.msg); log.appendChild(li);
+    });
+    const done = idx >= steps.length;
+    $('sim-next').disabled = done;
+    const v = $('sim-verdict'); v.innerHTML = '';
+    if (done) {
+      const [k, t, d] = sc.verdict;
+      v.innerHTML = `<div class="sim-verdict ${k}">${t}<small>${d}</small></div>`;
+      stop();
+    }
+  }
+
+  function next() {
+    const steps = scen().steps;
+    if (idx >= steps.length) return;
+    const p = steps[idx++];
+    render();
+    if (p.token) moveToken(p.token[0], p.token[1]); else moveToken(null);
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } $('sim-auto').textContent = 'Tự chạy'; }
+  function reset() { stop(); idx = 0; moveToken(null); render(); }
+  function auto() {
+    if (timer) { stop(); return; }
+    if (idx >= scen().steps.length) reset();
+    $('sim-auto').textContent = 'Dừng';
+    next();
+    timer = setInterval(() => { if (idx >= scen().steps.length) stop(); else next(); }, 1500);
+  }
+
+  root.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => {
+    mode = b.dataset.mode;
+    root.querySelectorAll('[data-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    fillSelect(); reset();
+  }));
+  $('sim-fail').addEventListener('change', (e) => { fail = e.target.value; reset(); });
+  $('sim-next').addEventListener('click', next);
+  $('sim-auto').addEventListener('click', auto);
+  $('sim-reset').addEventListener('click', reset);
+  fillSelect(); render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 630" role="img" aria-labelledby="title desc">
+  <title id="title">Các vòng Clean Architecture trong w-identity</title>
+  <desc id="desc">Bốn vòng lồng nhau từ ngoài vào trong: framework, adapter, application, domain. Dependency hướng vào trong.</desc>
+  <rect width="800" height="630" rx="18" fill="#f4f7fc"/>
+  <text x="400" y="40" text-anchor="middle" font-family="Arial,sans-serif" font-size="23" font-weight="700" fill="#172b4d">CÁC VÒNG CLEAN ARCHITECTURE</text>
+  <rect x="35" y="60" width="730" height="510" rx="24" fill="#dce9ff" stroke="#6c90ca" stroke-width="2"/>
+  <text x="60" y="95" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="#20477a">4 · Frameworks &amp; Drivers</text>
+  <text x="60" y="120" font-family="Arial,sans-serif" font-size="16" fill="#355a82">NestJS · MongoDB · Keycloak · TCP / RabbitMQ</text>
+  <rect x="80" y="145" width="640" height="365" rx="22" fill="#d8f1ed" stroke="#5d9e93" stroke-width="2"/>
+  <text x="105" y="178" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="#16594f">3 · Interface Adapters</text>
+  <text x="105" y="203" font-family="Arial,sans-serif" font-size="16" fill="#27685d">TCP controller · Keycloak adapter · UserRepository</text>
+  <rect x="125" y="225" width="550" height="225" rx="20" fill="#fff0ca" stroke="#c49a3c" stroke-width="2"/>
+  <text x="150" y="258" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="#744b00">2 · Use Cases / Application</text>
+  <text x="150" y="283" font-family="Arial,sans-serif" font-size="16" fill="#785719">UpdateMyProfile · ports · authorization</text>
+  <rect x="170" y="310" width="460" height="90" rx="18" fill="#ffe0dc" stroke="#be7569" stroke-width="2"/>
+  <text x="400" y="346" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="#853d33">1 · Entities / Domain</text>
+  <text x="400" y="375" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" fill="#854a42">User · UserAccount · role policy</text>
+  <text x="400" y="605" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" font-weight="700" fill="#253b5a">Dependency trong mã nguồn hướng vào trong ↑</text>
+</svg>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" font-family="system-ui,sans-serif" font-size="13">
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="#475569"/></marker></defs>
+<rect width="760" height="300" fill="#f8fafc"/>
+<rect x="20" y="40" width="300" height="130" rx="10" fill="#e0f2fe" stroke="#0284c7"/>
+<text x="34" y="62" font-weight="700" fill="#0c4a6e">1 DB transaction (cùng commit / rollback)</text>
+<rect x="40" y="78" width="120" height="44" rx="6" fill="#fff" stroke="#0284c7"/><text x="100" y="105" text-anchor="middle">users</text>
+<rect x="180" y="78" width="120" height="44" rx="6" fill="#fff" stroke="#0284c7"/><text x="240" y="105" text-anchor="middle">outbox (pending)</text>
+<text x="170" y="150" text-anchor="middle" fill="#0c4a6e">không gọi broker ở đây</text>
+<rect x="360" y="60" width="150" height="90" rx="10" fill="#fef3c7" stroke="#d97706"/>
+<text x="435" y="86" text-anchor="middle" font-weight="700" fill="#78350f">Relay</text>
+<text x="435" y="108" text-anchor="middle" fill="#78350f">claim (lease)</text>
+<text x="435" y="126" text-anchor="middle" fill="#78350f">publish + confirm</text>
+<text x="435" y="144" text-anchor="middle" fill="#78350f">mark published</text>
+<rect x="560" y="60" width="180" height="90" rx="10" fill="#dcfce7" stroke="#16a34a"/>
+<text x="650" y="92" text-anchor="middle" font-weight="700" fill="#14532d">RabbitMQ</text>
+<text x="650" y="116" text-anchor="middle" fill="#14532d">topic exchange</text>
+<text x="650" y="134" text-anchor="middle" fill="#14532d">→ consumer (inbox)</text>
+<line x1="300" y1="100" x2="358" y2="100" stroke="#475569" marker-end="url(#a)"/>
+<line x1="510" y1="100" x2="558" y2="100" stroke="#475569" marker-end="url(#a)"/>
+<path d="M435 150 C435 215 240 215 240 124" fill="none" stroke="#475569" stroke-dasharray="5 4" marker-end="url(#a)"/>
+<text x="338" y="232" text-anchor="middle" fill="#475569">đọc dòng pending / đánh dấu published</text>
+<text x="380" y="276" text-anchor="middle" fill="#7f1d1d">Chết sau confirm, trước mark → gửi lại → trùng → consumer phải idempotent</text>
+</svg>

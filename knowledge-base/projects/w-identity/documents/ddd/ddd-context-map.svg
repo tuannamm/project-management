@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" role="img" aria-labelledby="cm-title cm-desc">
+  <title id="cm-title">Context map của nhà hàng</title>
+  <desc id="cm-desc">Menu là upstream của Ordering theo quan hệ Customer–Supplier. Ordering là upstream của Kitchen và Billing, công bố sự kiện OrderConfirmed qua Open Host Service và Published Language. Billing là downstream của cổng thanh toán bên ngoài và đặt Anticorruption Layer để dịch model. U là upstream, D là downstream; mũi tên chỉ chiều ảnh hưởng.</desc>
+  <defs>
+    <marker id="cm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect width="1000" height="640" rx="20" fill="#f8fafc"/>
+  <g font-family="Arial,sans-serif" fill="#172b4d">
+    <text x="35" y="44" font-size="24" font-weight="700">CONTEXT MAP: AI ẢNH HƯỞNG AI, DỊCH MODEL Ở ĐÂU</text>
+    <text x="35" y="76" font-size="17">U = upstream (có ảnh hưởng) · D = downstream (bị ảnh hưởng). Mũi tên chỉ chiều ảnh hưởng, không phải chiều gọi API.</text>
+
+    <!-- contexts -->
+    <rect x="40" y="120" width="250" height="110" rx="15" fill="#e6edfa" stroke="#6684b3" stroke-width="2"/>
+    <text x="165" y="160" text-anchor="middle" font-size="21" font-weight="700">Menu</text>
+    <text x="165" y="188" text-anchor="middle" font-size="16">Supporting</text>
+    <text x="165" y="211" text-anchor="middle" font-size="15">MenuItem, giá hiện tại</text>
+
+    <rect x="375" y="120" width="250" height="110" rx="15" fill="#dff3ee" stroke="#4e9487" stroke-width="3"/>
+    <text x="500" y="160" text-anchor="middle" font-size="21" font-weight="700">Ordering</text>
+    <text x="500" y="188" text-anchor="middle" font-size="16">Core</text>
+    <text x="500" y="211" text-anchor="middle" font-size="15">Order, OrderLine</text>
+
+    <rect x="710" y="120" width="250" height="110" rx="15" fill="#fff0c5" stroke="#b58b31" stroke-width="2"/>
+    <text x="835" y="160" text-anchor="middle" font-size="21" font-weight="700">Kitchen</text>
+    <text x="835" y="188" text-anchor="middle" font-size="16">Core</text>
+    <text x="835" y="211" text-anchor="middle" font-size="15">KitchenTicket</text>
+
+    <rect x="375" y="390" width="250" height="110" rx="15" fill="#fce7ed" stroke="#bb6b83" stroke-width="2"/>
+    <text x="500" y="430" text-anchor="middle" font-size="21" font-weight="700">Billing</text>
+    <text x="500" y="458" text-anchor="middle" font-size="16">Generic / Supporting</text>
+    <text x="500" y="481" text-anchor="middle" font-size="15">Invoice, Payment</text>
+
+    <rect x="710" y="390" width="250" height="110" rx="15" fill="#ffffff" stroke="#64748b" stroke-width="2" stroke-dasharray="8 6"/>
+    <text x="835" y="430" text-anchor="middle" font-size="21" font-weight="700">Cổng thanh toán</text>
+    <text x="835" y="458" text-anchor="middle" font-size="16">Hệ thống bên ngoài</text>
+    <text x="835" y="481" text-anchor="middle" font-size="15">createTxn, mã trạng thái "00"</text>
+
+    <!-- ACL bar on Billing -->
+    <rect x="612" y="405" width="26" height="80" rx="5" fill="#7c3aed"/>
+    <text x="625" y="452" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff" transform="rotate(-90 625 448)">ACL</text>
+
+    <!-- edges -->
+    <g stroke="#475569" stroke-width="2.5" fill="none">
+      <line x1="290" y1="175" x2="372" y2="175" marker-end="url(#cm-arrow)"/>
+      <line x1="625" y1="175" x2="707" y2="175" marker-end="url(#cm-arrow)"/>
+      <line x1="500" y1="230" x2="500" y2="387" marker-end="url(#cm-arrow)"/>
+      <line x1="710" y1="445" x2="641" y2="445" marker-end="url(#cm-arrow)"/>
+    </g>
+    <g font-size="14" font-weight="700" fill="#1d4ed8">
+      <text x="296" y="166">U</text><text x="356" y="166">D</text>
+      <text x="631" y="166">U</text><text x="691" y="166">D</text>
+      <text x="508" y="250">U</text><text x="508" y="380">D</text>
+      <text x="694" y="436">U</text><text x="646" y="436">D</text>
+    </g>
+    <g font-size="15">
+      <text x="331" y="258" text-anchor="middle">Customer–Supplier</text>
+      <text x="331" y="278" text-anchor="middle">Ordering hỏi giá</text>
+      <text x="667" y="258" text-anchor="middle">OHS + Published Language</text>
+      <text x="667" y="278" text-anchor="middle">event OrderConfirmed</text>
+      <text x="515" y="315">OHS + PL</text>
+      <text x="515" y="335">Billing lập hóa đơn</text>
+      <text x="835" y="530" text-anchor="middle">Billing dịch model bên ngoài qua ACL</text>
+    </g>
+
+    <rect x="40" y="560" width="920" height="56" rx="12" fill="#ffffff" stroke="#94a3b8"/>
+    <text x="60" y="584" font-size="15">Downstream chọn dịch (ACL) hay chấp nhận nguyên model (Conformist) tùy chất lượng model upstream.</text>
+    <text x="60" y="605" font-size="15">Customer–Supplier khác Conformist ở quyền lực: customer có tiếng nói trong kế hoạch của upstream.</text>
+  </g>
+</svg>

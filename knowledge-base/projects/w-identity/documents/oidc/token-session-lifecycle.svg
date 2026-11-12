@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 640" role="img" aria-labelledby="title desc">
+<title id="title">Vòng đời token và session</title>
+<desc id="desc">Trục thời gian: đăng nhập tạo phiên SSO (30 phút không hoạt động, tối đa 10 giờ), access token sống 5 phút được làm mới bằng refresh token xoay vòng; sau đăng xuất refresh token và userinfo bị từ chối, nhưng gateway xác minh cục bộ vẫn chấp nhận access token đến khi hết hạn.</desc>
+<defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#2765b3"/></marker><marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#a45c10"/></marker><marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#b3304a"/></marker></defs>
+<rect width="1100" height="640" rx="20" fill="#f8fafc"/>
+<g font-family="Arial, sans-serif" fill="#172b4d" text-anchor="middle">
+<text x="35" y="36" text-anchor="start" font-size="23" font-weight="700">VÒNG ĐỜI TOKEN VÀ SESSION</text>
+<text x="20" y="110" text-anchor="start" font-size="15" font-weight="700">Phiên SSO</text><text x="20" y="128" text-anchor="start" font-size="12.5" fill="#44546a">(Keycloak)</text>
+<text x="20" y="210" text-anchor="start" font-size="15" font-weight="700">Access token</text><text x="20" y="228" text-anchor="start" font-size="12.5" fill="#44546a">(5 phút)</text>
+<text x="20" y="310" text-anchor="start" font-size="15" font-weight="700">Refresh token</text><text x="20" y="328" text-anchor="start" font-size="12.5" fill="#44546a">(xoay vòng)</text>
+<text x="20" y="410" text-anchor="start" font-size="15" font-weight="700">Gateway</text><text x="20" y="428" text-anchor="start" font-size="12.5" fill="#44546a">(xác minh cục bộ)</text>
+<line x1="170" y1="70" x2="170" y2="520" stroke="#2765b3" stroke-width="2" stroke-dasharray="6 6"/><text x="170" y="64" font-size="14" font-weight="700" fill="#2765b3">Đăng nhập</text>
+<line x1="520" y1="70" x2="520" y2="520" stroke="#a45c10" stroke-width="2" stroke-dasharray="6 6"/><text x="520" y="64" font-size="14" font-weight="700" fill="#a45c10">Làm mới (~4:30)</text>
+<line x1="760" y1="70" x2="760" y2="520" stroke="#b3304a" stroke-width="2" stroke-dasharray="6 6"/><text x="760" y="64" font-size="14" font-weight="700" fill="#b3304a">Đăng xuất</text>
+<rect x="170" y="90" width="590" height="44" rx="10" fill="#fff0c5" stroke="#a45c10" stroke-width="1.6"/><text x="465.0" y="110" font-size="14" font-weight="700" fill="#a45c10">Phiên SSO còn sống</text>
+<text x="465.0" y="127" font-size="12.5" fill="#a45c10">idle 30 phút; tối đa 10 giờ; cookie KEYCLOAK_IDENTITY</text>
+<rect x="760" y="90" width="280" height="44" rx="10" fill="#fbe3e8" stroke="#b3304a" stroke-width="1.6"/><text x="900.0" y="110" font-size="14" font-weight="700" fill="#b3304a">Đã hủy</text>
+<text x="900.0" y="127" font-size="12.5" fill="#b3304a">cookie bị xóa</text>
+<rect x="170" y="190" width="370" height="44" rx="10" fill="#dff3ee" stroke="#1d7a5f" stroke-width="1.6"/><text x="355.0" y="210" font-size="14" font-weight="700" fill="#1d7a5f">Access #1</text>
+<text x="355.0" y="227" font-size="12.5" fill="#1d7a5f">exp 5 phút</text>
+<rect x="550" y="190" width="320" height="44" rx="10" fill="#dff3ee" stroke="#1d7a5f" stroke-width="1.6"/><text x="710.0" y="210" font-size="14" font-weight="700" fill="#1d7a5f">Access #2 (token mới)</text>
+<text x="710.0" y="227" font-size="12.5" fill="#1d7a5f">hết hạn 5 phút sau lúc làm mới</text>
+<rect x="170" y="290" width="350" height="44" rx="10" fill="#e6edfa" stroke="#2765b3" stroke-width="1.6"/><text x="345.0" y="310" font-size="14" font-weight="700" fill="#2765b3">Refresh #1</text>
+<text x="345.0" y="327" font-size="12.5" fill="#2765b3">bị vô hiệu khi làm mới</text>
+<rect x="520" y="290" width="240" height="44" rx="10" fill="#e6edfa" stroke="#2765b3" stroke-width="1.6"/><text x="640.0" y="310" font-size="14" font-weight="700" fill="#2765b3">Refresh #2</text>
+<text x="640.0" y="327" font-size="12.5" fill="#2765b3">dùng lại #1 → 400</text>
+<rect x="760" y="290" width="280" height="44" rx="10" fill="#fbe3e8" stroke="#b3304a" stroke-width="1.6"/><text x="900.0" y="310" font-size="14" font-weight="700" fill="#b3304a">Bị từ chối (400)</text>
+<text x="900.0" y="327" font-size="12.5" fill="#b3304a">phiên đã hủy</text>
+<rect x="170" y="390" width="700" height="44" rx="10" fill="#eef0f3" stroke="#44546a" stroke-width="1.6"/><text x="520.0" y="410" font-size="14" font-weight="700" fill="#44546a">Chấp nhận mọi access token còn hạn</text>
+<text x="520.0" y="427" font-size="12.5" fill="#44546a">chữ ký + iss + aud + exp</text>
+<rect x="870" y="390" width="170" height="44" rx="10" fill="#fbe3e8" stroke="#b3304a" stroke-width="1.6"/><text x="955.0" y="410" font-size="14" font-weight="700" fill="#b3304a">Token hết hạn → 401</text>
+<text x="830" y="256" font-size="13" fill="#b3304a" font-weight="700">vẫn hợp lệ đến exp</text>
+<rect x="35" y="470" width="1030" height="140" rx="12" fill="#fff" stroke="#96a7bd" stroke-width="1.5"/>
+<text x="55" y="500" text-anchor="start" font-size="14" font-weight="600" fill="#b3304a">Sau đăng xuất: /userinfo → 401, introspection → active:false, refresh token → 400, prompt=none → login_required.</text>
+<text x="55" y="530" text-anchor="start" font-size="14" font-weight="600" fill="#b3304a">Gateway xác minh cục bộ KHÔNG biết phiên đã bị hủy: access token cũ còn dùng được tối đa 5 phút.</text>
+<text x="55" y="560" text-anchor="start" font-size="14" font-weight="600" fill="#1d7a5f">Vì vậy access token sống ngắn; refresh token chết cùng phiên; kiểm tra tài khoản khóa ở lớp phân quyền.</text>
+<text x="55" y="590" text-anchor="start" font-size="14" font-weight="600" fill="#2765b3">F5 mất token (chỉ trong bộ nhớ), nhưng phiên SSO còn thì Keycloak cấp mã mới mà không hỏi mật khẩu.</text>
+</g></svg>

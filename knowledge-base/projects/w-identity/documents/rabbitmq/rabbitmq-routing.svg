@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320" font-family="system-ui,sans-serif" font-size="13">
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="#475569"/></marker></defs>
+<rect width="760" height="320" fill="#f8fafc"/>
+<rect x="16" y="122" width="116" height="76" rx="10" fill="#e0f2fe" stroke="#0284c7"/>
+<text x="74" y="150" text-anchor="middle" font-weight="700" fill="#0c4a6e">Producer</text>
+<text x="74" y="171" text-anchor="middle" fill="#0c4a6e">Đơn hàng</text>
+<line x1="132" y1="160" x2="208" y2="160" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="170" y="136" text-anchor="middle" fill="#334155" font-size="11">routing key</text>
+<text x="170" y="150" text-anchor="middle" fill="#334155" font-size="11">order.placed</text>
+<rect x="210" y="112" width="124" height="96" rx="10" fill="#fef3c7" stroke="#d97706"/>
+<text x="272" y="146" text-anchor="middle" font-weight="700" fill="#78350f">Exchange</text>
+<text x="272" y="166" text-anchor="middle" fill="#78350f">topic</text>
+<text x="272" y="186" text-anchor="middle" fill="#78350f" font-size="11">shop.events</text>
+<path d="M334,140 C380,100 390,62 468,62" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="334" y1="160" x2="468" y2="160" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M334,180 C380,220 390,258 468,258" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="402" y="55" text-anchor="middle" fill="#334155" font-size="11">binding: order.*</text>
+<text x="402" y="151" text-anchor="middle" fill="#334155" font-size="11">binding: order.placed</text>
+<text x="402" y="272" text-anchor="middle" fill="#334155" font-size="11">binding: #</text>
+<rect x="470" y="36" width="130" height="52" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+<text x="535" y="59" text-anchor="middle" font-weight="700" fill="#14532d">Queue</text>
+<text x="535" y="77" text-anchor="middle" fill="#14532d" font-size="11">email.order-events</text>
+<rect x="470" y="134" width="130" height="52" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+<text x="535" y="157" text-anchor="middle" font-weight="700" fill="#14532d">Queue</text>
+<text x="535" y="175" text-anchor="middle" fill="#14532d" font-size="11">shipping.orders</text>
+<rect x="470" y="232" width="130" height="52" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+<text x="535" y="255" text-anchor="middle" font-weight="700" fill="#14532d">Queue</text>
+<text x="535" y="273" text-anchor="middle" fill="#14532d" font-size="11">audit.all</text>
+<line x1="600" y1="62" x2="646" y2="62" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="600" y1="160" x2="646" y2="160" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="600" y1="258" x2="646" y2="258" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<rect x="648" y="40" width="96" height="44" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+<text x="696" y="67" text-anchor="middle" font-weight="700" fill="#4c1d95">Email</text>
+<rect x="648" y="138" width="96" height="44" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+<text x="696" y="165" text-anchor="middle" font-weight="700" fill="#4c1d95">Giao hàng</text>
+<rect x="648" y="236" width="96" height="44" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+<text x="696" y="263" text-anchor="middle" font-weight="700" fill="#4c1d95">Audit</text>
+<text x="380" y="310" text-anchor="middle" fill="#475569" font-size="12">Mỗi queue nhận một bản sao riêng của message. Consumer ack thì message mới bị xóa khỏi queue đó.</text>
+</svg>

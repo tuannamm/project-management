@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 710" role="img" aria-labelledby="title desc">
+  <title id="title">Bốn tầng Clean Architecture qua ví dụ quán ăn</title>
+  <desc id="desc">Từ ngoài vào trong: công cụ như máy POS và database; nhân viên chuyển đổi thông tin; người điều phối đặt món cùng các port; quy tắc đơn hàng. Dependency mã nguồn hướng vào các tầng bên trong.</desc>
+  <rect width="1000" height="710" rx="20" fill="#f8fafc"/>
+  <g font-family="Arial, sans-serif" fill="#172b4d">
+    <text x="40" y="44" font-size="25" font-weight="700">QUÁN ĂN VÀ BỐN TẦNG CLEAN ARCHITECTURE</text>
+    <rect x="30" y="68" width="940" height="570" rx="22" fill="#e6edfa" stroke="#6684b3" stroke-width="2"/>
+    <text x="55" y="102" font-size="22" font-weight="700">4 · Frameworks &amp; Drivers — Công cụ bên ngoài</text>
+    <text x="55" y="132" font-size="18">Máy POS, ứng dụng giao hàng, sổ lưu đơn → API, MongoDB, cổng thanh toán</text>
+    <rect x="80" y="156" width="840" height="422" rx="20" fill="#fce7ed" stroke="#bb6b83" stroke-width="2"/>
+    <text x="105" y="191" font-size="22" font-weight="700">3 · Interface Adapters — Bộ phận chuyển đổi</text>
+    <text x="105" y="220" font-size="18">Nhận lời khách thành yêu cầu chuẩn; chuyển lệnh thu tiền sang máy POS</text>
+    <text x="105" y="248" font-size="18">Trong code: OrderController, POSPaymentAdapter, OrderRepository</text>
+    <rect x="130" y="272" width="740" height="250" rx="18" fill="#dff3ee" stroke="#4e9487" stroke-width="2"/>
+    <text x="155" y="307" font-size="22" font-weight="700">2 · Application — Điều phối một lần đặt món</text>
+    <text x="155" y="336" font-size="18">Use case PlaceOrder: lấy món → tính tiền → thu tiền → lưu đơn</text>
+    <text x="155" y="364" font-size="18">Sở hữu PaymentPort và OrderRepositoryPort</text>
+    <rect x="180" y="387" width="640" height="103" rx="16" fill="#fff0c5" stroke="#b58b31" stroke-width="2"/>
+    <text x="205" y="420" font-size="22" font-weight="700">1 · Domain — Quy tắc của quán</text>
+    <text x="205" y="448" font-size="18">Đơn có món; số lượng dương; tổng tiền = Σ giá × số lượng</text>
+    <text x="205" y="475" font-size="17">Đúng dù khách đặt tại quầy, gọi điện hay qua ứng dụng</text>
+    <text x="500" y="613" text-anchor="middle" font-size="18" font-weight="700">Các khung lồng nhau thể hiện tầng kiến trúc, không phải thứ tự gọi hàm.</text>
+    <text x="500" y="672" text-anchor="middle" font-size="21" font-weight="700">Dependency mã nguồn hướng vào trong: 4 → 3 → 2 → 1</text>
+  </g>
+</svg>

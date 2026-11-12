@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" role="img" aria-labelledby="title desc">
+  <title id="title">DDD: cùng một món ăn, các mô hình khác nhau theo ngữ cảnh</title>
+  <desc id="desc">Thực đơn quan tâm món có thể bán và giá hiện tại. Đặt món giữ số lượng và giá tại thời điểm đặt. Bếp quan tâm yêu cầu chế biến và trạng thái hoàn thành. Thanh toán quan tâm số tiền và kết quả thu tiền. Một bounded context có thể chứa nhiều aggregate; một aggregate đơn hàng bảo vệ quy tắc của các dòng món.</desc>
+  <rect width="1000" height="700" rx="20" fill="#f8fafc"/>
+  <g font-family="Arial,sans-serif" fill="#172b4d">
+    <text x="35" y="44" font-size="24" font-weight="700">DDD: HIỂU NGHIỆP VỤ TRƯỚC KHI CHIA CLASS</text>
+    <text x="35" y="78" font-size="18">Ví dụ giả định: “cơm gà” có ý nghĩa khác nhau trong từng bounded context.</text>
+    <rect x="35" y="105" width="450" height="138" rx="15" fill="#e6edfa" stroke="#6684b3"/>
+    <rect x="515" y="105" width="450" height="138" rx="15" fill="#dff3ee" stroke="#4e9487"/>
+    <rect x="35" y="263" width="450" height="138" rx="15" fill="#fff0c5" stroke="#b58b31"/>
+    <rect x="515" y="263" width="450" height="138" rx="15" fill="#fce7ed" stroke="#bb6b83"/>
+    <g font-size="21" font-weight="700">
+      <text x="58" y="141">Thực đơn · Menu</text><text x="538" y="141">Đặt món · Ordering</text>
+      <text x="58" y="299">Bếp · Kitchen</text><text x="538" y="299">Thanh toán · Billing</text>
+    </g>
+    <g font-size="18">
+      <text x="58" y="177">Món có thể bán, mô tả, giá hiện tại</text>
+      <text x="58" y="210">Khái niệm: MenuItem</text>
+      <text x="538" y="177">Món đã đặt, số lượng, giá lúc đặt</text>
+      <text x="538" y="210">Khái niệm: Order, OrderLine</text>
+      <text x="58" y="335">Yêu cầu chế biến, ghi chú, trạng thái món</text>
+      <text x="58" y="368">Khái niệm: KitchenTicket</text>
+      <text x="538" y="335">Số tiền phải thu, số đã thu, giao dịch</text>
+      <text x="538" y="368">Khái niệm: Invoice, Payment</text>
+    </g>
+    <text x="500" y="436" text-anchor="middle" font-size="18">Mỗi context có mô hình và thuật ngữ rõ nghĩa trong phạm vi của nó.</text>
+    <rect x="35" y="459" width="930" height="170" rx="16" fill="#fff" stroke="#94a3b8" stroke-width="2"/>
+    <text x="60" y="495" font-size="21" font-weight="700">Ví dụ tactical design trong Ordering: aggregate Order</text>
+    <rect x="60" y="517" width="180" height="66" rx="12" fill="#dff3ee" stroke="#4e9487"/>
+    <text x="150" y="544" text-anchor="middle" font-size="18" font-weight="700">Order</text>
+    <text x="150" y="568" text-anchor="middle" font-size="16">Aggregate root</text>
+    <text x="270" y="539" font-size="18">OrderLine: cơm gà × 2, giữ giá tại thời điểm đặt</text>
+    <text x="270" y="568" font-size="18">Thay đổi qua Order để bảo vệ quy tắc số lượng và tổng tiền.</text>
+    <text x="60" y="610" font-size="17">Aggregate là ranh giới nhất quán nghiệp vụ; không đồng nghĩa một table/collection.</text>
+    <text x="500" y="671" text-anchor="middle" font-size="18" font-weight="700">Bounded context là ranh giới mô hình; không bắt buộc tương ứng một microservice.</text>
+  </g>
+</svg>

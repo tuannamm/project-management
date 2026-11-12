@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 790" role="img" aria-labelledby="title desc">
+  <title id="title">Luồng gọi và dependency mã nguồn của quán ăn</title>
+  <desc id="desc">Lúc chạy, controller gọi PlaceOrder; use case gọi thanh toán qua PaymentPort và adapter thực hiện bằng POS. Trong mã nguồn, PlaceOrder và POSPaymentAdapter đều phụ thuộc PaymentPort do Application sở hữu; use case không import adapter. PlaceOrder gọi Domain trực tiếp.</desc>
+  <defs>
+    <marker id="blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#2765b3"/></marker>
+    <marker id="orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#a45c10"/></marker>
+  </defs>
+  <rect width="1100" height="790" rx="20" fill="#f8fafc"/>
+  <g font-family="Arial, sans-serif" fill="#172b4d" text-anchor="middle">
+    <text x="35" y="38" text-anchor="start" font-size="23" font-weight="700">MỘT ĐƠN HÀNG — HAI LOẠI MŨI TÊN</text>
+    <rect x="20" y="60" width="1060" height="302" rx="18" fill="#fff" stroke="#cbd5e1"/>
+    <text x="45" y="95" text-anchor="start" font-size="21" font-weight="700" fill="#2765b3">A · LÚC CHẠY: ai gọi ai để thực hiện công việc?</text>
+    <g stroke="#96a7bd" stroke-width="1.5">
+      <rect x="40" y="133" width="180" height="90" rx="12" fill="#fce7ed"/>
+      <rect x="250" y="133" width="180" height="90" rx="12" fill="#dff3ee"/>
+      <rect x="460" y="133" width="180" height="90" rx="12" fill="#dff3ee"/>
+      <rect x="670" y="133" width="180" height="90" rx="12" fill="#fce7ed"/>
+      <rect x="880" y="133" width="180" height="90" rx="12" fill="#e6edfa"/>
+      <rect x="250" y="272" width="180" height="64" rx="12" fill="#fff0c5"/>
+    </g>
+    <g font-size="18" font-weight="700">
+      <text x="130" y="167">OrderController</text><text x="340" y="167">PlaceOrder</text><text x="550" y="167">PaymentPort</text><text x="760" y="167">POS Adapter</text><text x="970" y="167">Máy POS / API</text><text x="340" y="299">Domain policy</text>
+    </g>
+    <g font-size="16">
+      <text x="130" y="197">Nhận đơn của khách</text><text x="340" y="197">Điều phối đặt món</text><text x="550" y="197">Hợp đồng thu tiền</text><text x="760" y="197">Thực hiện thu tiền</text><text x="970" y="197">Hệ thống bên ngoài</text><text x="340" y="322">Tính tiền, kiểm tra đơn</text>
+    </g>
+    <g fill="none" stroke="#2765b3" stroke-width="2.5" marker-end="url(#blue)">
+      <path d="M220 178H247"/><path d="M430 178H457"/><path d="M640 178H667"/><path d="M850 178H877"/><path d="M340 223V269"/>
+    </g>
+    <text x="550" y="251" font-size="15">Gọi qua port; implementation được DI cung cấp</text>
+    <text x="752" y="309" font-size="17">Lưu đơn cũng tương tự: qua OrderRepositoryPort</text>
+    <rect x="20" y="380" width="1060" height="320" rx="18" fill="#fff" stroke="#cbd5e1"/>
+    <text x="45" y="417" text-anchor="start" font-size="21" font-weight="700" fill="#a45c10">B · TRONG MÃ NGUỒN: class nào biết contract nào?</text>
+    <g stroke="#96a7bd" stroke-width="1.5">
+      <rect x="80" y="472" width="230" height="85" rx="12" fill="#dff3ee"/>
+      <rect x="435" y="472" width="230" height="85" rx="12" fill="#dff3ee"/>
+      <rect x="790" y="472" width="230" height="85" rx="12" fill="#fce7ed"/>
+      <rect x="80" y="608" width="230" height="65" rx="12" fill="#fff0c5"/>
+    </g>
+    <g font-size="20" font-weight="700"><text x="195" y="507">PlaceOrder</text><text x="550" y="507">PaymentPort</text><text x="905" y="507">POSPaymentAdapter</text><text x="195" y="636">Domain policy</text></g>
+    <g font-size="16"><text x="195" y="535">Application</text><text x="550" y="535">Application sở hữu</text><text x="905" y="535">Infrastructure</text><text x="195" y="659">Domain độc lập</text></g>
+    <g fill="none" stroke="#a45c10" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#orange)">
+      <path d="M310 516H432"/><path d="M790 516H668"/><path d="M195 557V605"/>
+    </g>
+    <text x="372" y="493" font-size="16">dùng interface</text><text x="728" y="493" font-size="16">implements</text>
+    <text x="700" y="615" font-size="18">Use case và adapter cùng phụ thuộc port của lớp trong.</text>
+    <text x="700" y="646" font-size="18">PlaceOrder không import POSPaymentAdapter.</text>
+    <text x="550" y="738" font-size="19" font-weight="700">Tầng trong cần chức năng tầng ngoài → gọi qua port do tầng trong định nghĩa.</text>
+    <text x="550" y="768" font-size="17">Controller → use case và application → domain có thể gọi trực tiếp.</text>
+  </g>
+</svg>

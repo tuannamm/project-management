@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 930" role="img" aria-labelledby="title desc">
+<title id="title">Đăng nhập và đăng xuất trên UI</title>
+<desc id="desc">Phần A: đăng nhập bằng Authorization Code và PKCE. SPA tạo code_verifier, chuyển hướng sang Keycloak, người dùng nhập mật khẩu ở Keycloak, Keycloak trả mã về /callback, SPA đổi mã lấy token và gọi /me/permissions. Phần B: đăng xuất xóa token ở SPA rồi chuyển hướng tới Keycloak để hủy phiên SSO.</desc>
+<defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#2765b3"/></marker><marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#a45c10"/></marker></defs>
+<rect width="1100" height="930" rx="20" fill="#f8fafc"/>
+<g font-family="Arial, sans-serif" fill="#172b4d" text-anchor="middle">
+<text x="35" y="36" text-anchor="start" font-size="23" font-weight="700">ĐĂNG NHẬP VÀ ĐĂNG XUẤT TRÊN UI</text>
+<line x1="110" y1="104" x2="110" y2="910" stroke="#b6c3d4" stroke-width="2" stroke-dasharray="6 6"/>
+<line x1="340" y1="104" x2="340" y2="910" stroke="#b6c3d4" stroke-width="2" stroke-dasharray="6 6"/>
+<line x1="600" y1="104" x2="600" y2="910" stroke="#b6c3d4" stroke-width="2" stroke-dasharray="6 6"/>
+<line x1="900" y1="104" x2="900" y2="910" stroke="#b6c3d4" stroke-width="2" stroke-dasharray="6 6"/>
+<rect x="15" y="50" width="190" height="54" rx="12" fill="#fce7ed" stroke="#96a7bd" stroke-width="1.5"/><text x="110" y="73" font-size="17" font-weight="700">Người dùng</text><text x="110" y="93" font-size="12" fill="#44546a">trình duyệt</text>
+<rect x="245" y="50" width="190" height="54" rx="12" fill="#dff3ee" stroke="#96a7bd" stroke-width="1.5"/><text x="340" y="73" font-size="17" font-weight="700">SPA (React)</text><text x="340" y="93" font-size="12" fill="#44546a">keycloak-js, token trong bộ nhớ</text>
+<rect x="505" y="50" width="190" height="54" rx="12" fill="#fff0c5" stroke="#96a7bd" stroke-width="1.5"/><text x="600" y="73" font-size="17" font-weight="700">Keycloak</text><text x="600" y="93" font-size="12" fill="#44546a">trang đăng nhập, cấp token</text>
+<rect x="805" y="50" width="190" height="54" rx="12" fill="#e6edfa" stroke="#96a7bd" stroke-width="1.5"/><text x="900" y="73" font-size="17" font-weight="700">API Gateway</text><text x="900" y="93" font-size="12" fill="#44546a">kiểm tra JWT và quyền</text>
+<rect x="20" y="116" width="1060" height="30" rx="8" fill="#2765b3" opacity="0.14"/><text x="35" y="136" text-anchor="start" font-size="16" font-weight="700" fill="#2765b3">A · ĐĂNG NHẬP: Authorization Code + PKCE (mật khẩu không đi qua SPA)</text>
+<line x1="110" y1="176" x2="340" y2="176" stroke="#2765b3" stroke-width="2.4" marker-end="url(#b)"/><text x="225.0" y="168" font-size="13.5" fill="#2765b3" font-weight="600">1. Mở /app (chưa có token)</text>
+<rect x="354" y="188" width="330" height="56" rx="9" fill="#fff" stroke="#1d7a5f" stroke-width="1.6"/>
+<text x="519.0" y="210" font-size="13.5" fill="#1d7a5f">Sinh code_verifier, state</text>
+<text x="519.0" y="232" font-size="13.5" fill="#1d7a5f">code_challenge = S256(code_verifier)</text>
+<line x1="340" y1="278" x2="600" y2="278" stroke="#2765b3" stroke-width="2.4" marker-end="url(#b)"/><text x="470.0" y="270" font-size="13.5" fill="#2765b3" font-weight="600">2. Chuyển hướng /auth + code_challenge</text>
+<line x1="600" y1="308" x2="110" y2="308" stroke="#a45c10" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#o)"/><text x="355.0" y="300" font-size="13.5" fill="#a45c10" font-weight="600">3. Trang đăng nhập (theme Keycloak)</text>
+<line x1="110" y1="338" x2="600" y2="338" stroke="#2765b3" stroke-width="2.4" marker-end="url(#b)"/><text x="355.0" y="330" font-size="13.5" fill="#2765b3" font-weight="600">4. Nhập username + password</text>
+<line x1="600" y1="370" x2="340" y2="370" stroke="#a45c10" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#o)"/><text x="470.0" y="362" font-size="13.5" fill="#a45c10" font-weight="600">5. 302 /callback?code=...&amp;state=...</text>
+<rect x="354" y="382" width="330" height="34" rx="9" fill="#fff" stroke="#1d7a5f" stroke-width="1.6"/>
+<text x="519.0" y="404" font-size="13.5" fill="#1d7a5f">Kiểm tra state; chưa có token</text>
+<line x1="340" y1="450" x2="600" y2="450" stroke="#2765b3" stroke-width="2.4" marker-end="url(#b)"/><text x="470.0" y="442" font-size="13.5" fill="#2765b3" font-weight="600">6. Đổi mã: code + code_verifier</text>
+<line x1="600" y1="480" x2="340" y2="480" stroke="#a45c10" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#o)"/><text x="470.0" y="472" font-size="13.5" fill="#a45c10" font-weight="600">access (5 phút) + refresh + id_token</text>
+<rect x="354" y="492" width="330" height="56" rx="9" fill="#fff" stroke="#1d7a5f" stroke-width="1.6"/>
+<text x="519.0" y="514" font-size="13.5" fill="#1d7a5f">Token chỉ giữ trong bộ nhớ</text>
+<text x="519.0" y="536" font-size="13.5" fill="#1d7a5f">Về trang đã nhớ (chỉ đường dẫn nội bộ)</text>
+<line x1="340" y1="582" x2="900" y2="582" stroke="#2765b3" stroke-width="2.4" marker-end="url(#b)"/><text x="620.0" y="574" font-size="13.5" fill="#2765b3" font-weight="600">7. GET /me/permissions + Bearer</text>
+<line x1="900" y1="610" x2="340" y2="610" stroke="#a45c10" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#o)"/><text x="620.0" y="602" font-size="13.5" fill="#a45c10" font-weight="600">{ role, permissions[] } → render</text>
+<rect x="20" y="646" width="1060" height="30" rx="8" fill="#2765b3" opacity="0.14"/><text x="35" y="666" text-anchor="start" font-size="16" font-weight="700" fill="#2765b3">B · ĐĂNG XUẤT: xóa token ở UI và hủy phiên SSO ở Keycloak</text>
+<line x1="110" y1="706" x2="340" y2="706" stroke="#2765b3" stroke-width="2.4" marker-end="url(#b)"/><text x="225.0" y="698" font-size="13.5" fill="#2765b3" font-weight="600">8. Bấm Đăng xuất</text>
+<rect x="354" y="718" width="330" height="34" rx="9" fill="#fff" stroke="#1d7a5f" stroke-width="1.6"/>
+<text x="519.0" y="740" font-size="13.5" fill="#1d7a5f">Xóa token, cờ phiên và trang đã nhớ</text>
+<line x1="340" y1="786" x2="600" y2="786" stroke="#2765b3" stroke-width="2.4" marker-end="url(#b)"/><text x="470.0" y="778" font-size="13.5" fill="#2765b3" font-weight="600">9. /logout + id_token_hint + post_logout_redirect_uri</text>
+<line x1="600" y1="820" x2="110" y2="820" stroke="#a45c10" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#o)"/><text x="355.0" y="812" font-size="13.5" fill="#a45c10" font-weight="600">10. 302 về / (chưa đăng nhập)</text>
+<rect x="614" y="832" width="330" height="56" rx="9" fill="#fff" stroke="#b3304a" stroke-width="1.6"/>
+<text x="779.0" y="854" font-size="13.5" fill="#b3304a">Access token cũ vẫn hợp lệ đến khi hết hạn</text>
+<text x="779.0" y="876" font-size="13.5" fill="#b3304a">(refresh token đã bị vô hiệu cùng phiên)</text>
+</g></svg>

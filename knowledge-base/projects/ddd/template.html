@@ -353,14 +353,14 @@ button:disabled { opacity: 0.45; cursor: default; }
   <section id="view-overview" data-view-panel="overview">
     <div class="hero">
       <div>
-        <span class="eyebrow">Bounded Context · Aggregate · Ubiquitous Language</span>
+        <span class="eyebrow">Bounded Context · Aggregate · So sánh Clean Architecture</span>
         <h1>Hiểu nghiệp vụ trước.<br><em>Rồi mới chọn pattern.</em></h1>
-        <p class="lead">Nắm Strategic và Tactical Design, tìm ranh giới bounded context và luyện giải thích DDD qua ví dụ nhà hàng.</p>
+        <p class="lead">17 bài: Strategic và Tactical Design với định nghĩa chặt, ví dụ nhà hàng làm trọn vẹn, so sánh với Clean Architecture và phân tích DDD ở w-identity.</p>
         <div class="hero-actions"><a class="btn primary" href="#topic-0">Bắt đầu học →</a><a class="btn" href="#practice">Luyện phỏng vấn</a></div>
       </div>
       <div class="panel meter" id="meter" aria-live="polite"></div>
     </div>
-    <div class="design-note"><span class="chip theory">Ví dụ minh họa</span><p>Ví dụ nhà hàng dùng để học khái niệm, không phải code đã triển khai. w-identity chỉ áp dụng DDD ở mức nhẹ (bài 7). Phần so sánh với Clean Architecture ở sổ tay Clean Architecture, bài 14.</p></div>
+    <div class="design-note"><span class="chip theory">Ví dụ minh họa</span><p>Ví dụ nhà hàng dùng để học khái niệm, không phải code đã triển khai. Code TypeScript ở bài 5–15 chưa chạy thử. w-identity chỉ áp dụng DDD ở mức nhẹ (bài 16). So sánh DDD và Clean Architecture ở bài 13.</p></div>
 
     <section class="block">
       <div class="section-head"><h2>Hai nửa của DDD</h2><p>Strategic tìm ranh giới và ngôn ngữ; Tactical thể hiện mô hình trong code. Strategic đi trước.</p></div>
@@ -368,14 +368,14 @@ button:disabled { opacity: 0.45; cursor: default; }
         <div class="panel plane">
           <span class="eyebrow">01 · Strategic Design</span><h3>Tìm ranh giới và ngôn ngữ</h3>
           <div class="flow"><span>Ubiquitous Language</span><b aria-hidden="true">↓</b><span>Subdomain</span><b aria-hidden="true">↓</b><span class="flow-core">Bounded Context</span></div>
-          <div class="rule">Context map mô tả quan hệ: Customer–Supplier, Shared Kernel, ACL... Context không bắt buộc là một microservice.</div>
-          <a class="text-link" href="#topic-1">Hiểu bounded context →</a>
+          <div class="rule">Context map mô tả quan hệ bằng 9 pattern: Customer–Supplier, Shared Kernel, ACL... Context không bắt buộc là một microservice.</div>
+          <a class="text-link" href="#topic-2">Hiểu bounded context →</a>
         </div>
         <div class="panel plane data">
           <span class="eyebrow">02 · Tactical Design</span><h3>Thể hiện mô hình trong code</h3>
           <div class="flow"><span>Entity · Value Object</span><b aria-hidden="true">↓</b><span>Aggregate · Repository</span><b aria-hidden="true">↓</b><span class="flow-core">Domain Event</span></div>
           <div class="rule">Aggregate root bảo vệ bất biến trong một ranh giới nhất quán; tham chiếu aggregate khác bằng ID.</div>
-          <a class="text-link" href="#topic-4">Khám phá aggregate →</a>
+          <a class="text-link" href="#topic-6">Khám phá aggregate →</a>
         </div>
       </div>
     </section>
@@ -384,8 +384,8 @@ button:disabled { opacity: 0.45; cursor: default; }
       <div class="section-head"><h2>Lộ trình học và ôn tập</h2><p>Đọc hai chủ đề mỗi ngày, tự giải thích trong 60–90 giây rồi luyện câu hỏi liên quan.</p></div>
       <div class="study-path" id="planes">
         <a class="panel study-step" href="#topic-0"><span class="eyebrow">01 · Nắm nguyên lý</span><h3>Hiểu trước khi dùng pattern</h3><p>Ngôn ngữ chung, bounded context, subdomain và context map.</p><span class="text-link">Đọc bài nền tảng →</span></a>
-        <a class="panel study-step" href="#topic-4"><span class="eyebrow">02 · Mô hình trong code</span><h3>Đưa nguyên lý vào ví dụ</h3><p>Entity, value object, aggregate, repository, service và event.</p><span class="text-link">Khám phá thiết kế →</span></a>
-        <a class="panel study-step" href="#topic-7"><span class="eyebrow">03 · Tự giải thích</span><h3>Biết giới hạn của DDD</h3><p>Khi nào nên dùng DDD đầy đủ và DDD ở w-identity áp dụng đến đâu.</p><span class="text-link">Đọc bài kết →</span></a>
+        <a class="panel study-step" href="#topic-5"><span class="eyebrow">02 · Mô hình trong code</span><h3>Đưa nguyên lý vào ví dụ</h3><p>Entity, value object, aggregate, service, event, repository, rồi làm trọn ví dụ nhà hàng.</p><span class="text-link">Khám phá thiết kế →</span></a>
+        <a class="panel study-step" href="#topic-13"><span class="eyebrow">03 · So sánh và áp dụng</span><h3>DDD và Clean Architecture</h3><p>Mỗi bên trả lời câu hỏi gì, ánh xạ building block vào các vòng, và DDD ở w-identity áp dụng đến đâu.</p><span class="text-link">Đọc phần so sánh →</span></a>
       </div>
     </section>
   </section>
@@ -507,7 +507,7 @@ button:disabled { opacity: 0.45; cursor: default; }
 
   const generated = new Date(DATA.generatedAt);
   $('#gen-date').textContent = 'cập nhật ' + generated.toLocaleDateString('vi-VN');
-  $('#footer').textContent = 'Sinh tự động từ documents/KNOWLEDGE.md và documents/INTERVIEW-QUESTIONS.md lúc ' +
+  $('#footer').textContent = 'Sinh tự động từ documents/ddd/KNOWLEDGE.md và documents/ddd/INTERVIEW-QUESTIONS.md lúc ' +
     generated.toLocaleString('vi-VN') + '. Sửa nội dung trong file markdown rồi chạy lại: npm run docs:knowledge';
 
   // ================= OVERVIEW: meter =================

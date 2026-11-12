@@ -26,8 +26,9 @@ Ví dụ quán ăn và hai sơ đồ minh họa nằm ở bài 0–1. Luyện c�
 
 ## Domain-Driven Design
 
-Mục `#ddd` là sổ tay riêng, tách khỏi Clean Architecture: 8 bài (Strategic, Tactical, ví dụ nhà hàng, anemic model/Event Storming, DDD ở w-identity), câu hỏi, thuật ngữ và slide.
-Nguồn đặt trong `apps/w-identity/documents/ddd/` (cùng định dạng, kèm `ddd-restaurant-contexts.svg`); template ở `knowledge-base/projects/ddd/template.html`; đánh dấu ôn tập dùng khóa `ddd-practice-marks`, nên tiến độ cũ của các câu DDD từng nằm trong Clean Architecture không được chuyển sang.
+Mục `#ddd` là sổ tay riêng, tách khỏi Clean Architecture, gồm 17 bài (0–16) chia 4 phần: Strategic Design (ngôn ngữ chung, bounded context, subdomain/distillation, đủ 9 pattern của context map), Tactical Design có code TypeScript minh họa (entity/value object, aggregate với 4 quy tắc của Vernon và optimistic locking, các loại service/specification, domain event và outbox, repository/factory/unit of work), Thực hành (Event Storming, Transaction Script và anemic model, ví dụ nhà hàng làm trọn vẹn), So sánh và áp dụng (bài 13 so sánh DDD với Clean Architecture, bài 14 về CQRS/Event Sourcing/Microservices, bài 15 về Hexagonal/Onion, bài 16 phân tích User/Role/UserRole ở w-identity kèm race condition của `DeleteRoleHandler`).
+Code TypeScript ở bài 5–15 là minh họa, chưa chạy thử; phần "đề xuất" ở bài 16 chưa triển khai.
+Nguồn đặt trong `apps/w-identity/documents/ddd/` (cùng định dạng, kèm `ddd-restaurant-contexts.svg`, `ddd-context-map.svg`, `ddd-clean-mapping.svg`); template ở `knowledge-base/projects/ddd/template.html`; đánh dấu ôn tập dùng khóa `ddd-practice-marks`, nên tiến độ cũ của các câu DDD từng nằm trong Clean Architecture không được chuyển sang.
 Dự án này đăng ký trong `projects.json` với thêm trường `docs` (`documents/ddd`) để builder biết đọc thư mục nào.
 Sinh lại các sổ tay của w-identity (clean-architecture, ddd, authz, oidc): `npm exec nx run w-identity:docs:knowledge` (hoặc `npm run docs:knowledge` trong `apps/w-identity`); sinh lại toàn bộ bằng lệnh build ở trên.
 

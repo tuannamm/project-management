@@ -51,5 +51,12 @@
     "app": "apps/w-identity",
     "docs": "documents/rabbitmq",
     "tagline": "Exchange · Ack · Độ tin cậy · Retry và DLQ · Ôn phỏng vấn"
+  },
+  {
+    "id": "saga",
+    "name": "Saga Pattern",
+    "app": "apps/w-identity",
+    "docs": "documents/saga",
+    "tagline": "Distributed transaction · Compensation · Orchestration · Ôn phỏng vấn"
   }
 ]

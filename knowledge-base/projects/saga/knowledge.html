@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ tay Saga Pattern</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Cùng hệ giao diện với sổ tay API Gateway và Service Registry.
+   Nội dung được sinh từ markdown; tiến độ ôn tập dùng khóa riêng saga-practice-marks. */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #e9edf2;
+  --ink: #17202b;
+  --muted: #5a6574;
+  --line: #d6dce4;
+  --accent: #c2410c;
+  --accent-soft: #fbe5d8;
+  --control: #4352c9;
+  --control-soft: #e3e6fb;
+  --data: #0d7d72;
+  --data-soft: #d6f0ec;
+  --ok: #2b7a3f;
+  --ok-soft: #dcf0e1;
+  --learn: #2559c7;
+  --learn-soft: #dfe8fb;
+  --todo: #6b7482;
+  --todo-soft: #e6e9ee;
+  --danger: #b4321f;
+  --danger-soft: #f9e0db;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+    --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+    --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+    --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+  --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+  --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+  --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+[hidden] { display: none !important; }
+a { color: var(--learn); }
+code, pre, kbd { font-family: var(--font-mono); font-size: 0.86em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.eyebrow { font: 600 11px/1 var(--font-mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- Header ---------- */
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-block: 10px; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand b { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
+.brand span { font: 500 12px var(--font-mono); color: var(--muted); }
+nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+nav.tabs a {
+  text-decoration: none; color: var(--muted); font-weight: 600; font-size: 14px;
+  padding: 6px 12px; border-radius: 999px;
+}
+nav.tabs a:hover { color: var(--ink); background: var(--surface-2); }
+nav.tabs a[aria-current="page"] { color: var(--surface); background: var(--ink); }
+.icon-btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px;
+  font: 600 12px var(--font-mono); padding: 6px 10px; cursor: pointer;
+}
+main { padding-block: 28px 64px; }
+
+/* ---------- Shared bits ---------- */
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--font-mono); padding: 4px 8px; border-radius: 999px; white-space: nowrap; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.done { color: var(--ok); background: var(--ok-soft); }
+.chip.theory { color: var(--learn); background: var(--learn-soft); }
+.chip.todo { color: var(--todo); background: var(--todo-soft); }
+.chip.basic { color: var(--ok); background: var(--ok-soft); }
+.chip.mid { color: #a16207; background: #fbefcf; }
+.chip.hard { color: var(--danger); background: var(--danger-soft); }
+:root[data-theme="dark"] .chip.mid { color: #e8c062; background: #3a2f14; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip.mid { color: #e8c062; background: #3a2f14; } }
+.status-code { font: 700 13px var(--font-mono); padding: 2px 7px; border-radius: 6px; background: var(--surface-2); }
+.status-code.s2 { color: var(--ok); background: var(--ok-soft); }
+.status-code.s4 { color: #a16207; background: #fbefcf; }
+.status-code.s5 { color: var(--danger); background: var(--danger-soft); }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font: 600 14px var(--font-body); padding: 8px 14px; border-radius: 8px; cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn.good { background: var(--ok); color: var(--surface); border-color: var(--ok); }
+.btn.again { color: var(--accent); border-color: var(--accent); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.section-head h2 { font-size: 21px; font-weight: 700; }
+.section-head p { margin: 0; color: var(--muted); max-width: 62ch; }
+section.block { margin-top: 44px; }
+
+/* ---------- Overview ---------- */
+.hero { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 32px; align-items: end; }
+.hero h1 { font-size: clamp(30px, 4.6vw, 46px); font-weight: 800; letter-spacing: -0.025em; margin-top: 10px; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero p.lead { font-size: 17px; color: var(--muted); max-width: 58ch; margin: 14px 0 0; }
+.meter { padding: 18px; display: grid; gap: 14px; }
+.meter-row { display: grid; gap: 6px; }
+.meter-row .label { display: flex; justify-content: space-between; font-size: 13.5px; }
+.meter-row .label b { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.bar { height: 10px; border-radius: 999px; background: var(--surface-2); display: flex; overflow: hidden; }
+.bar i { display: block; height: 100%; }
+.bar .b-done { background: var(--ok); } .bar .b-theory { background: var(--learn); } .bar .b-known { background: var(--ok); } .bar .b-review { background: var(--accent); }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.diagram { overflow-x: auto; padding: 16px; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.diagram .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+.diagram .node.gw rect { fill: var(--accent-soft); stroke: var(--accent); }
+.diagram .node.svc rect { fill: var(--data-soft); stroke: var(--data); }
+.diagram .node.infra rect { fill: var(--control-soft); stroke: var(--control); }
+.diagram text { fill: var(--ink); font-family: var(--font-body); font-size: 14px; font-weight: 600; }
+.diagram text.small { fill: var(--muted); font: 500 11.5px var(--font-mono); }
+.diagram .edge { stroke: var(--ink); stroke-width: 1.6; fill: none; }
+.diagram .edge.tcp { stroke: var(--data); }
+.diagram .edge.dash { stroke: var(--control); stroke-dasharray: 5 5; }
+.diagram .edge.event { stroke: var(--muted); stroke-dasharray: 2 4; }
+.diagram marker path { fill: context-stroke; }
+.diagram .arrow-ink { fill: var(--ink); } .diagram .arrow-data { fill: var(--data); } .diagram .arrow-ctrl { fill: var(--control); } .diagram .arrow-muted { fill: var(--muted); }
+
+.planes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.plane { padding: 20px; border-top: 4px solid var(--control); }
+.plane.data { border-top-color: var(--data); }
+.plane h3 { font-size: 18px; margin-bottom: 4px; }
+.plane .when { font: 500 12.5px var(--font-mono); color: var(--muted); }
+.plane ol { margin: 14px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+.plane ol code { color: var(--muted); }
+.plane .rule { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 14px; color: var(--muted); }
+
+/* ---------- Knowledge ---------- */
+.kgrid { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 28px; align-items: start; }
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); max-height: calc(100vh - 100px); overflow-y: auto; padding: 10px; }
+.toc input { width: 100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 8px 10px; font: inherit; margin-bottom: 8px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.toc a { display: grid; grid-template-columns: 26px minmax(0, 1fr) 10px; gap: 6px; align-items: center; text-decoration: none; color: var(--ink); padding: 6px 8px; border-radius: 6px; font-size: 13.5px; line-height: 1.35; }
+.toc a:hover { background: var(--surface-2); }
+.toc a[aria-current="true"] { background: var(--surface-2); font-weight: 600; }
+.toc .num { font: 600 11.5px var(--font-mono); color: var(--muted); }
+.toc .dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.done { background: var(--ok); } .dot.theory { background: var(--learn); } .dot.todo { background: transparent; box-shadow: inset 0 0 0 1.5px var(--todo); }
+.toc-toggle { display: none; }
+
+article.topic { min-width: 0; }
+.topic-head { display: grid; gap: 10px; padding-bottom: 18px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.topic-head h1 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; letter-spacing: -0.02em; }
+.topic-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13.5px; }
+.prose { max-width: 76ch; }
+.prose img { display: block; max-width: 100%; height: auto; margin: 16px auto; border-radius: 12px; }
+.prose p, .prose li { overflow-wrap: break-word; }
+.prose p { margin: 0 0 12px; }
+.prose ul, .prose ol { margin: 0 0 14px; padding-left: 22px; display: grid; gap: 4px; }
+.prose code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.prose pre { background: var(--surface-2); padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 16px; line-height: 1.5; }
+.prose pre code { background: none; padding: 0; }
+.prose blockquote { margin: 0 0 14px; padding: 10px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+.prose h3 { font-size: 17px; margin: 22px 0 10px; }
+.table-wrap { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 8px; }
+.prose table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.prose th, .prose td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.prose th { background: var(--surface-2); font-weight: 600; font-size: 13px; }
+.prose tr:last-child td { border-bottom: 0; }
+.callout { border-radius: var(--radius); padding: 14px 16px 2px; margin: 0 0 16px; border: 1px solid var(--line); background: var(--surface); }
+.callout > p:first-child { font-size: 12px; font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+.callout > p:first-child strong { font-weight: 700; }
+.callout.questions { border-color: var(--learn); background: var(--learn-soft); }
+.callout.questions > p:first-child { color: var(--learn); }
+.callout.trap { border-color: var(--accent); background: var(--accent-soft); }
+.callout.trap > p:first-child { color: var(--accent); }
+.callout.sample { border-color: var(--ok); background: var(--ok-soft); }
+.callout.sample > p:first-child { color: var(--ok); }
+.callout.incode { border-color: var(--control); background: var(--control-soft); }
+.callout.incode > p:first-child { color: var(--control); }
+.callout.self { border-style: dashed; background: transparent; }
+.callout.self blockquote { border: 0; padding: 0; font-style: italic; }
+.topic-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--line); }
+.topic-foot a { text-decoration: none; }
+.practice-link { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; margin-top: 22px; }
+
+/* ---------- Practice ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; margin-bottom: 16px; }
+.fgroup { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.fgroup .eyebrow { margin-right: 4px; }
+.pill { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 5px 11px; font: 600 13px var(--font-body); cursor: pointer; }
+.pill[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.card { padding: 26px; display: grid; gap: 18px; min-height: 320px; align-content: start; }
+.card-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13px; }
+.card-q { font-size: clamp(19px, 2.4vw, 24px); font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; text-wrap: pretty; }
+.card-q strong { font-weight: 700; }
+.hint { border-left: 3px solid var(--ok); padding: 10px 14px; background: var(--ok-soft); border-radius: 0 8px 8px 0; }
+.hint .eyebrow { color: var(--ok); display: block; margin-bottom: 6px; }
+.refs { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13.5px; }
+.refs a { text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; color: var(--ink); }
+.refs a:hover { border-color: var(--learn); color: var(--learn); }
+.card-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.card-actions .spacer { flex: 1; }
+.mark { font: 600 12px var(--font-mono); }
+.mark.known { color: var(--ok); } .mark.review { color: var(--accent); }
+.practice-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.counter { font: 600 13px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.kbd-help { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); }
+.empty { padding: 40px 26px; text-align: center; color: var(--muted); }
+
+/* ---------- Glossary ---------- */
+.gloss-search { width: min(100%, 420px); border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 9px 12px; font: inherit; margin-bottom: 16px; }
+.gloss { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.term { padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.term b { font-weight: 700; }
+.term span { color: var(--muted); font-size: 14px; }
+.term code { background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+
+footer { color: var(--muted); font-size: 12.5px; padding-block: 0 32px; }
+
+/* ---------- Slides ---------- */
+.slide-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.stage { display: grid; place-items: center; }
+.slide-frame {
+  width: min(100%, calc((100vh - 240px) * 16 / 9)); aspect-ratio: 16 / 9; max-width: 100%;
+  container-type: inline-size; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+}
+.stage:fullscreen { background: var(--bg); width: 100vw; height: 100vh; }
+.stage:fullscreen .slide-frame { width: min(100vw, calc(100vh * 16 / 9)); border-radius: 0; border: 0; }
+.slide {
+  height: 100%; overflow: auto; display: flex; flex-direction: column; justify-content: center; gap: 2.2cqw;
+  padding: 5cqw 7cqw 6cqw; font-size: 2.15cqw; line-height: 1.5; position: relative;
+  border-top: 0.6cqw solid var(--accent);
+}
+.slide > * { margin: 0; }
+.slide h1 { font-size: 6cqw; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+.slide h2 { font-size: 3.6cqw; font-weight: 800; letter-spacing: -0.02em; }
+.slide.cover { justify-content: flex-end; padding-bottom: 8cqw; background: linear-gradient(135deg, var(--accent-soft), transparent 60%); }
+.slide.cover h1 { color: var(--ink); max-width: 18ch; }
+.slide.cover p:first-of-type { font-size: 2.8cqw; color: var(--ink); max-width: 36ch; }
+.slide.cover p { color: var(--muted); }
+.slide ul, .slide ol { padding-left: 1.4em; display: grid; gap: 0.9cqw; }
+.slide strong { color: var(--accent); }
+.slide code { font-size: 0.85em; background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 0.3em; }
+.slide pre { background: var(--surface-2); border-radius: 1cqw; padding: 1.6cqw 2cqw; font-size: 1.6cqw; line-height: 1.45; overflow: auto; }
+.slide pre code { background: none; padding: 0; font-size: 1em; }
+.slide table { border-collapse: collapse; width: 100%; font-size: 1.85cqw; }
+.slide th, .slide td { text-align: left; vertical-align: top; padding: 1cqw 1.4cqw; border-bottom: 1px solid var(--line); }
+.slide th { color: var(--muted); font-weight: 600; font-size: 1.5cqw; text-transform: uppercase; letter-spacing: 0.06em; }
+.slide th:empty { padding: 0; border: 0; }
+.slide td strong { color: var(--ink); }
+.slide .slide-no { position: absolute; right: 3cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); }
+.slide .slide-brand { position: absolute; left: 7cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.slide .diagram { padding: 0; border: 0; background: none; overflow: visible; }
+.slide .diagram svg { min-width: 0; max-height: 34cqw; }
+.slide .planes { gap: 2cqw; }
+.slide .plane { padding: 1.8cqw 2cqw; border-radius: 1cqw; }
+.slide .plane h3 { font-size: 2.1cqw; margin-bottom: 0; }
+.slide .plane .eyebrow { font-size: 1.15cqw; }
+.slide .plane .when, .slide .plane .rule { display: none; }
+.slide .plane ol { font-size: 1.55cqw; gap: 0.4cqw; margin-top: 1.2cqw; line-height: 1.4; }
+.slide .plane ol code { font-size: 0.78em; background: none; padding: 0; }
+.slide-progress { height: 3px; background: var(--surface-2); border-radius: 999px; margin-top: 12px; overflow: hidden; }
+.slide-progress i { display: block; height: 100%; background: var(--accent); }
+.slide-notes { margin-top: 14px; padding: 14px 18px; font-size: 15px; }
+.slide-notes p { margin: 0; }
+.slide-notes .eyebrow { display: block; margin-bottom: 6px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 920px) {
+  .hero, .planes { grid-template-columns: minmax(0, 1fr); }
+  .kgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc { position: static; max-height: none; }
+  .toc-toggle { display: inline-flex; margin-bottom: 10px; }
+  .toc.collapsed ol, .toc.collapsed input { display: none; }
+}
+@media (max-width: 480px) {
+  .card { padding: 18px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pill, .btn, nav.tabs a { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+}
+
+/* ---------- Clean Architecture overview ---------- */
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.design-note { display: flex; align-items: center; gap: 12px; margin-top: 24px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+.design-note p { margin: 0; color: var(--muted); font-size: 13px; }
+.flow { display: grid; justify-items: center; gap: 8px; margin-top: 20px; }
+.flow span { width: 100%; text-align: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font: 500 13px var(--font-mono); overflow-wrap: anywhere; }
+.flow b { color: var(--muted); line-height: 1; }
+.flow .flow-core { color: var(--control); border-color: var(--control); background: var(--control-soft); }
+.data .flow-core { color: var(--data); border-color: var(--data); background: var(--data-soft); }
+.text-link { display: inline-block; color: var(--learn); font-size: 13px; font-weight: 600; margin-top: 14px; }
+.study-path { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.study-step { display: flex; flex-direction: column; padding: 22px; color: var(--ink); text-decoration: none; }
+.study-step:hover { border-color: var(--accent); }
+.study-step h3 { font-size: 18px; margin-top: 14px; }
+.study-step p { color: var(--muted); font-size: 14px; margin: 12px 0 18px; }
+.study-step .text-link { margin-top: auto; }
+.meter-row .label { flex-wrap: wrap; gap: 4px 10px; }
+button:disabled { opacity: 0.45; cursor: default; }
+.topic-foot .btn { max-width: 100%; overflow-wrap: anywhere; }
+@media (max-width: 920px) {
+  .study-path { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .brand { flex-wrap: wrap; gap: 4px 10px; }
+  nav.tabs { width: 100%; }
+  nav.tabs a { padding: 6px 9px; font-size: 13px; }
+  .design-note { align-items: flex-start; flex-direction: column; }
+  .gloss { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Sổ tay Saga Pattern</b><span id="gen-date"></span></div>
+    <nav class="tabs" aria-label="Các phần">
+      <a href="#overview" data-view="overview">Tổng quan</a>
+      <a href="#knowledge" data-view="knowledge">Kiến thức</a>
+      <a href="#practice" data-view="practice">Luyện câu hỏi</a>
+      <a href="#glossary" data-view="glossary">Từ điển</a>
+      <a href="#slides" data-view="slides">Slide</a>
+    </nav>
+    <button class="icon-btn" id="theme-btn" type="button" title="Đổi giao diện sáng/tối">Giao diện: hệ thống</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ================= OVERVIEW ================= -->
+  <section id="view-overview" data-view-panel="overview">
+    <div class="hero">
+      <div>
+        <span class="eyebrow">Local transaction · Compensation · Orchestration · Eventual consistency</span>
+        <h1>Một nghiệp vụ, nhiều database.<br><em>Bước thứ ba lỗi thì hai bước trước làm sao?</em></h1>
+        <p class="lead">Nắm Saga Pattern: vì sao không dùng 2PC, choreography và orchestration, pivot và compensating transaction, xử lý thiếu isolation, độ tin cậy, và cách nói khi phỏng vấn.</p>
+        <div class="hero-actions"><a class="btn primary" href="#topic-0">Bắt đầu học →</a><a class="btn" href="#practice">Luyện phỏng vấn</a></div>
+      </div>
+      <div class="panel meter" id="meter" aria-live="polite"></div>
+    </div>
+    <div class="design-note"><span class="chip theory">Thiết kế</span><p>Đây là tài liệu lý thuyết và thiết kế. Dự án chưa cài saga; code NestJS là minh họa chưa chạy thử, và saga tạo project ở bài 9 là đề xuất.</p></div>
+
+    <section class="block">
+      <div class="section-head"><h2>Hai nửa của pattern</h2><p>Nửa thứ nhất là luồng đi tới qua từng local transaction; nửa thứ hai là đường lui khi một bước thất bại.</p></div>
+      <div class="planes" id="arch-diagram">
+        <div class="panel plane">
+          <span class="eyebrow">01 · Đi tới</span><h3>Chuỗi local transaction</h3>
+          <div class="flow"><span>Compensatable: tạo đơn, giữ hàng</span><b aria-hidden="true">↓</b><span>Pivot: trừ tiền</span><b aria-hidden="true">↓</b><span class="flow-core">Retriable: duyệt đơn, gửi email</span></div>
+          <div class="rule">Mỗi bước commit ngay trong DB của service đó; không có transaction chung.</div>
+          <a class="text-link" href="#topic-3">Ba loại bước →</a>
+        </div>
+        <div class="panel plane data">
+          <span class="eyebrow">02 · Đường lui</span><h3>Bù trừ theo thứ tự ngược</h3>
+          <div class="flow"><span>Bước trước pivot thất bại</span><b aria-hidden="true">↓</b><span>Chạy C3, C2, C1 (idempotent, retry)</span><b aria-hidden="true">↓</b><span class="flow-core">FAILED, hoặc NEEDS_MANUAL nếu bù trừ hết retry</span></div>
+          <div class="rule">Không rollback dữ liệu đã commit: bù trừ bằng nghiệp vụ mới (hoàn tiền, trả hàng, hủy đơn).</div>
+          <a class="text-link" href="#topic-4">Thiết kế compensation →</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="section-head"><h2>Lộ trình học và ôn tập</h2><p>Đọc hai chủ đề mỗi ngày, tự giải thích trong 60–90 giây rồi luyện câu hỏi liên quan.</p></div>
+      <div class="study-path" id="planes">
+        <a class="panel study-step" href="#topic-0"><span class="eyebrow">01 · Nền tảng</span><h3>Hiểu vấn đề trước</h3><p>Saga trong 60 giây, vì sao không dùng 2PC, choreography và orchestration.</p><span class="text-link">Đọc bài nền tảng →</span></a>
+        <a class="panel study-step" href="#topic-3"><span class="eyebrow">02 · Thiết kế và độ tin cậy</span><h3>Pivot, bù trừ, isolation</h3><p>Ba loại bước, compensation, semantic lock, outbox, idempotent, timeout, state machine.</p><span class="text-link">Vào phần thiết kế →</span></a>
+        <a class="panel study-step" href="#topic-11"><span class="eyebrow">03 · Thực hành</span><h3>Nói trôi chảy khi phỏng vấn</h3><p>Code NestJS, saga tạo project, công cụ, và khung trả lời 90 giây.</p><span class="text-link">Đọc bài kết →</span></a>
+      </div>
+    </section>
+  </section>
+
+  <!-- ================= KNOWLEDGE ================= -->
+  <section id="view-knowledge" data-view-panel="knowledge" hidden>
+    <div class="kgrid">
+      <aside class="panel toc" id="toc">
+        <button class="btn toc-toggle" id="toc-toggle" type="button" aria-expanded="false">Danh sách chủ đề</button>
+        <input id="toc-search" type="search" placeholder="Tìm chủ đề…" aria-label="Tìm chủ đề">
+        <ol id="toc-list"></ol>
+      </aside>
+      <article class="topic" id="topic"></article>
+    </div>
+  </section>
+
+  <!-- ================= PRACTICE ================= -->
+  <section id="view-practice" data-view-panel="practice" hidden>
+    <div class="section-head">
+      <h2>Luyện câu hỏi</h2>
+      <p>Nói thành tiếng câu trả lời trước, rồi mới mở ý chính để đối chiếu. Đánh dấu được lưu trong trình duyệt này.</p>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="practice-top">
+      <span class="counter" id="counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="shuffle-btn" type="button">Xáo thứ tự</button>
+        <button class="btn" id="reset-btn" type="button">Xoá đánh dấu</button>
+      </div>
+    </div>
+    <div class="panel" id="card"></div>
+    <p class="kbd-help"><kbd>Space</kbd> mở ý chính · <kbd>←</kbd> <kbd>→</kbd> câu trước/sau · <kbd>1</kbd> cần ôn lại · <kbd>2</kbd> đã thuộc</p>
+  </section>
+
+  <!-- ================= GLOSSARY ================= -->
+  <section id="view-glossary" data-view-panel="glossary" hidden>
+    <div class="section-head">
+      <h2>Từ điển nhanh</h2>
+      <p>Thuật ngữ gặp trong dự án và trong phỏng vấn.</p>
+    </div>
+    <input class="gloss-search" id="gloss-search" type="search" placeholder="Tìm thuật ngữ…" aria-label="Tìm thuật ngữ">
+    <div class="gloss" id="gloss"></div>
+  </section>
+
+  <!-- ================= SLIDES ================= -->
+  <section id="view-slides" data-view-panel="slides" hidden>
+    <div class="slide-bar">
+      <span class="counter" id="slide-counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="slide-prev" type="button">← Trước</button>
+        <button class="btn primary" id="slide-next" type="button">Sau →</button>
+        <button class="btn" id="slide-notes-btn" type="button" aria-pressed="false">Ghi chú người nói</button>
+        <button class="btn" id="slide-full" type="button">Toàn màn hình</button>
+      </div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="slide-frame">
+        <div class="slide" id="slide"></div>
+      </div>
+    </div>
+    <div class="slide-progress" aria-hidden="true"><i id="slide-progress"></i></div>
+    <div class="panel slide-notes" id="slide-notes" hidden></div>
+    <p class="kbd-help"><kbd>→</kbd> <kbd>Space</kbd> slide sau · <kbd>←</kbd> slide trước · <kbd>F</kbd> toàn màn hình · <kbd>N</kbd> ghi chú · <kbd>Home</kbd> <kbd>End</kbd> đầu/cuối. Nội dung sửa trong <code>documents/SLIDES.md</code>.</p>
+  </section>
+</main>
+<footer class="wrap" id="footer"></footer>
+
+<script id="data" type="application/json">{"generatedAt":"2026-11-12T14:39:39.720Z","topics":[{"n":0,"title":"Saga trong 60 giây","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003cp>\u003cstrong>Saga\u003c/strong> là một chuỗi \u003cstrong>local transaction\u003c/strong>, mỗi service commit trong DB của chính nó rồi kích hoạt bước tiếp theo. Nếu một bước thất bại, saga chạy các \u003cstrong>compensating transaction\u003c/strong> theo thứ tự ngược để hoàn tác nghiệp vụ những bước đã thành công.\u003c/p>\n\u003cul>\n\u003cli>Không có \u003ccode>BEGIN … COMMIT\u003c/code> bao toàn bộ; mỗi bước commit ngay.\u003c/li>\n\u003cli>Không &quot;rollback&quot; theo nghĩa DB, mà \u003cstrong>bù trừ\u003c/strong> bằng một nghiệp vụ mới (hoàn tiền, trả hàng về kho, hủy đơn).\u003c/li>\n\u003cli>Kết quả là \u003cstrong>eventual consistency\u003c/strong>: có một khoảng thời gian hệ thống ở trạng thái trung gian.\u003c/li>\n\u003c/ul>\n\u003ch3>Ví dụ đời thường: đặt tour du lịch\u003c/h3>\n\u003cp>Bạn đặt một chuyến đi gồm vé máy bay, khách sạn và thuê xe, ở ba công ty khác nhau.\u003c/p>\n\u003col>\n\u003cli>Đặt vé máy bay → thành công.\u003c/li>\n\u003cli>Đặt khách sạn → thành công.\u003c/li>\n\u003cli>Thuê xe → hết xe.\u003c/li>\n\u003c/ol>\n\u003cp>Không ai &quot;rollback&quot; được vé máy bay của hãng hàng không. Bạn phải \u003cstrong>gọi hủy khách sạn\u003c/strong>, rồi \u003cstrong>gọi hủy vé máy bay\u003c/strong> (có thể mất phí). Mỗi cuộc gọi hủy là một compensating transaction; thứ tự hủy ngược với thứ tự đặt.\u003c/p>\n\u003ch3>Ví dụ xuyên suốt: đặt hàng online\u003c/h3>\n\u003cp>Khách đặt đơn \u003cstrong>A1001\u003c/strong>. Bốn service tham gia:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Service\u003c/th>\n\u003cth>Việc làm\u003c/th>\n\u003cth>Bù trừ khi saga thất bại\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Order\u003c/td>\n\u003ctd>Tạo đơn \u003ccode>APPROVAL_PENDING\u003c/code>\u003c/td>\n\u003ctd>Chuyển đơn sang \u003ccode>REJECTED\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Inventory\u003c/td>\n\u003ctd>Giữ hàng (reserve)\u003c/td>\n\u003ctd>Trả hàng về kho (release)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Payment\u003c/td>\n\u003ctd>Trừ tiền thẻ\u003c/td>\n\u003ctd>Không cần: đây là pivot (bài 3)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Order\u003c/td>\n\u003ctd>Chuyển đơn sang \u003ccode>APPROVED\u003c/code>\u003c/td>\n\u003ctd>Không cần: retriable\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Ví dụ này dùng lại ở bài 2, 3, 5, 7 và 8.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nói saga &quot;rollback&quot; dữ liệu. Không đúng: dữ liệu đã commit, người khác có thể đã đọc thấy. Saga chỉ \u003cstrong>bù trừ\u003c/strong> bằng nghiệp vụ.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> giải thích saga cho người chưa biết gì, trong ba câu, dùng ví dụ đặt tour.\u003c/p>\n"},{"n":1,"title":"Bài toán giao dịch phân tán, vì sao không dùng 2PC","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003cp>Trong microservices, mỗi service sở hữu DB riêng (\u003cstrong>database-per-service\u003c/strong>). Một nghiệp vụ như &quot;đặt hàng&quot; chạm vào Order, Inventory, Payment: ba DB, không có transaction nào bao được cả ba.\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">await orderRepo.save(order);              // DB của Order\nawait inventoryClient.reserve(items);     // DB của Inventory, qua mạng\nawait paymentClient.charge(card, total);  // DB của Payment, qua mạng — lỗi ở đây thì sao?\n\u003c/code>\u003c/pre>\n\u003cp>Lỗi ở dòng 3 thì đơn và hàng đã giữ vẫn còn đó. Phải có cơ chế đưa hệ thống về trạng thái hợp lệ.\u003c/p>\n\u003ch3>Lựa chọn 1: Two-Phase Commit (2PC / XA)\u003c/h3>\n\u003cp>Một coordinator hỏi mọi participant &quot;chuẩn bị được không?&quot; (prepare), tất cả đồng ý thì ra lệnh commit, một bên từ chối thì ra lệnh rollback.\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Tiêu chí\u003c/th>\n\u003cth>2PC\u003c/th>\n\u003cth>Saga\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Nhất quán\u003c/td>\n\u003ctd>Strong (ACID)\u003c/td>\n\u003ctd>Eventual (ACD, thiếu Isolation)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Khóa tài nguyên\u003c/td>\n\u003ctd>Giữ lock suốt hai pha; coordinator chết giữa chừng thì participant treo với lock\u003c/td>\n\u003ctd>Không giữ lock xuyên service\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Availability\u003c/td>\n\u003ctd>Một participant down thì cả giao dịch không chạy được\u003c/td>\n\u003ctd>Từng bước độc lập, có retry\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Hỗ trợ\u003c/td>\n\u003ctd>Nhiều broker và NoSQL (RabbitMQ, Kafka, MongoDB) không tham gia XA trong thực tế\u003c/td>\n\u003ctd>Chỉ cần local transaction và messaging\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Độ phức tạp code\u003c/td>\n\u003ctd>Thấp, framework lo\u003c/td>\n\u003ctd>Cao: phải viết compensation, idempotency\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Lựa chọn 2: Saga\u003c/h3>\n\u003cp>Đổi một transaction lớn thành nhiều transaction nhỏ, chấp nhận trạng thái trung gian, và thiết kế bù trừ cho từng bước.\u003c/p>\n\u003cp>Nguồn gốc: Hector Garcia-Molina và Kenneth Salem đặt tên năm 1987 (bài báo \u003cem>Sagas\u003c/em>, SIGMOD) cho các transaction chạy lâu trong một DB. Chris Richardson (\u003cem>Microservices Patterns\u003c/em>, 2018) phổ biến nó cho microservices.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nói &quot;2PC không dùng được trong microservices&quot;. Chính xác hơn: dùng được về kỹ thuật nếu mọi participant hỗ trợ XA, nhưng đánh đổi availability và coupling, nên hiếm khi là lựa chọn tốt.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> vì sao saga gọi là &quot;ACD&quot;? Chữ nào mất và hệ quả là gì?\u003c/p>\n"},{"n":2,"title":"Choreography và Orchestration","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA3NjAgNTAwIiBmb250LWZhbWlseT0ic3lzdGVtLXVpLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMiPgo8ZGVmcz48bWFya2VyIGlkPSJhIiBtYXJrZXJXaWR0aD0iOCIgbWFya2VySGVpZ2h0PSI4IiByZWZYPSI3IiByZWZZPSI0IiBvcmllbnQ9ImF1dG8iPjxwYXRoIGQ9Ik0wLDAgTDgsNCBMMCw4eiIgZmlsbD0iIzQ3NTU2OSIvPjwvbWFya2VyPjwvZGVmcz4KPHJlY3Qgd2lkdGg9Ijc2MCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNmOGZhZmMiLz4KPHRleHQgeD0iMjQiIHk9IjMyIiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMGYxNzJhIj5BLiBDaG9yZW9ncmFwaHkg4oCUIGPDoWMgc2VydmljZSB04buxIG7hu5FpIG5oYXUgYuG6sW5nIGV2ZW50PC90ZXh0Pgo8cmVjdCB4PSIzNSIgeT0iNjYiIHdpZHRoPSIxNTAiIGhlaWdodD0iNDgiIHJ4PSIxMCIgZmlsbD0iI2UwZjJmZSIgc3Ryb2tlPSIjMDI4NGM3Ii8+Cjx0ZXh0IHg9IjExMCIgeT0iOTUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMwYzRhNmUiPk9yZGVyPC90ZXh0Pgo8cmVjdCB4PSIzMDUiIHk9IjY2IiB3aWR0aD0iMTUwIiBoZWlnaHQ9IjQ4IiByeD0iMTAiIGZpbGw9IiNlMGYyZmUiIHN0cm9rZT0iIzAyODRjNyIvPgo8dGV4dCB4PSIzODAiIHk9Ijk1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMGM0YTZlIj5JbnZlbnRvcnk8L3RleHQ+CjxyZWN0IHg9IjU3NSIgeT0iNjYiIHdpZHRoPSIxNTAiIGhlaWdodD0iNDgiIHJ4PSIxMCIgZmlsbD0iI2UwZjJmZSIgc3Ryb2tlPSIjMDI4NGM3Ii8+Cjx0ZXh0IHg9IjY1MCIgeT0iOTUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMwYzRhNmUiPlBheW1lbnQ8L3RleHQ+CjxsaW5lIHgxPSIxODUiIHkxPSI5MCIgeDI9IjMwMyIgeTI9IjkwIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMS42IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+Cjx0ZXh0IHg9IjI0NCIgeT0iODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPk9yZGVyQ3JlYXRlZDwvdGV4dD4KPGxpbmUgeDE9IjQ1NSIgeTE9IjkwIiB4Mj0iNTczIiB5Mj0iOTAiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPHRleHQgeD0iNTE0IiB5PSI4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+U3RvY2tSZXNlcnZlZDwvdGV4dD4KPHBhdGggZD0iTTY1MCwxMTQgVjE1MiBIMTEwIFYxMTYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPHRleHQgeD0iMzgwIiB5PSIxNDQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPlBheW1lbnRDb21wbGV0ZWQg4oaSIMSRxqFuIEFQUFJPVkVEPC90ZXh0Pgo8dGV4dCB4PSIyNCIgeT0iMTg2IiBmaWxsPSIjNDc1NTY5IiBmb250LXNpemU9IjEyIj5M4buXaSB0aMOsIHBow6F0IGV2ZW50IHRo4bqldCBi4bqhaSAoUGF5bWVudEZhaWxlZCk7IHNlcnZpY2Uga2jDoWMgbmdoZSB2w6AgdOG7sSBiw7kgdHLhu6suIExvZ2ljIGx14buTbmcgcuG6o2kgcsOhYyBuaGnhu4F1IG7GoWkuPC90ZXh0Pgo8bGluZSB4MT0iMjQiIHkxPSIyMDgiIHgyPSI3MzYiIHkyPSIyMDgiIHN0cm9rZT0iI2NiZDVlMSIvPgo8dGV4dCB4PSIyNCIgeT0iMjQwIiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMGYxNzJhIj5CLiBPcmNoZXN0cmF0aW9uIOKAlCBt4buZdCBvcmNoZXN0cmF0b3IgcmEgbOG7h25oIHbDoCBnaeG7ryBzdGF0ZTwvdGV4dD4KPHJlY3QgeD0iMjQwIiB5PSIyNjAiIHdpZHRoPSIyODAiIGhlaWdodD0iNjAiIHJ4PSIxMCIgZmlsbD0iI2ZlZjNjNyIgc3Ryb2tlPSIjZDk3NzA2IiBzdHJva2Utd2lkdGg9IjIiLz4KPHRleHQgeD0iMzgwIiB5PSIyODUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiM3ODM1MGYiPkNyZWF0ZU9yZGVyU2FnYSAob3JjaGVzdHJhdG9yKTwvdGV4dD4KPHRleHQgeD0iMzgwIiB5PSIzMDUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM3ODM1MGYiIGZvbnQtc2l6ZT0iMTEiPnN0YXRlIG1hY2hpbmUsIGzGsHUgc3RhdGUgc2F1IG3hu5dpIGLGsOG7m2M8L3RleHQ+CjxwYXRoIGQ9Ik0zMDAsMzIwIFYzNTYgSDExMCBWNDAyIiBmaWxsPSJub25lIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMS42IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+CjxwYXRoIGQ9Ik0zODAsMzIwIFY0MDIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPHBhdGggZD0iTTQ2MCwzMjAgVjM1NiBINjUwIFY0MDIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPHRleHQgeD0iMjA1IiB5PSIzNDgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPmNyZWF0ZSAvIGFwcHJvdmUgLyByZWplY3Q8L3RleHQ+Cjx0ZXh0IHg9IjM4OCIgeT0iMzgwIiBmaWxsPSIjMzM0MTU1IiBmb250LXNpemU9IjExIj5yZXNlcnZlIC8gcmVsZWFzZTwvdGV4dD4KPHRleHQgeD0iNTU1IiB5PSIzNDgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPmNoYXJnZSAocGl2b3QpPC90ZXh0Pgo8cmVjdCB4PSIzNSIgeT0iNDA0IiB3aWR0aD0iMTUwIiBoZWlnaHQ9IjQ4IiByeD0iMTAiIGZpbGw9IiNkY2ZjZTciIHN0cm9rZT0iIzE2YTM0YSIvPgo8dGV4dCB4PSIxMTAiIHk9IjQzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE0NTMyZCI+T3JkZXI8L3RleHQ+CjxyZWN0IHg9IjMwNSIgeT0iNDA0IiB3aWR0aD0iMTUwIiBoZWlnaHQ9IjQ4IiByeD0iMTAiIGZpbGw9IiNkY2ZjZTciIHN0cm9rZT0iIzE2YTM0YSIvPgo8dGV4dCB4PSIzODAiIHk9IjQzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE0NTMyZCI+SW52ZW50b3J5PC90ZXh0Pgo8cmVjdCB4PSI1NzUiIHk9IjQwNCIgd2lkdGg9IjE1MCIgaGVpZ2h0PSI0OCIgcng9IjEwIiBmaWxsPSIjZGNmY2U3IiBzdHJva2U9IiMxNmEzNGEiLz4KPHRleHQgeD0iNjUwIiB5PSI0MzMiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNDUzMmQiPlBheW1lbnQ8L3RleHQ+Cjx0ZXh0IHg9IjI0IiB5PSI0ODIiIGZpbGw9IiM0NzU1NjkiIGZvbnQtc2l6ZT0iMTIiPk3hu5dpIHNlcnZpY2UgdHLhuqMgcmVwbHk7IG9yY2hlc3RyYXRvciBxdXnhur90IMSR4buLbmggYsaw4bubYyBr4bq/IHRp4bq/cCBob+G6t2MgY2jhuqF5IGNvbXBlbnNhdGlvbiB0aGVvIHRo4bupIHThu7EgbmfGsOG7o2MuPC90ZXh0Pgo8L3N2Zz4K\" alt=\"Choreography và Orchestration trong luồng đặt hàng\">\u003c/p>\n\u003cp>\u003cstrong>Choreography (vũ đạo):\u003c/strong> không ai điều phối. Mỗi service nghe event của service khác, làm phần của mình, rồi phát event tiếp theo.\u003c/p>\n\u003col>\n\u003cli>Order tạo đơn \u003ccode>APPROVAL_PENDING\u003c/code>, phát \u003ccode>OrderCreated\u003c/code>.\u003c/li>\n\u003cli>Inventory nghe \u003ccode>OrderCreated\u003c/code>, giữ hàng, phát \u003ccode>StockReserved\u003c/code>.\u003c/li>\n\u003cli>Payment nghe \u003ccode>StockReserved\u003c/code>, trừ tiền, phát \u003ccode>PaymentCompleted\u003c/code>.\u003c/li>\n\u003cli>Order nghe \u003ccode>PaymentCompleted\u003c/code>, chuyển \u003ccode>APPROVED\u003c/code>.\u003c/li>\n\u003c/ol>\n\u003cp>Nếu Payment phát \u003ccode>PaymentFailed\u003c/code>: Inventory nghe và trả hàng, Order nghe và chuyển \u003ccode>REJECTED\u003c/code>.\u003c/p>\n\u003cp>\u003cstrong>Orchestration (nhạc trưởng):\u003c/strong> một \u003cstrong>orchestrator\u003c/strong> (ví dụ \u003ccode>CreateOrderSaga\u003c/code>) gửi command cho từng service, nhận reply, và quyết định bước tiếp theo theo một state machine.\u003c/p>\n\u003col>\n\u003cli>Orchestrator gửi \u003ccode>order.create_pending\u003c/code> → reply OK.\u003c/li>\n\u003cli>Gửi \u003ccode>inventory.reserve\u003c/code> → reply OK.\u003c/li>\n\u003cli>Gửi \u003ccode>payment.charge\u003c/code> → reply lỗi.\u003c/li>\n\u003cli>Gửi \u003ccode>inventory.release\u003c/code>, rồi \u003ccode>order.reject\u003c/code>.\u003c/li>\n\u003c/ol>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Tiêu chí\u003c/th>\n\u003cth>Choreography\u003c/th>\n\u003cth>Orchestration\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Giao tiếp\u003c/td>\n\u003ctd>Event (pub/sub)\u003c/td>\n\u003ctd>Command + reply\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Coupling\u003c/td>\n\u003ctd>Lỏng, nhưng phụ thuộc ngầm vào event của nhau\u003c/td>\n\u003ctd>Service chỉ biết API của mình; orchestrator biết tất cả\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Nhìn thấy luồng\u003c/td>\n\u003ctd>Khó: logic rải rác nhiều service\u003c/td>\n\u003ctd>Dễ: đọc một class hoặc state machine\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Rủi ro\u003c/td>\n\u003ctd>Vòng lặp event, &quot;event spaghetti&quot;, khó debug\u003c/td>\n\u003ctd>Orchestrator thành &quot;god service&quot;, hút business logic của service khác\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Điểm lỗi đơn\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003ctd>Orchestrator (giảm bằng state bền và nhiều instance)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Thêm bước\u003c/td>\n\u003ctd>Sửa nhiều service\u003c/td>\n\u003ctd>Sửa orchestrator\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Test\u003c/td>\n\u003ctd>Khó test end-to-end\u003c/td>\n\u003ctd>Test orchestrator như unit test\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Hợp với\u003c/td>\n\u003ctd>2–4 bước, ít rẽ nhánh\u003c/td>\n\u003ctd>4+ bước, rẽ nhánh, timeout, cần audit\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Quy tắc chọn nhanh:\u003c/strong> ít bước, ít rẽ nhánh thì choreography. Nhiều bước, compensation phức tạp, hoặc cần trả lời &quot;saga đang ở đâu?&quot; thì orchestration. Nhiều hệ thống dùng lai: orchestration bên trong một bounded context, choreography giữa các context.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> cho rằng orchestration thì service phải gọi đồng bộ. Command và reply hoàn toàn có thể đi qua message broker.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> với luồng đặt hàng 4 bước ở trên, bạn chọn kiểu nào? Nêu hai lý do.\u003c/p>\n"},{"n":3,"title":"Ba loại bước: compensatable, pivot, retriable","status":"theory","statusNote":"","step":"Thiết kế","html":"\u003cp>Mỗi saga có đúng một \u003cstrong>pivot transaction\u003c/strong>: trước pivot là các bước bù trừ được, sau pivot là các bước chắc chắn thành công nếu retry đủ lâu.\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Loại bước\u003c/th>\n\u003cth>Định nghĩa\u003c/th>\n\u003cth>Ví dụ đặt hàng\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Compensatable\u003c/td>\n\u003ctd>Có compensating transaction đi kèm\u003c/td>\n\u003ctd>Tạo đơn \u003ccode>APPROVAL_PENDING\u003c/code>, giữ hàng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Pivot\u003c/td>\n\u003ctd>Điểm không quay đầu: thành công thì saga chắc chắn chạy tới cuối; thất bại thì bù trừ ngược\u003c/td>\n\u003ctd>Trừ tiền thẻ\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Retriable\u003c/td>\n\u003ctd>Sau pivot, idempotent, luôn thành công nếu retry\u003c/td>\n\u003ctd>Chuyển đơn \u003ccode>APPROVED\u003c/code>, gửi email, tạo vận đơn\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Cách sắp xếp bước:\u003c/strong>\u003c/p>\n\u003cul>\n\u003cli>Bước rủi ro nhất và khó hoàn tác nhất (trừ tiền, gọi bên thứ ba) làm pivot. Nó hỏng thì chỉ có ít bước cần bù.\u003c/li>\n\u003cli>Việc không thu hồi được (gửi email, SMS, push) đặt \u003cstrong>sau\u003c/strong> pivot.\u003c/li>\n\u003cli>Việc &quot;giảm&quot; (trừ hạn mức, giữ hàng) làm sớm; việc &quot;tăng&quot; làm muộn (xem pessimistic view ở bài 5).\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> gửi email &quot;đặt hàng thành công&quot; trước khi trừ tiền. Nếu trừ tiền lỗi, email không thu hồi được.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> nếu thêm bước &quot;tạo vận đơn ở hãng giao hàng&quot;, bạn đặt nó trước hay sau pivot? Vì sao?\u003c/p>\n"},{"n":4,"title":"Thiết kế compensating transaction","status":"theory","statusNote":"","step":"Thiết kế","html":"\u003cp>Compensation là một nghiệp vụ mới đưa hệ thống về trạng thái hợp lệ, không phải xóa dấu vết.\u003c/p>\n\u003cp>\u003cstrong>Sáu quy tắc:\u003c/strong>\u003c/p>\n\u003col>\n\u003cli>\u003cstrong>Semantic undo, không xóa.\u003c/strong> Hoàn tiền là tạo giao dịch \u003ccode>REFUND\u003c/code> mới, không \u003ccode>DELETE\u003c/code> bản ghi \u003ccode>CHARGE\u003c/code>. Hủy đơn là \u003ccode>status = REJECTED\u003c/code>, giữ lịch sử để audit.\u003c/li>\n\u003cli>\u003cstrong>Idempotent.\u003c/strong> Message có thể đến hai lần; lần hai phải là no-op.\u003c/li>\n\u003cli>\u003cstrong>Chịu được việc đến sai thứ tự.\u003c/strong> Do timeout và retry, \u003ccode>inventory.release\u003c/code> có thể đến \u003cstrong>trước\u003c/strong> \u003ccode>inventory.reserve\u003c/code>. Ghi một \u003cstrong>tombstone\u003c/strong> &quot;saga này đã hủy&quot;; khi \u003ccode>reserve\u003c/code> đến muộn thì từ chối.\u003c/li>\n\u003cli>\u003cstrong>Retry tới khi thành công.\u003c/strong> Compensation không được phép thất bại vĩnh viễn. Nếu thật sự không thể (tiền đã chuyển ra ngoài), đưa saga vào \u003ccode>NEEDS_MANUAL\u003c/code>, đẩy vào hàng chờ xử lý tay và alert.\u003c/li>\n\u003cli>\u003cstrong>Chạy ngược thứ tự.\u003c/strong> T1, T2, T3 thành công, T4 lỗi thì chạy C3, C2, C1.\u003c/li>\n\u003cli>\u003cstrong>Không phải bước nào cũng hoàn tác được.\u003c/strong> Email đã gửi thì gửi email thứ hai &quot;đơn đã bị hủy&quot;, hoặc tốt hơn là dời việc gửi ra sau pivot.\u003c/li>\n\u003c/ol>\n\u003ch3>Ví dụ: trả hàng về kho\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">// Inventory service — compensation cho inventory.reserve\nasync release(sagaId: string) {\n  const r = await this.reservations.findOne({ sagaId });\n  if (!r) {                                   // release đến trước reserve\n    await this.tombstones.insert({ sagaId });\n    return;\n  }\n  if (r.status === &#39;RELEASED&#39;) return;        // đã làm rồi: idempotent\n  await this.stock.increase(r.items);         // cộng lại, không ghi đè số tồn\n  await this.reservations.update(r.id, { status: &#39;RELEASED&#39; });\n}\n\u003c/code>\u003c/pre>\n\u003cp>Trong code thật, ba thao tác cuối phải nằm trong cùng một local transaction.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> compensation đặt lại giá trị cũ (\u003ccode>stock = 10\u003c/code>). Nếu có saga khác đã thay đổi tồn kho xen giữa, bạn ghi đè mất thay đổi đó. Dùng thao tác cộng/trừ.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> compensation của &quot;trừ tiền thẻ&quot; là gì nếu cổng thanh toán chỉ cho hoàn tiền sau 24 giờ?\u003c/p>\n"},{"n":5,"title":"Thiếu isolation: anomaly và countermeasure","status":"theory","statusNote":"","step":"Thiết kế","html":"\u003cp>Mỗi bước của saga commit ngay, nên saga khác hoặc API đọc \u003cstrong>nhìn thấy trạng thái trung gian\u003c/strong>. Đây là câu hỏi phân loại ứng viên: nhiều người biết saga, ít người biết xử lý isolation.\u003c/p>\n\u003ch3>Ba anomaly\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Anomaly\u003c/th>\n\u003cth>Chuyện gì xảy ra\u003c/th>\n\u003cth>Ví dụ\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Lost update\u003c/td>\n\u003ctd>Saga A ghi đè thay đổi của saga B mà không đọc nó\u003c/td>\n\u003ctd>\u003ccode>CreateOrder\u003c/code> đang chạy thì \u003ccode>CancelOrder\u003c/code> hủy đơn; bước cuối của \u003ccode>CreateOrder\u003c/code> lại set \u003ccode>APPROVED\u003c/code>, đè mất việc hủy\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Dirty read\u003c/td>\n\u003ctd>Đọc dữ liệu của saga chưa xong, có thể sẽ bị bù trừ\u003c/td>\n\u003ctd>Saga A đã trừ hạn mức; saga B thấy &quot;hết hạn mức&quot; và từ chối; sau đó A bị bù trừ, B từ chối oan\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Fuzzy / non-repeatable read\u003c/td>\n\u003ctd>Hai lần đọc trong cùng saga ra hai giá trị khác nhau\u003c/td>\n\u003ctd>Đọc giá sản phẩm lúc tạo đơn và lúc trừ tiền, giữa chừng giá đổi\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Sáu countermeasure (theo Chris Richardson)\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Countermeasure\u003c/th>\n\u003cth>Ý tưởng\u003c/th>\n\u003cth>Khi dùng\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Semantic lock\u003c/td>\n\u003ctd>Bước compensatable gắn cờ \u003ccode>*_PENDING\u003c/code> (\u003ccode>APPROVAL_PENDING\u003c/code>, \u003ccode>CANCEL_PENDING\u003c/code>). Saga khác thấy cờ thì fail-fast, chờ, hoặc retry\u003c/td>\n\u003ctd>Phổ biến nhất, gần như luôn nên có\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Commutative updates\u003c/td>\n\u003ctd>Thao tác giao hoán: \u003ccode>debit\u003c/code> / \u003ccode>credit\u003c/code> thay vì \u003ccode>set balance = x\u003c/code>\u003c/td>\n\u003ctd>Số dư, tồn kho, điểm thưởng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Pessimistic view\u003c/td>\n\u003ctd>Sắp lại bước: việc &quot;giảm&quot; làm sớm (compensatable), việc &quot;tăng&quot; làm muộn (retriable) để dirty read ít hại\u003c/td>\n\u003ctd>Hạn mức, khuyến mãi\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Reread value\u003c/td>\n\u003ctd>Trước khi ghi, đọc lại bản ghi; đã đổi thì abort hoặc restart saga (optimistic lock, cột \u003ccode>version\u003c/code>)\u003c/td>\n\u003ctd>Chống lost update\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Version file\u003c/td>\n\u003ctd>Ghi lại các thao tác đã nhận để sắp xếp lại khi chúng đến sai thứ tự\u003c/td>\n\u003ctd>\u003ccode>cancel\u003c/code> đến trước \u003ccode>authorize\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>By value\u003c/td>\n\u003ctd>Chọn cơ chế theo rủi ro: request rủi ro cao dùng lock phân tán hoặc 2PC, rủi ro thấp dùng saga\u003c/td>\n\u003ctd>Giao dịch giá trị lớn và nhỏ\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Ví dụ: semantic lock chống lost update\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">// Order service\nasync approve(orderId: string, sagaId: string) {\n  const res = await this.orders.updateOne(\n    { _id: orderId, status: &#39;APPROVAL_PENDING&#39;, sagaId },   // chỉ khi còn khóa của saga này\n    { $set: { status: &#39;APPROVED&#39; } },\n  );\n  if (res.matchedCount === 0) throw new OrderStateChanged(orderId); // đã bị hủy bởi saga khác\n}\n\u003c/code>\u003c/pre>\n\u003cp>\u003ccode>CancelOrder\u003c/code> gặp đơn \u003ccode>APPROVAL_PENDING\u003c/code> thì từ chối (&quot;đơn đang xử lý, thử lại sau&quot;) hoặc chờ.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nói &quot;dùng distributed lock là xong&quot;. Lock xuyên service đưa bạn quay lại vấn đề của 2PC: treo khi bên giữ lock chết, giảm availability.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> API &quot;xem đơn hàng&quot; nên hiển thị gì khi đơn đang \u003ccode>APPROVAL_PENDING\u003c/code>?\u003c/p>\n"},{"n":6,"title":"Độ tin cậy: outbox, idempotency, retry, timeout","status":"theory","statusNote":"","step":"Độ tin cậy","html":"\u003cp>Saga chỉ đúng nếu mỗi bước &quot;ghi DB + gửi message&quot; là nguyên tử, và mọi handler đều idempotent. Thiếu một trong hai, saga sẽ kẹt hoặc chạy trùng.\u003c/p>\n\u003ch3>Dual write → Transactional Outbox\u003c/h3>\n\u003cp>\u003ccode>await repo.save(order); await broker.emit(&#39;OrderCreated&#39;)\u003c/code> sai: crash giữa hai dòng thì có đơn nhưng không ai biết. Cách đúng là ghi event vào bảng \u003ccode>outbox\u003c/code> trong \u003cstrong>cùng local transaction\u003c/strong>, rồi một relay publish sau. Chi tiết ở sổ tay \u003cstrong>Transactional Outbox\u003c/strong> (\u003ccode>#outbox\u003c/code>).\u003c/p>\n\u003ch3>At-least-once → idempotent consumer\u003c/h3>\n\u003cp>Outbox và broker cho \u003cstrong>at-least-once\u003c/strong>: message có thể đến hai lần. Mỗi message mang \u003ccode>messageId\u003c/code> (hoặc \u003ccode>sagaId + step\u003c/code>). Consumer lưu id đã xử lý trong cùng transaction với thay đổi nghiệp vụ (unique key); trùng thì bỏ qua. Với API bên thứ ba (cổng thanh toán) dùng header \u003ccode>Idempotency-Key\u003c/code>.\u003c/p>\n\u003ch3>Retry và backoff\u003c/h3>\n\u003cul>\n\u003cli>Lỗi tạm thời (timeout, 503, mất kết nối): retry với exponential backoff và jitter.\u003c/li>\n\u003cli>Lỗi nghiệp vụ (hết hàng, thẻ bị từ chối): \u003cstrong>không retry\u003c/strong>, chuyển sang bù trừ.\u003c/li>\n\u003cli>Quá N lần: đẩy vào Dead Letter Queue và alert, không chặn cả hàng đợi.\u003c/li>\n\u003c/ul>\n\u003ch3>Timeout\u003c/h3>\n\u003cp>Mỗi bước có deadline. Hết giờ mà chưa có reply thì orchestrator coi là thất bại (hoặc hỏi lại trạng thái theo \u003ccode>sagaId\u003c/code>) rồi bù trừ.\u003c/p>\n\u003cp>\u003cstrong>Quan trọng:\u003c/strong> timeout \u003cstrong>không\u003c/strong> có nghĩa là bên kia chưa làm. Có thể nó đã làm xong nhưng reply bị mất. Vì vậy compensation phải chịu được việc action đã xảy ra hoặc đến muộn (tombstone, bài 4).\u003c/p>\n\u003ch3>Observability\u003c/h3>\n\u003cul>\n\u003cli>Truyền \u003ccode>sagaId\u003c/code> / \u003ccode>correlationId\u003c/code> trong mọi message và log.\u003c/li>\n\u003cli>Distributed tracing (OpenTelemetry) để xem một saga đi qua các service.\u003c/li>\n\u003cli>Dashboard: số saga theo trạng thái, saga kẹt quá X phút, tỉ lệ bù trừ.\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nói broker đảm bảo &quot;exactly-once&quot; nên không cần idempotent. Exactly-once hiệu dụng chỉ đạt được khi consumer idempotent.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> orchestrator gửi \u003ccode>payment.charge\u003c/code>, chờ 5 giây không có reply. Bạn làm gì tiếp, và vì sao không bù trừ ngay?\u003c/p>\n"},{"n":7,"title":"State machine và lưu trạng thái saga","status":"theory","statusNote":"","step":"Độ tin cậy","html":"\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA3NjAgMzkyIiBmb250LWZhbWlseT0ic3lzdGVtLXVpLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMiPgo8ZGVmcz48bWFya2VyIGlkPSJhIiBtYXJrZXJXaWR0aD0iOCIgbWFya2VySGVpZ2h0PSI4IiByZWZYPSI3IiByZWZZPSI0IiBvcmllbnQ9ImF1dG8iPjxwYXRoIGQ9Ik0wLDAgTDgsNCBMMCw4eiIgZmlsbD0iIzQ3NTU2OSIvPjwvbWFya2VyPjwvZGVmcz4KPHJlY3Qgd2lkdGg9Ijc2MCIgaGVpZ2h0PSIzOTIiIGZpbGw9IiNmOGZhZmMiLz4KPHRleHQgeD0iMjQiIHk9IjM0IiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMGYxNzJhIj5M4buXaSB0csaw4bubYyBwaXZvdCB0aMOsIGLDuSB0cuG7qyBuZ8aw4bujYzsgc2F1IHBpdm90IGNo4buJIHJldHJ5IHThu5tpIGtoaSB4b25nPC90ZXh0Pgo8cmVjdCB4PSI0MCIgeT0iNzIiIHdpZHRoPSIxNDAiIGhlaWdodD0iNTYiIHJ4PSIxMCIgZmlsbD0iI2UwZjJmZSIgc3Ryb2tlPSIjMDI4NGM3Ii8+Cjx0ZXh0IHg9IjExMCIgeT0iOTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMwYzRhNmUiPmNyZWF0ZU9yZGVyPC90ZXh0Pgo8dGV4dCB4PSIxMTAiIHk9IjExNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzBjNGE2ZSIgZm9udC1zaXplPSIxMSI+Y29tcGVuc2F0YWJsZTwvdGV4dD4KPHJlY3QgeD0iMjIwIiB5PSI3MiIgd2lkdGg9IjE0MCIgaGVpZ2h0PSI1NiIgcng9IjEwIiBmaWxsPSIjZTBmMmZlIiBzdHJva2U9IiMwMjg0YzciLz4KPHRleHQgeD0iMjkwIiB5PSI5NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzBjNGE2ZSI+cmVzZXJ2ZVN0b2NrPC90ZXh0Pgo8dGV4dCB4PSIyOTAiIHk9IjExNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzBjNGE2ZSIgZm9udC1zaXplPSIxMSI+Y29tcGVuc2F0YWJsZTwvdGV4dD4KPHJlY3QgeD0iNDAwIiB5PSI3MiIgd2lkdGg9IjE0MCIgaGVpZ2h0PSI1NiIgcng9IjEwIiBmaWxsPSIjZmVmM2M3IiBzdHJva2U9IiNkOTc3MDYiIHN0cm9rZS13aWR0aD0iMiIvPgo8dGV4dCB4PSI0NzAiIHk9Ijk2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjNzgzNTBmIj5jaGFyZ2VQYXltZW50PC90ZXh0Pgo8dGV4dCB4PSI0NzAiIHk9IjExNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzc4MzUwZiIgZm9udC1zaXplPSIxMSI+UElWT1Q8L3RleHQ+CjxyZWN0IHg9IjU4MCIgeT0iNzIiIHdpZHRoPSIxNDAiIGhlaWdodD0iNTYiIHJ4PSIxMCIgZmlsbD0iI2UwZjJmZSIgc3Ryb2tlPSIjMDI4NGM3Ii8+Cjx0ZXh0IHg9IjY1MCIgeT0iOTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMwYzRhNmUiPmFwcHJvdmVPcmRlcjwvdGV4dD4KPHRleHQgeD0iNjUwIiB5PSIxMTUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMwYzRhNmUiIGZvbnQtc2l6ZT0iMTEiPnJldHJpYWJsZTwvdGV4dD4KPGxpbmUgeDE9IjE4MCIgeTE9IjEwMCIgeDI9IjIxOCIgeTI9IjEwMCIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8bGluZSB4MT0iMzYwIiB5MT0iMTAwIiB4Mj0iMzk4IiB5Mj0iMTAwIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMS42IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+CjxsaW5lIHgxPSI1NDAiIHkxPSIxMDAiIHgyPSI1NzgiIHkyPSIxMDAiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPGxpbmUgeDE9IjI5MCIgeTE9IjEyOCIgeDI9IjI5MCIgeTI9IjIwNCIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8dGV4dCB4PSIyOTgiIHk9IjE3MiIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+aOG6v3QgaMOgbmc8L3RleHQ+CjxwYXRoIGQ9Ik00NzAsMTI4IFYyMzAgSDM3MiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8dGV4dCB4PSI0NzgiIHk9IjE2NCIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+dGjhursgYuG7iyB04burIGNo4buRaTwvdGV4dD4KPGxpbmUgeDE9IjY1MCIgeTE9IjEyOCIgeDI9IjY1MCIgeTI9IjIwNCIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8dGV4dCB4PSI2NDIiIHk9IjE5MCIgdGV4dC1hbmNob3I9ImVuZCIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+bHXDtG4gdGjDoG5oIGPDtG5nIChyZXRyeSk8L3RleHQ+CjxyZWN0IHg9IjIxMCIgeT0iMjA2IiB3aWR0aD0iMTYwIiBoZWlnaHQ9IjQ4IiByeD0iMTAiIGZpbGw9IiNmZmZmZmYiIHN0cm9rZT0iIzY0NzQ4YiIvPgo8dGV4dCB4PSIyOTAiIHk9IjIzNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzBmMTcyYSI+Q09NUEVOU0FUSU5HPC90ZXh0Pgo8cmVjdCB4PSI1NzAiIHk9IjIwNiIgd2lkdGg9IjE2MCIgaGVpZ2h0PSI0OCIgcng9IjEwIiBmaWxsPSIjZGNmY2U3IiBzdHJva2U9IiMxNmEzNGEiIHN0cm9rZS13aWR0aD0iMiIvPgo8dGV4dCB4PSI2NTAiIHk9IjIzNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE0NTMyZCI+Q09NUExFVEVEPC90ZXh0Pgo8cGF0aCBkPSJNMjUwLDI1NCBWMjkwIEgxNzAgVjMxNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8cGF0aCBkPSJNMzMwLDI1NCBWMjkwIEg0MTAgVjMxNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8dGV4dCB4PSIxNjIiIHk9IjMwNiIgdGV4dC1hbmNob3I9ImVuZCIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+QzIsIEMxIGNo4bqheSBuZ8aw4bujYyB4b25nPC90ZXh0Pgo8dGV4dCB4PSI0MTgiIHk9IjMwNiIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+YsO5IHRy4burIGzhu5dpLCBo4bq/dCByZXRyeSDihpIgYWxlcnQ8L3RleHQ+CjxyZWN0IHg9IjkwIiB5PSIzMTYiIHdpZHRoPSIxNjAiIGhlaWdodD0iNDgiIHJ4PSIxMCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjNjQ3NDhiIi8+Cjx0ZXh0IHg9IjE3MCIgeT0iMzQ1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMGYxNzJhIj5GQUlMRUQ8L3RleHQ+CjxyZWN0IHg9IjMzMCIgeT0iMzE2IiB3aWR0aD0iMTYwIiBoZWlnaHQ9IjQ4IiByeD0iMTAiIGZpbGw9IiNmZWUyZTIiIHN0cm9rZT0iI2RjMjYyNiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjQxMCIgeT0iMzQ1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjN2YxZDFkIj5ORUVEU19NQU5VQUw8L3RleHQ+Cjwvc3ZnPgo=\" alt=\"State machine của CreateOrderSaga\">\u003c/p>\n\u003cp>Orchestrator là một state machine. Trạng thái phải được \u003cstrong>lưu bền sau mỗi bước\u003c/strong>, không giữ trong RAM.\u003c/p>\n\u003cpre>\u003ccode class=\"language-text\">saga_instance\n  id            uuid\n  type          &#39;CreateOrder&#39;\n  state         STARTED | COMPENSATING | COMPLETED | FAILED | NEEDS_MANUAL\n  current_step  &#39;reserveStock&#39;\n  payload       { orderId, items, total, ... }\n  version       số nguyên, dùng cho optimistic lock\n  updated_at    thời điểm\n\u003c/code>\u003c/pre>\n\u003cp>\u003cstrong>Orchestrator chết giữa chừng:\u003c/strong> khi khởi động lại, hoặc một job \u003cstrong>sweeper\u003c/strong> chạy định kỳ, quét các saga chưa kết thúc và \u003ccode>updated_at\u003c/code> quá cũ, rồi chạy tiếp từ \u003ccode>current_step\u003c/code>. Vì bước có thể chạy lại, participant phải idempotent.\u003c/p>\n\u003cp>\u003cstrong>Nhiều instance orchestrator:\u003c/strong> dùng optimistic lock trên cột \u003ccode>version\u003c/code> để hai instance không cùng xử lý một saga.\u003c/p>\n\u003cp>\u003cstrong>Các trạng thái cuối:\u003c/strong>\u003c/p>\n\u003cul>\n\u003cli>\u003ccode>COMPLETED\u003c/code>: mọi bước thành công.\u003c/li>\n\u003cli>\u003ccode>FAILED\u003c/code>: đã bù trừ xong, hệ thống nhất quán, nghiệp vụ không thành.\u003c/li>\n\u003cli>\u003ccode>NEEDS_MANUAL\u003c/code>: bù trừ thất bại sau khi hết retry; cần người xử lý.\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> coi \u003ccode>FAILED\u003c/code> là lỗi hệ thống. Không phải: saga thất bại và bù trừ sạch là kết quả hợp lệ (khách hết tiền, kho hết hàng).\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> saga kẹt ở \u003ccode>COMPENSATING\u003c/code> 30 phút. Bạn điều tra từ đâu?\u003c/p>\n"},{"n":8,"title":"Code orchestrator bằng NestJS","status":"theory","statusNote":"","step":"Thực hành","html":"\u003cp>Ví dụ dùng transport TCP của NestJS như các service trong dự án (gateway gọi service bằng \u003ccode>ClientProxy.send()\u003c/code> với \u003ccode>MessagePattern\u003c/code>). Code minh họa, chưa chạy thử.\u003c/p>\n\u003ch3>Định nghĩa bước\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">export interface SagaStep&lt;C&gt; {\n  name: string;\n  action: (ctx: C) =&gt; Promise&lt;Partial&lt;C&gt;&gt;;   // trả dữ liệu bổ sung vào context\n  compensate?: (ctx: C) =&gt; Promise&lt;void&gt;;     // phải idempotent\n}\n\u003c/code>\u003c/pre>\n\u003ch3>Orchestrator\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">@Injectable()\nexport class CreateOrderSaga {\n  constructor(\n    @Inject(&#39;ORDER&#39;) private order: ClientProxy,\n    @Inject(&#39;INVENTORY&#39;) private inventory: ClientProxy,\n    @Inject(&#39;PAYMENT&#39;) private payment: ClientProxy,\n    private sagas: SagaInstanceRepository,\n  ) {}\n\n  private call&lt;T&gt;(client: ClientProxy, pattern: string, data: unknown) {\n    return firstValueFrom(client.send&lt;T&gt;(pattern, data).pipe(timeout(5000)));\n  }\n\n  private steps: SagaStep&lt;OrderCtx&gt;[] = [\n    { name: &#39;createOrder&#39;,                                   // compensatable\n      action: async (c) =&gt; ({ orderId: (await this.call&lt;{ id: string }&gt;(this.order, &#39;order.create_pending&#39;, c)).id }),\n      compensate: async (c) =&gt; { await this.call(this.order, &#39;order.reject&#39;, { orderId: c.orderId, sagaId: c.sagaId }); } },\n    { name: &#39;reserveStock&#39;,                                  // compensatable\n      action: async (c) =&gt; { await this.call(this.inventory, &#39;inventory.reserve&#39;, c); return {}; },\n      compensate: async (c) =&gt; { await this.call(this.inventory, &#39;inventory.release&#39;, { sagaId: c.sagaId }); } },\n    { name: &#39;chargePayment&#39;,                                 // PIVOT\n      action: async (c) =&gt; { await this.call(this.payment, &#39;payment.charge&#39;, c); return {}; } },\n    { name: &#39;approveOrder&#39;,                                  // retriable\n      action: async (c) =&gt; { await retry(() =&gt; this.call(this.order, &#39;order.approve&#39;, c)); return {}; } },\n  ];\n\n  async run(input: OrderCtx) {\n    const saga = await this.sagas.create({ type: &#39;CreateOrder&#39;, state: &#39;STARTED&#39;, ctx: input });\n    const done: SagaStep&lt;OrderCtx&gt;[] = [];\n    try {\n      for (const step of this.steps) {\n        Object.assign(saga.ctx, await step.action(saga.ctx));\n        done.push(step);\n        await this.sagas.save({ ...saga, currentStep: step.name });   // lưu sau MỖI bước\n      }\n      await this.sagas.save({ ...saga, state: &#39;COMPLETED&#39; });\n    } catch (err) {\n      await this.sagas.save({ ...saga, state: &#39;COMPENSATING&#39;, error: String(err) });\n      for (const step of done.reverse()) {\n        try {\n          await retry(() =&gt; step.compensate?.(saga.ctx) ?? Promise.resolve());\n        } catch {\n          await this.sagas.save({ ...saga, state: &#39;NEEDS_MANUAL&#39; });   // alert người vận hành\n          return;\n        }\n      }\n      await this.sagas.save({ ...saga, state: &#39;FAILED&#39; });\n    }\n  }\n}\n\u003c/code>\u003c/pre>\n\u003cp>Đơn giản hóa so với bản production: chưa phân biệt lỗi nghiệp vụ và lỗi tạm thời ở bước pivot, chưa có sweeper, chưa dùng \u003ccode>version\u003c/code>.\u003c/p>\n\u003ch3>Participant: handler idempotent\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">@MessagePattern(&#39;inventory.reserve&#39;)\nasync reserve(@Payload() d: { sagaId: string; items: Item[] }) {\n  return this.db.transaction(async (tx) =&gt; {\n    if (await tx.reservations.exists({ sagaId: d.sagaId })) return { ok: true };      // đã làm\n    if (await tx.tombstones.exists({ sagaId: d.sagaId })) throw new RpcException(&#39;SAGA_CANCELLED&#39;);\n    await tx.stock.decrease(d.items);           // stock = stock - qty WHERE stock &gt;= qty\n    await tx.reservations.insert({ sagaId: d.sagaId, items: d.items, status: &#39;RESERVED&#39; });\n    return { ok: true };\n  });\n}\n\u003c/code>\u003c/pre>\n\u003ch3>Lưu ý với transport TCP\u003c/h3>\n\u003cp>TCP của NestJS là request/response, \u003cstrong>không có hàng đợi bền\u003c/strong>: service đích down thì lệnh mất, không có redelivery. Vì vậy:\u003c/p>\n\u003col>\n\u003cli>Orchestrator phải tự lưu state và có sweeper chạy tiếp saga dở dang.\u003c/li>\n\u003cli>Timeout không có nghĩa bên kia chưa làm: handler phải idempotent và có tombstone.\u003c/li>\n\u003cli>Khi cần độ bền thật, chuyển command/reply sang RabbitMQ hoặc Kafka kèm outbox, hoặc dùng workflow engine như Temporal (bài 10).\u003c/li>\n\u003c/ol>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> trong code trên, nếu process chết ngay sau \u003ccode>payment.charge\u003c/code> thành công nhưng trước \u003ccode>sagas.save\u003c/code>, chuyện gì xảy ra khi sweeper chạy lại?\u003c/p>\n"},{"n":9,"title":"Áp dụng vào dự án: saga tạo project","status":"theory","statusNote":"","step":"Thực hành","html":"\u003cp>Đây là \u003cstrong>thiết kế đề xuất\u003c/strong>, chưa triển khai. Nó là ví dụ tốt để kể khi phỏng vấn vì có một hệ thống bên ngoài (Keycloak) không thể tham gia transaction của bạn.\u003c/p>\n\u003cp>\u003cstrong>Nghiệp vụ:\u003c/strong> người dùng tạo project. Cần dữ liệu project ở \u003ccode>u-project-management\u003c/code>, và group/role tương ứng trên Keycloak qua \u003ccode>w-identity\u003c/code> để phân quyền.\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>#\u003c/th>\n\u003cth>Bước\u003c/th>\n\u003cth>Service\u003c/th>\n\u003cth>Loại\u003c/th>\n\u003cth>Bù trừ\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>1\u003c/td>\n\u003ctd>Tạo project \u003ccode>PROVISIONING\u003c/code>\u003c/td>\n\u003ctd>u-project-management\u003c/td>\n\u003ctd>Compensatable\u003c/td>\n\u003ctd>Chuyển \u003ccode>FAILED\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>2\u003c/td>\n\u003ctd>Tạo group và role cho project trên Keycloak\u003c/td>\n\u003ctd>w-identity\u003c/td>\n\u003ctd>Compensatable\u003c/td>\n\u003ctd>Xóa group (idempotent: không tìm thấy thì coi như xong)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>3\u003c/td>\n\u003ctd>Gán owner vào group\u003c/td>\n\u003ctd>w-identity\u003c/td>\n\u003ctd>Pivot\u003c/td>\n\u003ctd>—\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>4\u003c/td>\n\u003ctd>Chuyển project sang \u003ccode>ACTIVE\u003c/code>, ghi activity log\u003c/td>\n\u003ctd>u-project-management\u003c/td>\n\u003ctd>Retriable\u003c/td>\n\u003ctd>—\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Các quyết định cần nói được:\u003c/strong>\u003c/p>\n\u003cul>\n\u003cli>\u003cstrong>Orchestration\u003c/strong>, vì có 4 bước, chạm hệ thống ngoài, và cần biết project đang kẹt ở đâu.\u003c/li>\n\u003cli>\u003cstrong>Semantic lock:\u003c/strong> project \u003ccode>PROVISIONING\u003c/code> không cho thêm thành viên hay tạo task; UI hiển thị &quot;đang khởi tạo&quot;.\u003c/li>\n\u003cli>\u003cstrong>Idempotency với Keycloak:\u003c/strong> đặt tên group xác định từ \u003ccode>projectId\u003c/code> (ví dụ \u003ccode>project-&lt;id&gt;\u003c/code>), nên tạo lại thì gặp &quot;đã tồn tại&quot; và coi là thành công.\u003c/li>\n\u003cli>\u003cstrong>Timeout khi gọi Keycloak:\u003c/strong> group có thể đã được tạo dù không nhận được reply; bù trừ bằng &quot;xóa nếu tồn tại&quot;.\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> kể saga này theo khung STAR trong 90 giây.\u003c/p>\n"},{"n":10,"title":"Công cụ và framework","status":"theory","statusNote":"","step":"Thực hành","html":"\u003cp>Production thường không tự viết orchestrator từ đầu: workflow engine đã giải sẵn state bền, retry, timer và giao diện theo dõi. Tự viết (bài 8) vẫn nên làm để hiểu bản chất.\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Công cụ\u003c/th>\n\u003cth>Kiểu\u003c/th>\n\u003cth>Điểm nổi bật\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Temporal (hậu duệ của Cadence)\u003c/td>\n\u003ctd>Orchestration, viết bằng code\u003c/td>\n\u003ctd>Workflow là code thường, state được ghi lại và replay; retry policy và timer dài ngày có sẵn. Java SDK có class \u003ccode>Saga\u003c/code>; với TypeScript SDK bạn tự gom compensation trong \u003ccode>try/catch\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Camunda 8 / Zeebe\u003c/td>\n\u003ctd>Orchestration, BPMN\u003c/td>\n\u003ctd>Vẽ luồng bằng BPMN, có compensation event; hợp quy trình có bước người duyệt\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>AWS Step Functions\u003c/td>\n\u003ctd>Orchestration, managed\u003c/td>\n\u003ctd>State machine định nghĩa bằng JSON (ASL), dùng \u003ccode>Catch\u003c/code> để nhảy sang nhánh bù trừ\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Azure Durable Functions\u003c/td>\n\u003ctd>Orchestration, viết bằng code\u003c/td>\n\u003ctd>Orchestrator function, tương tự Temporal trên Azure\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Axon Framework (Java)\u003c/td>\n\u003ctd>Cả hai\u003c/td>\n\u003ctd>\u003ccode>@Saga\u003c/code>, \u003ccode>@SagaEventHandler\u003c/code>, đi cùng CQRS và Event Sourcing\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>MassTransit (.NET)\u003c/td>\n\u003ctd>Cả hai\u003c/td>\n\u003ctd>Saga state machine, state lưu DB\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Eventuate Tram Sagas (Java)\u003c/td>\n\u003ctd>Orchestration\u003c/td>\n\u003ctd>Framework của Chris Richardson, có outbox sẵn\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>@nestjs/cqrs\u003c/code> \u003ccode>@Saga()\u003c/code>\u003c/td>\n\u003ctd>Trong một process\u003c/td>\n\u003ctd>Một RxJS stream map event thành command; \u003cstrong>không\u003c/strong> có state bền, không phải distributed saga\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nói &quot;dùng \u003ccode>@Saga()\u003c/code> của NestJS CQRS&quot; là đã có distributed saga. Nó là process manager trong bộ nhớ; process chết là mất tiến trình.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> khi nào bạn chọn Temporal thay vì tự viết orchestrator?\u003c/p>\n"},{"n":11,"title":"Cách nói khi phỏng vấn","status":"theory","statusNote":"","step":"Thực hành","html":"\u003ch3>Khung trả lời 90 giây cho &quot;Saga là gì?&quot;\u003c/h3>\n\u003col>\n\u003cli>\u003cstrong>Vấn đề (15 giây):\u003c/strong> microservices dùng database-per-service nên một nghiệp vụ chạm nhiều DB không có transaction chung; 2PC giữ lock và giảm availability.\u003c/li>\n\u003cli>\u003cstrong>Định nghĩa (15 giây):\u003c/strong> saga là chuỗi local transaction; bước nào lỗi thì chạy compensating transaction ngược lại. Kết quả là eventual consistency, mất chữ I trong ACID.\u003c/li>\n\u003cli>\u003cstrong>Hai kiểu (20 giây):\u003c/strong> choreography bằng event cho luồng ngắn; orchestration bằng state machine cho luồng dài, dễ theo dõi.\u003c/li>\n\u003cli>\u003cstrong>Phần khó (30 giây):\u003c/strong> outbox chống dual write, consumer idempotent vì at-least-once, semantic lock chống lost update, timeout không có nghĩa bên kia chưa làm.\u003c/li>\n\u003cli>\u003cstrong>Ví dụ (10 giây):\u003c/strong> đặt hàng, hoặc saga tạo project kèm Keycloak ở bài 9.\u003c/li>\n\u003c/ol>\n\u003ch3>Lỗi thường gặp khi thiết kế\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Lỗi\u003c/th>\n\u003cth>Hậu quả\u003c/th>\n\u003cth>Sửa\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003ccode>save()\u003c/code> rồi \u003ccode>emit()\u003c/code> riêng\u003c/td>\n\u003ctd>Mất event khi crash, saga kẹt\u003c/td>\n\u003ctd>Outbox\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Handler không idempotent\u003c/td>\n\u003ctd>Trừ tiền hoặc trừ kho hai lần\u003c/td>\n\u003ctd>Lưu \u003ccode>messageId\u003c/code> / \u003ccode>sagaId\u003c/code> với unique key\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Compensation bằng \u003ccode>DELETE\u003c/code>\u003c/td>\n\u003ctd>Mất audit, sai khi có thao tác xen giữa\u003c/td>\n\u003ctd>Trạng thái \u003ccode>REJECTED\u003c/code>, giao dịch bù\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Retry cả lỗi nghiệp vụ\u003c/td>\n\u003ctd>Retry mãi &quot;hết hàng&quot;\u003c/td>\n\u003ctd>Phân biệt lỗi tạm thời và lỗi nghiệp vụ\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Không có trạng thái \u003ccode>*_PENDING\u003c/code>\u003c/td>\n\u003ctd>Saga khác đọc hoặc ghi đè dữ liệu trung gian\u003c/td>\n\u003ctd>Semantic lock\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Orchestrator giữ state trong RAM\u003c/td>\n\u003ctd>Restart là mất saga\u003c/td>\n\u003ctd>Lưu \u003ccode>saga_instance\u003c/code> sau mỗi bước\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Gửi email trước pivot\u003c/td>\n\u003ctd>Không thu hồi được\u003c/td>\n\u003ctd>Đặt sau pivot\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Choreography cho luồng 8 bước\u003c/td>\n\u003ctd>Event spaghetti, không ai biết luồng\u003c/td>\n\u003ctd>Orchestration\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Câu hỏi nên hỏi lại người phỏng vấn\u003c/h3>\n\u003cul>\n\u003cli>&quot;Hệ thống của anh/chị dùng choreography hay orchestration, và vì sao?&quot;\u003c/li>\n\u003cli>&quot;Saga kẹt hoặc \u003ccode>NEEDS_MANUAL\u003c/code> được xử lý thế nào trong vận hành?&quot;\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Tài liệu nên đọc:\u003c/strong> Chris Richardson, \u003cem>Microservices Patterns\u003c/em> (2018), chương 4, và \u003ca href=\"https://microservices.io/patterns/data/saga.html\">microservices.io/patterns/data/saga\u003c/a>; Garcia-Molina và Salem, \u003cem>Sagas\u003c/em> (SIGMOD 1987); Microsoft Azure Architecture Center, \u003cem>Saga distributed transactions pattern\u003c/em>.\u003c/p>\n"}],"glossary":[{"term":"Saga","def":"Chuỗi local transaction, lỗi thì bù trừ ngược lại"},{"term":"Local transaction","def":"Transaction ACID trong DB của một service"},{"term":"Compensating transaction","def":"Nghiệp vụ mới hoàn tác nghiệp vụ một bước đã commit"},{"term":"Choreography","def":"Saga không có điều phối; service phản ứng event của nhau"},{"term":"Orchestration","def":"Saga có orchestrator gửi command và quyết định bước tiếp"},{"term":"Orchestrator","def":"Thành phần giữ state machine của saga"},{"term":"Pivot transaction","def":"Bước không quay đầu; thành công thì saga chắc chắn đi tới cuối"},{"term":"Retriable transaction","def":"Bước sau pivot, idempotent, retry tới khi thành công"},{"term":"2PC","def":"Two-Phase Commit: prepare rồi commit, giữ lock xuyên hệ thống"},{"term":"Eventual consistency","def":"Dữ liệu nhất quán sau một khoảng thời gian, không tức thì"},{"term":"Semantic lock","def":"Cờ trạng thái \u003ccode>*_PENDING\u003c/code> báo bản ghi đang thuộc một saga dở dang"},{"term":"Commutative update","def":"Thao tác giao hoán (cộng/trừ) thay vì ghi đè giá trị"},{"term":"Tombstone","def":"Dấu &quot;saga này đã hủy&quot; để từ chối action đến muộn"},{"term":"Transactional outbox","def":"Ghi event cùng transaction với dữ liệu, relay publish sau"},{"term":"Idempotent consumer","def":"Consumer xử lý cùng message nhiều lần vẫn cho một kết quả"},{"term":"Sweeper","def":"Job quét saga kẹt để chạy tiếp hoặc alert"},{"term":"Process manager","def":"Tên gọi khác của orchestrator trong DDD/EIP"}],"intro":"\u003cp>Sổ tay về Saga Pattern: vì sao microservices không dùng được một transaction chung, saga thay thế bằng chuỗi local transaction và compensating transaction ra sao, hai kiểu choreography và orchestration, cách xử lý việc thiếu isolation, và những gì phải tự lo (outbox, idempotency, timeout, saga kẹt). Đây là \u003cstrong>tài liệu lý thuyết/thiết kế\u003c/strong>: dự án chưa cài saga. Code NestJS là minh họa, chưa chạy thử.\u003c/p>\n\u003cp>Học theo thứ tự 0–11. Mỗi ngày đọc hai chủ đề, tự nói câu trả lời trong 60–90 giây. Trạng thái 📖 là tài liệu lý thuyết, không khẳng định bạn đã học thuộc.\u003c/p>\n","questions":[{"id":"881a375ba3","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Giao dịch phân tán","level":"basic","text":"Saga là gì?","hintLabel":"Ý chính","hint":"Chuỗi local transaction, mỗi service commit trong DB của mình; bước nào lỗi thì chạy compensating transaction theo thứ tự ngược. Kết quả là eventual consistency. \u003cstrong>Bẫy cần tránh:\u003c/strong> nói saga &quot;rollback&quot;; dữ liệu đã commit, chỉ bù trừ được.","refs":[0]},{"id":"8f65b82c8a","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Giao dịch phân tán","level":"basic","text":"Vì sao microservices cần saga?","hintLabel":"Ý chính","hint":"Database-per-service nên một nghiệp vụ chạm nhiều DB không có transaction chung. Cần cơ chế đưa hệ thống về trạng thái hợp lệ khi một bước lỗi.","refs":[1]},{"id":"c15497f034","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Giao dịch phân tán","level":"mid","text":"Saga khác 2PC thế nào? Vì sao ít khi chọn 2PC?","hintLabel":"Ý chính","hint":"2PC cho ACID nhưng giữ lock suốt hai pha, coordinator chết thì participant treo, một bên down là cả giao dịch dừng, và nhiều broker/NoSQL không tham gia XA. Saga đổi isolation lấy availability.","refs":[1]},{"id":"e699c9f969","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Giao dịch phân tán","level":"mid","text":"Vì sao nói saga là &quot;ACD&quot;?","hintLabel":"Ý chính","hint":"Mất Isolation: mỗi bước commit ngay nên saga khác thấy trạng thái trung gian. Hệ quả là lost update, dirty read, fuzzy read.","refs":[1,5]},{"id":"39646b5b73","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Hai kiểu saga","level":"basic","text":"Choreography và orchestration khác nhau thế nào?","hintLabel":"Ý chính","hint":"Choreography: service nghe event của nhau, không ai điều phối. Orchestration: orchestrator gửi command, nhận reply, giữ state machine.","refs":[2]},{"id":"b914696dc4","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Hai kiểu saga","level":"mid","text":"Khi nào chọn choreography, khi nào chọn orchestration?","hintLabel":"Ý chính","hint":"Luồng ngắn 2–4 bước, ít rẽ nhánh thì choreography. Nhiều bước, compensation phức tạp, cần biết saga đang ở đâu thì orchestration. Có thể lai: orchestration trong context, choreography giữa context.","refs":[2]},{"id":"d979d14d31","part":"A","partTitle":"Vấn đề và ý tưởng","group":"Hai kiểu saga","level":"hard","text":"Nhược điểm của orchestration là gì và giảm thế nào?","hintLabel":"Ý chính","hint":"Orchestrator dễ thành god service hút business logic; là điểm lỗi đơn. Giữ orchestrator chỉ điều phối (logic nằm ở service), lưu state bền, chạy nhiều instance với optimistic lock.","refs":[2]},{"id":"1da1712aa2","part":"B","partTitle":"Thiết kế bước và bù trừ","group":"Loại bước","level":"mid","text":"Pivot transaction là gì?","hintLabel":"Ý chính","hint":"Bước không quay đầu: thành công thì saga chắc chắn chạy tới cuối, thất bại thì bù trừ ngược. Trước pivot là compensatable, sau pivot là retriable.","refs":[3]},{"id":"8f9ab6783c","part":"B","partTitle":"Thiết kế bước và bù trừ","group":"Loại bước","level":"mid","text":"Bạn sắp xếp thứ tự các bước thế nào?","hintLabel":"Ý chính","hint":"Bước rủi ro và khó hoàn tác nhất làm pivot; việc không thu hồi được (email, SMS) đặt sau pivot; việc &quot;giảm&quot; làm sớm, việc &quot;tăng&quot; làm muộn.","refs":[3]},{"id":"53e42bceab","part":"B","partTitle":"Thiết kế bước và bù trừ","group":"Compensating transaction","level":"basic","text":"Compensating transaction khác rollback thế nào?","hintLabel":"Ý chính","hint":"Rollback hủy thay đổi chưa commit. Compensation là nghiệp vụ mới chạy sau khi đã commit (hoàn tiền thay vì xóa bản ghi trừ tiền), người khác có thể đã thấy trạng thái trung gian.","refs":[4]},{"id":"8382ada04d","part":"B","partTitle":"Thiết kế bước và bù trừ","group":"Compensating transaction","level":"mid","text":"Compensation cần những tính chất gì?","hintLabel":"Ý chính","hint":"Semantic undo không xóa; idempotent; chịu được đến sai thứ tự (tombstone); retry tới khi thành công; chạy ngược thứ tự; dùng thao tác cộng/trừ thay vì ghi đè.","refs":[4]},{"id":"37de287ca0","part":"B","partTitle":"Thiết kế bước và bù trừ","group":"Compensating transaction","level":"hard","text":"Compensation thất bại thì sao?","hintLabel":"Ý chính","hint":"Retry với backoff vì compensation chỉ nên lỗi do hạ tầng. Hết retry thì saga sang \u003ccode>NEEDS_MANUAL\u003c/code>, đẩy vào DLQ, alert, có công cụ cho vận hành xử lý tay.","refs":[4,7]},{"id":"ca0be5c3ef","part":"B","partTitle":"Thiết kế bước và bù trừ","group":"Compensating transaction","level":"hard","text":"Bước không thể hoàn tác (email đã gửi) thì làm sao?","hintLabel":"Ý chính","hint":"Dời ra sau pivot. Nếu buộc phải làm trước, compensation là một hành động bù về nghiệp vụ (email &quot;đơn đã bị hủy&quot;).","refs":[3,4]},{"id":"9e5d7ea5d8","part":"B","partTitle":"Thiết kế bước và bù trừ","group":"Isolation","level":"hard","text":"Saga không có isolation, bạn xử lý thế nào?","hintLabel":"Ý chính","hint":"Kể ba anomaly (lost update, dirty read, fuzzy read) rồi countermeasure: semantic lock \u003ccode>*_PENDING\u003c/code>, commutative update, pessimistic view, reread value/optimistic lock, version file, by value. Cho ví dụ \u003ccode>APPROVAL_PENDING\u003c/code>.","refs":[5]},{"id":"257ee08eb3","part":"B","partTitle":"Thiết kế bước và bù trừ","group":"Isolation","level":"hard","text":"Semantic lock là gì? Cho ví dụ.","hintLabel":"Ý chính","hint":"Bước compensatable gắn cờ trạng thái (\u003ccode>APPROVAL_PENDING\u003c/code>). Saga khác thấy cờ thì từ chối, chờ hoặc retry. Bước cuối chỉ cập nhật khi cờ còn đúng của saga mình, chống lost update.","refs":[5]},{"id":"6378d4909b","part":"C","partTitle":"Độ tin cậy và vận hành","group":"Message và idempotency","level":"mid","text":"Làm sao đảm bảo &quot;lưu DB + gửi message&quot; không mất message?","hintLabel":"Ý chính","hint":"Transactional outbox: ghi event vào bảng outbox cùng local transaction, relay publish sau. Kết quả at-least-once.","refs":[6]},{"id":"5685d0d6cd","part":"C","partTitle":"Độ tin cậy và vận hành","group":"Message và idempotency","level":"mid","text":"Message bị xử lý hai lần thì sao?","hintLabel":"Ý chính","hint":"Consumer idempotent: lưu \u003ccode>messageId\u003c/code> hoặc \u003ccode>sagaId + step\u003c/code> cùng transaction với thay đổi nghiệp vụ, unique key; trùng thì bỏ qua. API bên ngoài dùng \u003ccode>Idempotency-Key\u003c/code>.","refs":[6]},{"id":"846f91d1f3","part":"C","partTitle":"Độ tin cậy và vận hành","group":"Message và idempotency","level":"mid","text":"Lỗi nào nên retry, lỗi nào nên bù trừ?","hintLabel":"Ý chính","hint":"Lỗi tạm thời (timeout, 503) thì retry với backoff và jitter. Lỗi nghiệp vụ (hết hàng, thẻ từ chối) thì không retry, chuyển sang bù trừ.","refs":[6]},{"id":"842dbc89b2","part":"C","partTitle":"Độ tin cậy và vận hành","group":"Timeout và crash","level":"hard","text":"Service đích timeout, bạn có bù trừ ngay không?","hintLabel":"Ý chính","hint":"Timeout không có nghĩa bên kia chưa làm. Hỏi lại trạng thái theo \u003ccode>sagaId\u003c/code>, hoặc bù trừ nhưng compensation phải xử lý được action đến muộn (tombstone).","refs":[6,4]},{"id":"1c6ca35b42","part":"C","partTitle":"Độ tin cậy và vận hành","group":"Timeout và crash","level":"hard","text":"Orchestrator crash giữa chừng thì sao?","hintLabel":"Ý chính","hint":"State lưu bền sau mỗi bước; khởi động lại hoặc sweeper quét saga dở dang và chạy tiếp. Bước có thể chạy lại nên participant phải idempotent. Nhiều instance thì optimistic lock trên \u003ccode>version\u003c/code>.","refs":[7]},{"id":"536c435c53","part":"C","partTitle":"Độ tin cậy và vận hành","group":"Timeout và crash","level":"mid","text":"Bạn theo dõi saga trong production thế nào?","hintLabel":"Ý chính","hint":"\u003ccode>sagaId\u003c/code>/\u003ccode>correlationId\u003c/code> trong mọi message và log, tracing, dashboard số saga theo trạng thái, saga kẹt quá ngưỡng, tỉ lệ bù trừ, alert \u003ccode>NEEDS_MANUAL\u003c/code>.","refs":[6,7]},{"id":"8131449528","part":"D","partTitle":"Thực hành và phỏng vấn","group":"Công cụ","level":"mid","text":"Bạn dùng công cụ gì để làm saga?","hintLabel":"Ý chính","hint":"Temporal, Camunda/Zeebe, AWS Step Functions, Axon, MassTransit, Eventuate Tram. Chọn workflow engine khi cần state bền, timer dài, giao diện theo dõi; tự viết khi luồng đơn giản.","refs":[10]},{"id":"c819273296","part":"D","partTitle":"Thực hành và phỏng vấn","group":"Công cụ","level":"mid","text":"\u003ccode>@Saga()\u003c/code> của \u003ccode>@nestjs/cqrs\u003c/code> có phải distributed saga không?","hintLabel":"Ý chính","hint":"Không. Nó là RxJS stream map event thành command trong một process, không có state bền.","refs":[10]},{"id":"9e857c084a","part":"D","partTitle":"Thực hành và phỏng vấn","group":"Công cụ","level":"mid","text":"Saga liên quan gì đến Event Sourcing và CQRS?","hintLabel":"Ý chính","hint":"Độc lập nhưng hay đi cùng. Event Sourcing giải dual write vì event là nguồn sự thật; saga còn gọi là process manager trong DDD.","refs":[10]},{"id":"96691befaa","part":"D","partTitle":"Thực hành và phỏng vấn","group":"Kể kinh nghiệm","level":"hard","text":"Kể một saga bạn đã thiết kế.","hintLabel":"Ý chính","hint":"Dùng STAR với saga tạo project kèm Keycloak: vì sao cần (Keycloak không tham gia transaction), vì sao orchestration, pivot là bước nào, idempotency bằng tên group xác định, semantic lock \u003ccode>PROVISIONING\u003c/code>, xử lý timeout. Nói rõ đây là thiết kế.","refs":[9,11]},{"id":"6373cbaebe","part":"D","partTitle":"Thực hành và phỏng vấn","group":"Kể kinh nghiệm","level":"basic","text":"Trả lời &quot;Saga là gì?&quot; trong 90 giây.","hintLabel":"Ý chính","hint":"Vấn đề → định nghĩa → hai kiểu → phần khó (outbox, idempotent, semantic lock, timeout) → ví dụ.","refs":[11]}],"slides":[{"cover":true,"html":"\u003ch1>Saga Pattern\u003c/h1>\n\u003cp>Giao dịch xuyên nhiều service mà không cần 2PC.\u003c/p>\n\u003cp>Tài liệu lý thuyết và thiết kế, chưa triển khai trong dự án.\u003c/p>\n","notes":"\u003cp>Nói rõ đây là thiết kế; dự án chưa có saga.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Vấn đề\u003c/h2>\n\u003cp>Database-per-service: một nghiệp vụ chạm nhiều DB, không có transaction chung.\u003c/p>\n\u003cp>2PC giữ lock và giảm availability.\u003c/p>\n","notes":"\u003cp>Ví dụ đặt hàng chạm Order, Inventory, Payment. Payment lỗi thì đơn và hàng đã giữ vẫn còn.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Ý tưởng\u003c/h2>\n\u003cp>Chuỗi local transaction. Lỗi thì chạy compensating transaction ngược lại.\u003c/p>\n\u003cp>Eventual consistency, mất chữ I trong ACID.\u003c/p>\n","notes":"\u003cp>Không rollback mà bù trừ bằng nghiệp vụ: hoàn tiền, trả hàng, hủy đơn.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Hai kiểu\u003c/h2>\n\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA3NjAgNTAwIiBmb250LWZhbWlseT0ic3lzdGVtLXVpLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMiPgo8ZGVmcz48bWFya2VyIGlkPSJhIiBtYXJrZXJXaWR0aD0iOCIgbWFya2VySGVpZ2h0PSI4IiByZWZYPSI3IiByZWZZPSI0IiBvcmllbnQ9ImF1dG8iPjxwYXRoIGQ9Ik0wLDAgTDgsNCBMMCw4eiIgZmlsbD0iIzQ3NTU2OSIvPjwvbWFya2VyPjwvZGVmcz4KPHJlY3Qgd2lkdGg9Ijc2MCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNmOGZhZmMiLz4KPHRleHQgeD0iMjQiIHk9IjMyIiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMGYxNzJhIj5BLiBDaG9yZW9ncmFwaHkg4oCUIGPDoWMgc2VydmljZSB04buxIG7hu5FpIG5oYXUgYuG6sW5nIGV2ZW50PC90ZXh0Pgo8cmVjdCB4PSIzNSIgeT0iNjYiIHdpZHRoPSIxNTAiIGhlaWdodD0iNDgiIHJ4PSIxMCIgZmlsbD0iI2UwZjJmZSIgc3Ryb2tlPSIjMDI4NGM3Ii8+Cjx0ZXh0IHg9IjExMCIgeT0iOTUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMwYzRhNmUiPk9yZGVyPC90ZXh0Pgo8cmVjdCB4PSIzMDUiIHk9IjY2IiB3aWR0aD0iMTUwIiBoZWlnaHQ9IjQ4IiByeD0iMTAiIGZpbGw9IiNlMGYyZmUiIHN0cm9rZT0iIzAyODRjNyIvPgo8dGV4dCB4PSIzODAiIHk9Ijk1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMGM0YTZlIj5JbnZlbnRvcnk8L3RleHQ+CjxyZWN0IHg9IjU3NSIgeT0iNjYiIHdpZHRoPSIxNTAiIGhlaWdodD0iNDgiIHJ4PSIxMCIgZmlsbD0iI2UwZjJmZSIgc3Ryb2tlPSIjMDI4NGM3Ii8+Cjx0ZXh0IHg9IjY1MCIgeT0iOTUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMwYzRhNmUiPlBheW1lbnQ8L3RleHQ+CjxsaW5lIHgxPSIxODUiIHkxPSI5MCIgeDI9IjMwMyIgeTI9IjkwIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMS42IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+Cjx0ZXh0IHg9IjI0NCIgeT0iODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPk9yZGVyQ3JlYXRlZDwvdGV4dD4KPGxpbmUgeDE9IjQ1NSIgeTE9IjkwIiB4Mj0iNTczIiB5Mj0iOTAiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPHRleHQgeD0iNTE0IiB5PSI4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+U3RvY2tSZXNlcnZlZDwvdGV4dD4KPHBhdGggZD0iTTY1MCwxMTQgVjE1MiBIMTEwIFYxMTYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPHRleHQgeD0iMzgwIiB5PSIxNDQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPlBheW1lbnRDb21wbGV0ZWQg4oaSIMSRxqFuIEFQUFJPVkVEPC90ZXh0Pgo8dGV4dCB4PSIyNCIgeT0iMTg2IiBmaWxsPSIjNDc1NTY5IiBmb250LXNpemU9IjEyIj5M4buXaSB0aMOsIHBow6F0IGV2ZW50IHRo4bqldCBi4bqhaSAoUGF5bWVudEZhaWxlZCk7IHNlcnZpY2Uga2jDoWMgbmdoZSB2w6AgdOG7sSBiw7kgdHLhu6suIExvZ2ljIGx14buTbmcgcuG6o2kgcsOhYyBuaGnhu4F1IG7GoWkuPC90ZXh0Pgo8bGluZSB4MT0iMjQiIHkxPSIyMDgiIHgyPSI3MzYiIHkyPSIyMDgiIHN0cm9rZT0iI2NiZDVlMSIvPgo8dGV4dCB4PSIyNCIgeT0iMjQwIiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMGYxNzJhIj5CLiBPcmNoZXN0cmF0aW9uIOKAlCBt4buZdCBvcmNoZXN0cmF0b3IgcmEgbOG7h25oIHbDoCBnaeG7ryBzdGF0ZTwvdGV4dD4KPHJlY3QgeD0iMjQwIiB5PSIyNjAiIHdpZHRoPSIyODAiIGhlaWdodD0iNjAiIHJ4PSIxMCIgZmlsbD0iI2ZlZjNjNyIgc3Ryb2tlPSIjZDk3NzA2IiBzdHJva2Utd2lkdGg9IjIiLz4KPHRleHQgeD0iMzgwIiB5PSIyODUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiM3ODM1MGYiPkNyZWF0ZU9yZGVyU2FnYSAob3JjaGVzdHJhdG9yKTwvdGV4dD4KPHRleHQgeD0iMzgwIiB5PSIzMDUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM3ODM1MGYiIGZvbnQtc2l6ZT0iMTEiPnN0YXRlIG1hY2hpbmUsIGzGsHUgc3RhdGUgc2F1IG3hu5dpIGLGsOG7m2M8L3RleHQ+CjxwYXRoIGQ9Ik0zMDAsMzIwIFYzNTYgSDExMCBWNDAyIiBmaWxsPSJub25lIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMS42IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+CjxwYXRoIGQ9Ik0zODAsMzIwIFY0MDIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPHBhdGggZD0iTTQ2MCwzMjAgVjM1NiBINjUwIFY0MDIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPHRleHQgeD0iMjA1IiB5PSIzNDgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPmNyZWF0ZSAvIGFwcHJvdmUgLyByZWplY3Q8L3RleHQ+Cjx0ZXh0IHg9IjM4OCIgeT0iMzgwIiBmaWxsPSIjMzM0MTU1IiBmb250LXNpemU9IjExIj5yZXNlcnZlIC8gcmVsZWFzZTwvdGV4dD4KPHRleHQgeD0iNTU1IiB5PSIzNDgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPmNoYXJnZSAocGl2b3QpPC90ZXh0Pgo8cmVjdCB4PSIzNSIgeT0iNDA0IiB3aWR0aD0iMTUwIiBoZWlnaHQ9IjQ4IiByeD0iMTAiIGZpbGw9IiNkY2ZjZTciIHN0cm9rZT0iIzE2YTM0YSIvPgo8dGV4dCB4PSIxMTAiIHk9IjQzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE0NTMyZCI+T3JkZXI8L3RleHQ+CjxyZWN0IHg9IjMwNSIgeT0iNDA0IiB3aWR0aD0iMTUwIiBoZWlnaHQ9IjQ4IiByeD0iMTAiIGZpbGw9IiNkY2ZjZTciIHN0cm9rZT0iIzE2YTM0YSIvPgo8dGV4dCB4PSIzODAiIHk9IjQzMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE0NTMyZCI+SW52ZW50b3J5PC90ZXh0Pgo8cmVjdCB4PSI1NzUiIHk9IjQwNCIgd2lkdGg9IjE1MCIgaGVpZ2h0PSI0OCIgcng9IjEwIiBmaWxsPSIjZGNmY2U3IiBzdHJva2U9IiMxNmEzNGEiLz4KPHRleHQgeD0iNjUwIiB5PSI0MzMiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNDUzMmQiPlBheW1lbnQ8L3RleHQ+Cjx0ZXh0IHg9IjI0IiB5PSI0ODIiIGZpbGw9IiM0NzU1NjkiIGZvbnQtc2l6ZT0iMTIiPk3hu5dpIHNlcnZpY2UgdHLhuqMgcmVwbHk7IG9yY2hlc3RyYXRvciBxdXnhur90IMSR4buLbmggYsaw4bubYyBr4bq/IHRp4bq/cCBob+G6t2MgY2jhuqF5IGNvbXBlbnNhdGlvbiB0aGVvIHRo4bupIHThu7EgbmfGsOG7o2MuPC90ZXh0Pgo8L3N2Zz4K\" alt=\"Choreography và Orchestration\">\u003c/p>\n","notes":"\u003cp>Choreography cho luồng ngắn. Orchestration cho luồng dài, nhiều nhánh, cần biết saga đang ở đâu.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Pivot\u003c/h2>\n\u003cp>Compensatable → Pivot → Retriable.\u003c/p>\n","notes":"\u003cp>Bước rủi ro nhất làm pivot. Email đặt sau pivot vì không thu hồi được.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>State machine\u003c/h2>\n\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA3NjAgMzkyIiBmb250LWZhbWlseT0ic3lzdGVtLXVpLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMiPgo8ZGVmcz48bWFya2VyIGlkPSJhIiBtYXJrZXJXaWR0aD0iOCIgbWFya2VySGVpZ2h0PSI4IiByZWZYPSI3IiByZWZZPSI0IiBvcmllbnQ9ImF1dG8iPjxwYXRoIGQ9Ik0wLDAgTDgsNCBMMCw4eiIgZmlsbD0iIzQ3NTU2OSIvPjwvbWFya2VyPjwvZGVmcz4KPHJlY3Qgd2lkdGg9Ijc2MCIgaGVpZ2h0PSIzOTIiIGZpbGw9IiNmOGZhZmMiLz4KPHRleHQgeD0iMjQiIHk9IjM0IiBmb250LXNpemU9IjE1IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMGYxNzJhIj5M4buXaSB0csaw4bubYyBwaXZvdCB0aMOsIGLDuSB0cuG7qyBuZ8aw4bujYzsgc2F1IHBpdm90IGNo4buJIHJldHJ5IHThu5tpIGtoaSB4b25nPC90ZXh0Pgo8cmVjdCB4PSI0MCIgeT0iNzIiIHdpZHRoPSIxNDAiIGhlaWdodD0iNTYiIHJ4PSIxMCIgZmlsbD0iI2UwZjJmZSIgc3Ryb2tlPSIjMDI4NGM3Ii8+Cjx0ZXh0IHg9IjExMCIgeT0iOTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMwYzRhNmUiPmNyZWF0ZU9yZGVyPC90ZXh0Pgo8dGV4dCB4PSIxMTAiIHk9IjExNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzBjNGE2ZSIgZm9udC1zaXplPSIxMSI+Y29tcGVuc2F0YWJsZTwvdGV4dD4KPHJlY3QgeD0iMjIwIiB5PSI3MiIgd2lkdGg9IjE0MCIgaGVpZ2h0PSI1NiIgcng9IjEwIiBmaWxsPSIjZTBmMmZlIiBzdHJva2U9IiMwMjg0YzciLz4KPHRleHQgeD0iMjkwIiB5PSI5NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzBjNGE2ZSI+cmVzZXJ2ZVN0b2NrPC90ZXh0Pgo8dGV4dCB4PSIyOTAiIHk9IjExNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzBjNGE2ZSIgZm9udC1zaXplPSIxMSI+Y29tcGVuc2F0YWJsZTwvdGV4dD4KPHJlY3QgeD0iNDAwIiB5PSI3MiIgd2lkdGg9IjE0MCIgaGVpZ2h0PSI1NiIgcng9IjEwIiBmaWxsPSIjZmVmM2M3IiBzdHJva2U9IiNkOTc3MDYiIHN0cm9rZS13aWR0aD0iMiIvPgo8dGV4dCB4PSI0NzAiIHk9Ijk2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjNzgzNTBmIj5jaGFyZ2VQYXltZW50PC90ZXh0Pgo8dGV4dCB4PSI0NzAiIHk9IjExNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzc4MzUwZiIgZm9udC1zaXplPSIxMSI+UElWT1Q8L3RleHQ+CjxyZWN0IHg9IjU4MCIgeT0iNzIiIHdpZHRoPSIxNDAiIGhlaWdodD0iNTYiIHJ4PSIxMCIgZmlsbD0iI2UwZjJmZSIgc3Ryb2tlPSIjMDI4NGM3Ii8+Cjx0ZXh0IHg9IjY1MCIgeT0iOTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMwYzRhNmUiPmFwcHJvdmVPcmRlcjwvdGV4dD4KPHRleHQgeD0iNjUwIiB5PSIxMTUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMwYzRhNmUiIGZvbnQtc2l6ZT0iMTEiPnJldHJpYWJsZTwvdGV4dD4KPGxpbmUgeDE9IjE4MCIgeTE9IjEwMCIgeDI9IjIxOCIgeTI9IjEwMCIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8bGluZSB4MT0iMzYwIiB5MT0iMTAwIiB4Mj0iMzk4IiB5Mj0iMTAwIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMS42IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+CjxsaW5lIHgxPSI1NDAiIHkxPSIxMDAiIHgyPSI1NzgiIHkyPSIxMDAiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPGxpbmUgeDE9IjI5MCIgeTE9IjEyOCIgeDI9IjI5MCIgeTI9IjIwNCIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8dGV4dCB4PSIyOTgiIHk9IjE3MiIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+aOG6v3QgaMOgbmc8L3RleHQ+CjxwYXRoIGQ9Ik00NzAsMTI4IFYyMzAgSDM3MiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8dGV4dCB4PSI0NzgiIHk9IjE2NCIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+dGjhursgYuG7iyB04burIGNo4buRaTwvdGV4dD4KPGxpbmUgeDE9IjY1MCIgeTE9IjEyOCIgeDI9IjY1MCIgeTI9IjIwNCIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8dGV4dCB4PSI2NDIiIHk9IjE5MCIgdGV4dC1hbmNob3I9ImVuZCIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+bHXDtG4gdGjDoG5oIGPDtG5nIChyZXRyeSk8L3RleHQ+CjxyZWN0IHg9IjIxMCIgeT0iMjA2IiB3aWR0aD0iMTYwIiBoZWlnaHQ9IjQ4IiByeD0iMTAiIGZpbGw9IiNmZmZmZmYiIHN0cm9rZT0iIzY0NzQ4YiIvPgo8dGV4dCB4PSIyOTAiIHk9IjIzNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzBmMTcyYSI+Q09NUEVOU0FUSU5HPC90ZXh0Pgo8cmVjdCB4PSI1NzAiIHk9IjIwNiIgd2lkdGg9IjE2MCIgaGVpZ2h0PSI0OCIgcng9IjEwIiBmaWxsPSIjZGNmY2U3IiBzdHJva2U9IiMxNmEzNGEiIHN0cm9rZS13aWR0aD0iMiIvPgo8dGV4dCB4PSI2NTAiIHk9IjIzNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE0NTMyZCI+Q09NUExFVEVEPC90ZXh0Pgo8cGF0aCBkPSJNMjUwLDI1NCBWMjkwIEgxNzAgVjMxNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8cGF0aCBkPSJNMzMwLDI1NCBWMjkwIEg0MTAgVjMxNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8dGV4dCB4PSIxNjIiIHk9IjMwNiIgdGV4dC1hbmNob3I9ImVuZCIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+QzIsIEMxIGNo4bqheSBuZ8aw4bujYyB4b25nPC90ZXh0Pgo8dGV4dCB4PSI0MTgiIHk9IjMwNiIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+YsO5IHRy4burIGzhu5dpLCBo4bq/dCByZXRyeSDihpIgYWxlcnQ8L3RleHQ+CjxyZWN0IHg9IjkwIiB5PSIzMTYiIHdpZHRoPSIxNjAiIGhlaWdodD0iNDgiIHJ4PSIxMCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjNjQ3NDhiIi8+Cjx0ZXh0IHg9IjE3MCIgeT0iMzQ1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjMGYxNzJhIj5GQUlMRUQ8L3RleHQ+CjxyZWN0IHg9IjMzMCIgeT0iMzE2IiB3aWR0aD0iMTYwIiBoZWlnaHQ9IjQ4IiByeD0iMTAiIGZpbGw9IiNmZWUyZTIiIHN0cm9rZT0iI2RjMjYyNiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjQxMCIgeT0iMzQ1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjN2YxZDFkIj5ORUVEU19NQU5VQUw8L3RleHQ+Cjwvc3ZnPgo=\" alt=\"State machine của CreateOrderSaga\">\u003c/p>\n","notes":"\u003cp>Lưu state sau mỗi bước. Sweeper chạy tiếp saga kẹt. NEEDS_MANUAL khi bù trừ hết retry.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Isolation\u003c/h2>\n\u003cp>Lost update, dirty read, fuzzy read.\u003c/p>\n\u003cp>Semantic lock, commutative update, reread value.\u003c/p>\n","notes":"\u003cp>APPROVAL_PENDING là semantic lock. Bước cuối chỉ cập nhật khi cờ còn đúng của saga mình.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Độ tin cậy\u003c/h2>\n\u003cp>Outbox chống dual write. Consumer idempotent vì at-least-once.\u003c/p>\n\u003cp>Timeout không có nghĩa bên kia chưa làm.\u003c/p>\n","notes":"\u003cp>Tombstone để từ chối action đến sau compensation.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Áp dụng: tạo project\u003c/h2>\n\u003cp>Project PROVISIONING → group Keycloak → gán owner → ACTIVE.\u003c/p>\n","notes":"\u003cp>Keycloak không tham gia transaction được. Tên group xác định từ projectId để idempotent.\u003c/p>\n"}]}</script>
+<script>
+(() => {
+  // Mở nhầm file template (chưa có dữ liệu) thì báo rõ thay vì hỏng im lặng.
+  const raw = document.getElementById('data').textContent.trim();
+  if (!raw.startsWith('{')) {
+    document.querySelector('main').innerHTML =
+      '<div class="panel" style="padding:24px;margin-top:24px"><h2>Đây là file template, chưa có dữ liệu</h2>' +
+      '<p>Hãy mở <code>knowledge-base/index.html#saga</code> (file đã sinh). ' +
+      'Nếu chưa có, chạy <code>npm run docs:knowledge-base</code> ở thư mục gốc.</p></div>';
+    return;
+  }
+  const DATA = JSON.parse(raw);
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const el = (tag, attrs = {}, html) => {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') node.className = v;
+      else if (k === 'text') node.textContent = v;
+      else node.setAttribute(k, v);
+    }
+    if (html !== undefined) node.innerHTML = html;
+    return node;
+  };
+  const STATUS_LABEL = { done: 'Đã làm', theory: 'Lý thuyết', todo: 'Chưa học' };
+  const LEVEL_LABEL = { basic: 'Cơ bản', mid: 'Trung bình', hard: 'Nâng cao' };
+  const topicByN = new Map(DATA.topics.map((t) => [t.n, t]));
+
+  // ---------- storage (có thể bị chặn: luôn bọc try/catch) ----------
+  const store = {
+    get(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* bỏ qua */ } },
+  };
+  let marks = store.get('saga-practice-marks', {});
+
+  // ---------- theme ----------
+  const themeBtn = $('#theme-btn');
+  const THEMES = ['system', 'light', 'dark'];
+  const THEME_LABEL = { system: 'hệ thống', light: 'sáng', dark: 'tối' };
+  let theme = store.get('saga-theme', 'system');
+  function applyTheme() {
+    if (theme === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.textContent = 'Giao diện: ' + THEME_LABEL[theme];
+  }
+  themeBtn.addEventListener('click', () => {
+    theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    store.set('saga-theme', theme);
+    applyTheme();
+  });
+  applyTheme();
+
+  const generated = new Date(DATA.generatedAt);
+  $('#gen-date').textContent = 'cập nhật ' + generated.toLocaleDateString('vi-VN');
+  $('#footer').textContent = 'Sinh tự động từ documents/KNOWLEDGE.md và documents/INTERVIEW-QUESTIONS.md lúc ' +
+    generated.toLocaleString('vi-VN') + '. Sửa nội dung trong file markdown rồi chạy lại: npm run docs:knowledge';
+
+  // ================= OVERVIEW: meter =================
+  function renderMeter() {
+    const counts = { done: 0, theory: 0, todo: 0 };
+    DATA.topics.forEach((t) => counts[t.status]++);
+    const total = DATA.topics.length;
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    const review = DATA.questions.filter((q) => marks[q.id] === 'review').length;
+    const qTotal = DATA.questions.length;
+    const pct = (n, of) => (of ? (n / of) * 100 : 0) + '%';
+    $('#meter').innerHTML = `
+      <span class="eyebrow">Tiến độ</span>
+      <div class="meter-row">
+        <div class="label"><span>Chủ đề</span><b>${counts.done} đã làm · ${counts.theory} lý thuyết · ${counts.todo} chưa học</b></div>
+        <div class="bar"><i class="b-done" style="width:${pct(counts.done, total)}"></i><i class="b-theory" style="width:${pct(counts.theory, total)}"></i></div>
+      </div>
+      <div class="meter-row">
+        <div class="label"><span>Câu hỏi luyện</span><b>${known}/${qTotal} đã thuộc · ${review} cần ôn</b></div>
+        <div class="bar"><i class="b-known" style="width:${pct(known, qTotal)}"></i><i class="b-review" style="width:${pct(review, qTotal)}"></i></div>
+      </div>
+      <div class="legend"><a class="btn" href="#topic-0">Đọc bài đầu tiên</a><a class="btn primary" href="#practice">Luyện câu hỏi</a></div>`;
+  }
+
+  // ================= KNOWLEDGE =================
+  const LABELS = [
+    ['Câu hỏi phỏng vấn', 'questions'],
+    ['Bẫy phỏng vấn', 'trap'],
+    ['Ví dụ w-identity', 'incode'],
+    ['Kịch bản thiết kế', 'incode'],
+    ['Bẫy thực tế', 'trap'],
+    ['Bẫy cần nhớ', 'trap'],
+    ['Mẫu trả lời', 'sample'],
+    ['Trong code', 'incode'],
+    ['Tự trả lời', 'self'],
+    ['Tự viết', 'self'],
+  ];
+  function decorate(root) {
+    root.querySelectorAll('table').forEach((t) => {
+      const w = el('div', { class: 'table-wrap' });
+      t.replaceWith(w);
+      w.appendChild(t);
+    });
+    [...root.querySelectorAll(':scope > p')].forEach((p) => {
+      const strong = p.firstElementChild;
+      if (!strong || strong.tagName !== 'STRONG' || p.firstChild !== strong) return;
+      const hit = LABELS.find(([label]) => strong.textContent.startsWith(label));
+      if (!hit) return;
+      const box = el('div', { class: 'callout ' + hit[1] });
+      p.before(box);
+      const next = p.nextElementSibling;
+      box.appendChild(p);
+      if (p.textContent.trim().length > strong.textContent.trim().length + 2) return; // nội dung nằm ngay trong đoạn
+      if (next && /^(UL|OL|BLOCKQUOTE|PRE|DIV)$/.test(next.tagName)) box.appendChild(next);
+    });
+  }
+
+  const questionsByTopic = new Map();
+  DATA.questions.forEach((q) => q.refs.forEach((r) => questionsByTopic.set(r, (questionsByTopic.get(r) ?? 0) + 1)));
+
+  function renderToc(currentN) {
+    const filter = $('#toc-search').value.trim().toLowerCase();
+    const list = $('#toc-list');
+    list.innerHTML = '';
+    DATA.topics
+      .filter((t) => !filter || (t.n + '. ' + t.title).toLowerCase().includes(filter))
+      .forEach((t) => {
+        const li = el('li');
+        const a = el('a', { href: '#topic-' + t.n, title: STATUS_LABEL[t.status] });
+        if (t.n === currentN) a.setAttribute('aria-current', 'true');
+        a.innerHTML = `<span class="num">${String(t.n).padStart(2, '0')}</span><span></span><span class="dot ${t.status}"></span>`;
+        a.children[1].textContent = t.title;
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+    if (!list.children.length) list.appendChild(el('li', { class: 'empty', text: 'Không tìm thấy chủ đề phù hợp.' }));
+  }
+  function renderTopic(n) {
+    const idx = DATA.topics.findIndex((t) => t.n === n);
+    const t = DATA.topics[idx] ?? DATA.topics[0];
+    currentTopic = t.n;
+    const prev = DATA.topics[idx - 1];
+    const next = DATA.topics[idx + 1];
+    const qCount = questionsByTopic.get(t.n) ?? 0;
+    const art = $('#topic');
+    art.innerHTML = `
+      <div class="topic-head">
+        <span class="eyebrow">Chủ đề ${String(t.n).padStart(2, '0')} · ${t.step}</span>
+        <h1></h1>
+        <div class="topic-meta"><span class="chip ${t.status}">${STATUS_LABEL[t.status]}</span><span class="status-note"></span></div>
+      </div>
+      <div class="prose" id="prose">${t.html}</div>
+      ${qCount ? `<div class="panel practice-link"><span>Có <b>${qCount}</b> câu hỏi luyện tập liên quan tới chủ đề này.</span><a class="btn primary" href="#practice" data-topic="${t.n}">Luyện ngay</a></div>` : ''}
+      <div class="topic-foot">
+        ${prev ? `<a class="btn" href="#topic-${prev.n}">← ${prev.n}. </a>` : '<span></span>'}
+        ${next ? `<a class="btn" href="#topic-${next.n}">${next.n}. →</a>` : '<span></span>'}
+      </div>`;
+    $('h1', art).textContent = t.title;
+    $('.status-note', art).textContent = t.statusNote;
+    const foot = art.querySelectorAll('.topic-foot a');
+    if (prev) foot[0].textContent = '← ' + prev.n + '. ' + prev.title;
+    if (next) foot[foot.length - 1].textContent = next.n + '. ' + next.title + ' →';
+    decorate($('#prose'));
+    const link = art.querySelector('[data-topic]');
+    if (link) link.addEventListener('click', () => { practiceState.topic = t.n; practiceState.pos = 0; });
+    renderToc(t.n);
+  }
+  let currentTopic = 0;
+  $('#toc-search').addEventListener('input', () => renderToc(currentTopic));
+  $('#toc-toggle').addEventListener('click', () => {
+    const toc = $('#toc');
+    const collapsed = toc.classList.toggle('collapsed');
+    $('#toc-toggle').setAttribute('aria-expanded', String(!collapsed));
+  });
+  if (matchMedia('(max-width: 920px)').matches) $('#toc').classList.add('collapsed');
+
+  // ================= PRACTICE =================
+  const PARTS = [...new Map(DATA.questions.map((q) => [q.part, q.partTitle])).entries()];
+  const practiceState = { part: 'all', level: 'all', onlyReview: false, topic: null, order: DATA.questions.map((_, i) => i), pos: 0, revealed: false };
+
+  function filtered() {
+    return practiceState.order
+      .map((i) => DATA.questions[i])
+      .filter((q) => practiceState.part === 'all' || q.part === practiceState.part)
+      .filter((q) => practiceState.level === 'all' || q.level === practiceState.level)
+      .filter((q) => !practiceState.onlyReview || marks[q.id] !== 'known')
+      .filter((q) => practiceState.topic === null || q.refs.includes(practiceState.topic));
+  }
+  function pillGroup(label, options, key) {
+    const g = el('div', { class: 'fgroup', role: 'group', 'aria-label': label });
+    g.appendChild(el('span', { class: 'eyebrow', text: label }));
+    options.forEach(([value, text]) => {
+      const b = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState[key] === value) });
+      b.textContent = text;
+      b.addEventListener('click', () => { practiceState[key] = value; practiceState.pos = 0; practiceState.revealed = false; renderPractice(); });
+      g.appendChild(b);
+    });
+    return g;
+  }
+  function renderFilters() {
+    const f = $('#filters');
+    f.innerHTML = '';
+    f.appendChild(pillGroup('Phần', [['all', 'Tất cả'], ...PARTS.map(([id, title]) => [id, id + ' · ' + title])], 'part'));
+    f.appendChild(pillGroup('Mức', [['all', 'Tất cả'], ['basic', 'Cơ bản'], ['mid', 'Trung bình'], ['hard', 'Nâng cao']], 'level'));
+    const extra = el('div', { class: 'fgroup' });
+    const rb = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState.onlyReview) });
+    rb.textContent = 'Ẩn câu đã thuộc';
+    rb.addEventListener('click', () => { practiceState.onlyReview = !practiceState.onlyReview; practiceState.pos = 0; renderPractice(); });
+    extra.appendChild(rb);
+    if (practiceState.topic !== null) {
+      const t = topicByN.get(practiceState.topic);
+      const tb = el('button', { type: 'button', class: 'pill', 'aria-pressed': 'true', title: 'Bỏ lọc theo chủ đề' });
+      tb.textContent = 'Chủ đề ' + practiceState.topic + (t ? ' · ' + t.title : '') + '  ✕';
+      tb.addEventListener('click', () => { practiceState.topic = null; practiceState.pos = 0; renderPractice(); });
+      extra.appendChild(tb);
+    }
+    f.appendChild(extra);
+  }
+  function setMark(q, value) {
+    if (marks[q.id] === value) delete marks[q.id]; else marks[q.id] = value;
+    store.set('saga-practice-marks', marks);
+  }
+  function renderPractice() {
+    renderFilters();
+    const list = filtered();
+    if (practiceState.pos >= list.length) practiceState.pos = Math.max(0, list.length - 1);
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    $('#counter').textContent = list.length
+      ? `Câu ${practiceState.pos + 1}/${list.length} trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`
+      : `0 câu trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`;
+    const card = $('#card');
+    if (!list.length) {
+      card.className = 'panel empty';
+      card.innerHTML = 'Không còn câu nào khớp bộ lọc. Bỏ bớt bộ lọc hoặc tắt "Ẩn câu đã thuộc".';
+      return;
+    }
+    const q = list[practiceState.pos];
+    const mark = marks[q.id];
+    card.className = 'panel card';
+    card.innerHTML = `
+      <div class="card-meta">
+        <span class="eyebrow">Phần ${q.part}${q.group ? ' · ' + q.group : ''}</span>
+        ${q.level ? `<span class="chip ${q.level}">${LEVEL_LABEL[q.level]}</span>` : ''}
+        ${mark ? `<span class="mark ${mark}">${mark === 'known' ? '✓ đã thuộc' : '↺ cần ôn lại'}</span>` : ''}
+      </div>
+      <div class="card-q">${q.text}</div>
+      <div id="hint-area"></div>
+      <div class="card-actions">
+        <button class="btn" id="prev-btn" type="button" ${practiceState.pos === 0 ? 'disabled' : ''}>← Trước</button>
+        <button class="btn primary" id="reveal-btn" type="button">${practiceState.revealed ? 'Ẩn ý chính' : 'Hiện ý chính'}</button>
+        <span class="spacer"></span>
+        <button class="btn again" id="again-btn" type="button">Cần ôn lại</button>
+        <button class="btn good" id="known-btn" type="button">Đã thuộc</button>
+        <button class="btn" id="next-btn" type="button" ${practiceState.pos >= list.length - 1 ? 'disabled' : ''}>Sau →</button>
+      </div>`;
+    if (practiceState.revealed) {
+      const area = $('#hint-area');
+      const refs = q.refs.map((r) => topicByN.get(r)).filter(Boolean);
+      area.innerHTML = `
+        ${q.hint ? `<div class="hint"><span class="eyebrow">${q.hintLabel ?? 'Ý chính'}</span>${q.hint}</div>` : '<div class="hint"><span class="eyebrow">Gợi ý</span>Tự trả lời theo khung: định nghĩa → vì sao / đánh đổi → ví dụ từ dự án.</div>'}
+        ${refs.length ? `<div class="refs"><span class="eyebrow">Đọc lại</span>${refs.map((t) => `<a href="#topic-${t.n}">#${t.n} ${escapeHtml(t.title)}</a>`).join('')}</div>` : ''}`;
+    }
+    $('#prev-btn').addEventListener('click', () => move(-1));
+    $('#next-btn').addEventListener('click', () => move(1));
+    $('#reveal-btn').addEventListener('click', toggleReveal);
+    $('#again-btn').addEventListener('click', () => { setMark(q, 'review'); move(1, true); });
+    $('#known-btn').addEventListener('click', () => { setMark(q, 'known'); move(1, true); });
+  }
+  function move(delta, afterMark) {
+    const list = filtered();
+    const nextPos = practiceState.pos + delta;
+    if (nextPos >= 0 && nextPos < list.length) practiceState.pos = nextPos;
+    practiceState.revealed = false;
+    renderPractice();
+    if (afterMark) renderMeter();
+  }
+  function toggleReveal() { practiceState.revealed = !practiceState.revealed; renderPractice(); }
+  $('#shuffle-btn').addEventListener('click', () => {
+    const o = practiceState.order;
+    for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+    practiceState.pos = 0; practiceState.revealed = false; renderPractice();
+  });
+  const resetBtn = $('#reset-btn');
+  let resetArmed = false;
+  resetBtn.addEventListener('click', () => {
+    if (!resetArmed) { resetArmed = true; resetBtn.textContent = 'Bấm lần nữa để xoá'; setTimeout(() => { resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu'; }, 3000); return; }
+    marks = {}; store.set('saga-practice-marks', marks); resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu';
+    renderPractice(); renderMeter();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'practice' || e.target.closest('input, textarea')) return;
+    const list = filtered();
+    const q = list[practiceState.pos];
+    if (e.key === ' ') { e.preventDefault(); toggleReveal(); }
+    else if (e.key === 'ArrowRight') move(1);
+    else if (e.key === 'ArrowLeft') move(-1);
+    else if (e.key === '1' && q) { setMark(q, 'review'); move(1, true); }
+    else if (e.key === '2' && q) { setMark(q, 'known'); move(1, true); }
+  });
+
+  // ================= GLOSSARY =================
+  function renderGlossary() {
+    const filter = $('#gloss-search').value.trim().toLowerCase();
+    const box = $('#gloss');
+    box.innerHTML = '';
+    DATA.glossary
+      .filter((g) => !filter || (g.term + ' ' + g.def).toLowerCase().includes(filter))
+      .forEach((g) => box.appendChild(el('div', { class: 'panel term' }, `<b>${g.term}</b><span>${g.def}</span>`)));
+    if (!box.children.length) box.appendChild(el('p', { class: 'panel empty', text: 'Không tìm thấy thuật ngữ phù hợp.' }));
+  }
+  $('#gloss-search').addEventListener('input', renderGlossary);
+
+  // ================= SLIDES =================
+  let slideIdx = 0;
+  let showNotes = false;
+  /** Chèn lại sơ đồ của tab Tổng quan vào slide. Đổi id của marker trong SVG để không trùng. */
+  function embed(sourceId, suffix) {
+    const clone = document.getElementById(sourceId).cloneNode(true);
+    clone.removeAttribute('id');
+    clone.querySelectorAll('[id]').forEach((n) => { n.id = n.id + suffix; });
+    clone.querySelectorAll('[marker-start],[marker-end]').forEach((n) => {
+      ['marker-start', 'marker-end'].forEach((attr) => {
+        const v = n.getAttribute(attr);
+        if (v) n.setAttribute(attr, v.replace(/url\(#([^)]+)\)/, `url(#$1${suffix})`));
+      });
+    });
+    return clone;
+  }
+  const EMBEDS = { '{{architecture}}': 'arch-diagram', '{{planes}}': 'planes' };
+  function renderSlide() {
+    const total = DATA.slides.length;
+    slideIdx = Math.max(0, Math.min(slideIdx, total - 1));
+    const s = DATA.slides[slideIdx];
+    const slide = $('#slide');
+    slide.className = 'slide' + (s.cover ? ' cover' : '');
+    slide.innerHTML = s.html +
+      `<span class="slide-brand">Saga Pattern</span><span class="slide-no">${String(slideIdx + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}</span>`;
+    slide.querySelectorAll('p').forEach((p) => {
+      const id = EMBEDS[p.textContent.trim()];
+      if (id) p.replaceWith(embed(id, '-s' + slideIdx));
+    });
+    $('#slide-counter').textContent = `Slide ${slideIdx + 1}/${total}`;
+    $('#slide-progress').style.width = ((slideIdx + 1) / total) * 100 + '%';
+    $('#slide-prev').disabled = slideIdx === 0;
+    $('#slide-next').disabled = slideIdx === total - 1;
+    const notes = $('#slide-notes');
+    notes.hidden = !showNotes;
+    notes.innerHTML = '<span class="eyebrow">Ghi chú người nói</span>' + (s.notes || '<p>Không có ghi chú cho slide này.</p>');
+    $('#slide-notes-btn').setAttribute('aria-pressed', String(showNotes));
+  }
+  function slideGo(i) {
+    slideIdx = i;
+    renderSlide();
+    // Đổi slide không tạo thêm mục trong lịch sử (Back quay về tab trước, không lùi từng slide).
+    try { history.replaceState(null, '', '#slide-' + (slideIdx + 1)); } catch { /* bỏ qua */ }
+  }
+  function toggleFullscreen() {
+    const stage = $('#stage');
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else stage.requestFullscreen?.().catch(() => undefined);
+    } catch { /* trình xem không hỗ trợ toàn màn hình */ }
+  }
+  $('#slide-prev').addEventListener('click', () => slideGo(slideIdx - 1));
+  $('#slide-next').addEventListener('click', () => slideGo(slideIdx + 1));
+  $('#slide-full').addEventListener('click', toggleFullscreen);
+  $('#slide-notes-btn').addEventListener('click', () => { showNotes = !showNotes; renderSlide(); });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'slides' || e.target.closest('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+    const last = DATA.slides.length - 1;
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); slideGo(Math.min(slideIdx + 1, last)); }
+    else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); slideGo(Math.max(slideIdx - 1, 0)); }
+    else if (e.key === 'Home') slideGo(0);
+    else if (e.key === 'End') slideGo(last);
+    else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+    else if (e.key === 'n' || e.key === 'N') { showNotes = !showNotes; renderSlide(); }
+  });
+
+  function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+
+  // ================= ROUTING (#overview, #knowledge, #topic-N, #practice, #glossary) =================
+  // Không dựa vào sự kiện hashchange để chuyển view: một số trình xem (preview trong IDE, app desktop,
+  // file:// bị chặn điều hướng) không đổi hash khi bấm link. Bấm link nội bộ → gọi go() trực tiếp;
+  // cập nhật URL chỉ là phụ, lỗi thì bỏ qua.
+  let currentView = 'overview';
+  function go(hash, updateUrl = true) {
+    route(hash);
+    if (!updateUrl) return;
+    try {
+      if (location.hash !== '#' + hash) history.pushState(null, '', '#' + hash);
+    } catch { /* trình xem không cho đổi URL: view vẫn đã chuyển */ }
+  }
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    go(a.getAttribute('href').slice(1));
+  });
+  function route(hash) {
+    const topicMatch = /^topic-(\d+)$/.exec(hash);
+    const slideMatch = /^slide-(\d+)$/.exec(hash);
+    const view = topicMatch ? 'knowledge'
+      : slideMatch ? 'slides'
+      : ['overview', 'knowledge', 'practice', 'glossary', 'slides'].includes(hash) ? hash : 'overview';
+    currentView = view;
+    document.querySelectorAll('[data-view-panel]').forEach((p) => { p.hidden = p.dataset.viewPanel !== view; });
+    document.querySelectorAll('nav.tabs a').forEach((a) => {
+      if (a.dataset.view === view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    if (view === 'knowledge') renderTopic(topicMatch ? Number(topicMatch[1]) : DATA.topics[0].n);
+    if (view === 'practice') renderPractice();
+    if (view === 'glossary') renderGlossary();
+    if (view === 'overview') renderMeter();
+    if (view === 'slides') {
+      if (slideMatch) slideIdx = Number(slideMatch[1]) - 1;
+      renderSlide();
+    }
+    window.scrollTo(0, 0);
+  }
+  // Nút Back/Forward của trình duyệt, hoặc người dùng tự sửa hash.
+  const fromUrl = () => route(location.hash.slice(1));
+  window.addEventListener('hashchange', fromUrl);
+  window.addEventListener('popstate', fromUrl);
+
+  fromUrl();
+})();
+</script>
+</body>
+</html>

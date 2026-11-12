@@ -53,6 +53,12 @@ Mục `#outbox` là sổ tay về Transactional Outbox: dual write, cấu trúc 
 Mục `#rabbitmq` là sổ tay học RabbitMQ từ nền tảng, gồm 15 bài (0–14): vì sao cần broker, connection và channel, exchange và binding, queue, ack và prefetch, ba chặng không mất message, at-least-once và idempotent, DLX và retry, thứ tự, patterns, vận hành, cluster và quorum queue, so sánh với Kafka, và cách nói khi phỏng vấn (có sơ đồ `rabbitmq-routing.svg`).
 Đây là tài liệu lý thuyết tổng quát, không mô tả code của `@lib-infrastructure/rabbitmq`; code `amqplib` chỉ để minh họa và chưa chạy thử. Nguồn đặt trong `apps/w-identity/documents/rabbitmq/`; template ở `knowledge-base/projects/rabbitmq/template.html`; đánh dấu ôn tập dùng khóa `rabbitmq-practice-marks`.
 
+## Saga Pattern
+
+Mục `#saga` là sổ tay về Saga Pattern, gồm 12 bài (0–11): giao dịch phân tán và vì sao không dùng 2PC, choreography và orchestration (sơ đồ `saga-styles.svg`), ba loại bước (compensatable, pivot, retriable), thiết kế compensating transaction, thiếu isolation và 6 countermeasure, độ tin cậy (outbox, idempotent, retry, timeout), state machine (sơ đồ `saga-state-machine.svg`), code orchestrator bằng NestJS TCP, saga tạo project kèm Keycloak, công cụ (Temporal, Camunda, Step Functions…), và cách nói khi phỏng vấn.
+Đây là tài liệu thiết kế: dự án chưa cài saga, code chưa chạy thử, saga tạo project ở bài 9 là đề xuất. Nguồn đặt trong `knowledge-base/projects/w-identity/documents/saga/`; template ở `knowledge-base/projects/saga/template.html`; đánh dấu ôn tập dùng khóa `saga-practice-marks`.
+Sinh lại sổ tay này: `node knowledge-base/build-handbook.mjs saga knowledge-base/projects/w-identity/documents/saga`, rồi `node knowledge-base/build.mjs --no-rebuild`. `build-handbook.mjs` là builder chung (tham số `<id> <thư mục docs>`, tự nhúng ảnh `./*.svg` dạng base64), dùng được cho các sổ tay khác có cùng định dạng markdown.
+
 ## Thêm project mới
 
 1. Trong `apps/<project>/`: viết `documents/KNOWLEDGE.md`, `INTERVIEW-QUESTIONS.md`, `SLIDES.md`

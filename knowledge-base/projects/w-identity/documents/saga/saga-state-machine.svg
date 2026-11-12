@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 392" font-family="system-ui,sans-serif" font-size="13">
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="#475569"/></marker></defs>
+<rect width="760" height="392" fill="#f8fafc"/>
+<text x="24" y="34" font-size="15" font-weight="700" fill="#0f172a">Lỗi trước pivot thì bù trừ ngược; sau pivot chỉ retry tới khi xong</text>
+<rect x="40" y="72" width="140" height="56" rx="10" fill="#e0f2fe" stroke="#0284c7"/>
+<text x="110" y="96" text-anchor="middle" font-weight="700" fill="#0c4a6e">createOrder</text>
+<text x="110" y="115" text-anchor="middle" fill="#0c4a6e" font-size="11">compensatable</text>
+<rect x="220" y="72" width="140" height="56" rx="10" fill="#e0f2fe" stroke="#0284c7"/>
+<text x="290" y="96" text-anchor="middle" font-weight="700" fill="#0c4a6e">reserveStock</text>
+<text x="290" y="115" text-anchor="middle" fill="#0c4a6e" font-size="11">compensatable</text>
+<rect x="400" y="72" width="140" height="56" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+<text x="470" y="96" text-anchor="middle" font-weight="700" fill="#78350f">chargePayment</text>
+<text x="470" y="115" text-anchor="middle" font-weight="700" fill="#78350f" font-size="11">PIVOT</text>
+<rect x="580" y="72" width="140" height="56" rx="10" fill="#e0f2fe" stroke="#0284c7"/>
+<text x="650" y="96" text-anchor="middle" font-weight="700" fill="#0c4a6e">approveOrder</text>
+<text x="650" y="115" text-anchor="middle" fill="#0c4a6e" font-size="11">retriable</text>
+<line x1="180" y1="100" x2="218" y2="100" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="360" y1="100" x2="398" y2="100" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="540" y1="100" x2="578" y2="100" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="290" y1="128" x2="290" y2="204" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="298" y="172" fill="#334155" font-size="11">hết hàng</text>
+<path d="M470,128 V230 H372" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="478" y="164" fill="#334155" font-size="11">thẻ bị từ chối</text>
+<line x1="650" y1="128" x2="650" y2="204" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="642" y="190" text-anchor="end" fill="#334155" font-size="11">luôn thành công (retry)</text>
+<rect x="210" y="206" width="160" height="48" rx="10" fill="#ffffff" stroke="#64748b"/>
+<text x="290" y="235" text-anchor="middle" font-weight="700" fill="#0f172a">COMPENSATING</text>
+<rect x="570" y="206" width="160" height="48" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="650" y="235" text-anchor="middle" font-weight="700" fill="#14532d">COMPLETED</text>
+<path d="M250,254 V290 H170 V314" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<path d="M330,254 V290 H410 V314" fill="none" stroke="#475569" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="162" y="306" text-anchor="end" fill="#334155" font-size="11">C2, C1 chạy ngược xong</text>
+<text x="418" y="306" fill="#334155" font-size="11">bù trừ lỗi, hết retry → alert</text>
+<rect x="90" y="316" width="160" height="48" rx="10" fill="#ffffff" stroke="#64748b"/>
+<text x="170" y="345" text-anchor="middle" font-weight="700" fill="#0f172a">FAILED</text>
+<rect x="330" y="316" width="160" height="48" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+<text x="410" y="345" text-anchor="middle" font-weight="700" fill="#7f1d1d">NEEDS_MANUAL</text>
+</svg>

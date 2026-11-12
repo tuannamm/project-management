@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ tay RabbitMQ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Cùng hệ giao diện với sổ tay API Gateway và Service Registry.
+   Nội dung được sinh từ markdown; tiến độ ôn tập dùng khóa riêng rabbitmq-practice-marks. */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #e9edf2;
+  --ink: #17202b;
+  --muted: #5a6574;
+  --line: #d6dce4;
+  --accent: #c2410c;
+  --accent-soft: #fbe5d8;
+  --control: #4352c9;
+  --control-soft: #e3e6fb;
+  --data: #0d7d72;
+  --data-soft: #d6f0ec;
+  --ok: #2b7a3f;
+  --ok-soft: #dcf0e1;
+  --learn: #2559c7;
+  --learn-soft: #dfe8fb;
+  --todo: #6b7482;
+  --todo-soft: #e6e9ee;
+  --danger: #b4321f;
+  --danger-soft: #f9e0db;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+    --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+    --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+    --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+  --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+  --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+  --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+[hidden] { display: none !important; }
+a { color: var(--learn); }
+code, pre, kbd { font-family: var(--font-mono); font-size: 0.86em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.eyebrow { font: 600 11px/1 var(--font-mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- Header ---------- */
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-block: 10px; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand b { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
+.brand span { font: 500 12px var(--font-mono); color: var(--muted); }
+nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+nav.tabs a {
+  text-decoration: none; color: var(--muted); font-weight: 600; font-size: 14px;
+  padding: 6px 12px; border-radius: 999px;
+}
+nav.tabs a:hover { color: var(--ink); background: var(--surface-2); }
+nav.tabs a[aria-current="page"] { color: var(--surface); background: var(--ink); }
+.icon-btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px;
+  font: 600 12px var(--font-mono); padding: 6px 10px; cursor: pointer;
+}
+main { padding-block: 28px 64px; }
+
+/* ---------- Shared bits ---------- */
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--font-mono); padding: 4px 8px; border-radius: 999px; white-space: nowrap; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.done { color: var(--ok); background: var(--ok-soft); }
+.chip.theory { color: var(--learn); background: var(--learn-soft); }
+.chip.todo { color: var(--todo); background: var(--todo-soft); }
+.chip.basic { color: var(--ok); background: var(--ok-soft); }
+.chip.mid { color: #a16207; background: #fbefcf; }
+.chip.hard { color: var(--danger); background: var(--danger-soft); }
+:root[data-theme="dark"] .chip.mid { color: #e8c062; background: #3a2f14; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip.mid { color: #e8c062; background: #3a2f14; } }
+.status-code { font: 700 13px var(--font-mono); padding: 2px 7px; border-radius: 6px; background: var(--surface-2); }
+.status-code.s2 { color: var(--ok); background: var(--ok-soft); }
+.status-code.s4 { color: #a16207; background: #fbefcf; }
+.status-code.s5 { color: var(--danger); background: var(--danger-soft); }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font: 600 14px var(--font-body); padding: 8px 14px; border-radius: 8px; cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn.good { background: var(--ok); color: var(--surface); border-color: var(--ok); }
+.btn.again { color: var(--accent); border-color: var(--accent); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.section-head h2 { font-size: 21px; font-weight: 700; }
+.section-head p { margin: 0; color: var(--muted); max-width: 62ch; }
+section.block { margin-top: 44px; }
+
+/* ---------- Overview ---------- */
+.hero { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 32px; align-items: end; }
+.hero h1 { font-size: clamp(30px, 4.6vw, 46px); font-weight: 800; letter-spacing: -0.025em; margin-top: 10px; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero p.lead { font-size: 17px; color: var(--muted); max-width: 58ch; margin: 14px 0 0; }
+.meter { padding: 18px; display: grid; gap: 14px; }
+.meter-row { display: grid; gap: 6px; }
+.meter-row .label { display: flex; justify-content: space-between; font-size: 13.5px; }
+.meter-row .label b { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.bar { height: 10px; border-radius: 999px; background: var(--surface-2); display: flex; overflow: hidden; }
+.bar i { display: block; height: 100%; }
+.bar .b-done { background: var(--ok); } .bar .b-theory { background: var(--learn); } .bar .b-known { background: var(--ok); } .bar .b-review { background: var(--accent); }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.diagram { overflow-x: auto; padding: 16px; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.diagram .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+.diagram .node.gw rect { fill: var(--accent-soft); stroke: var(--accent); }
+.diagram .node.svc rect { fill: var(--data-soft); stroke: var(--data); }
+.diagram .node.infra rect { fill: var(--control-soft); stroke: var(--control); }
+.diagram text { fill: var(--ink); font-family: var(--font-body); font-size: 14px; font-weight: 600; }
+.diagram text.small { fill: var(--muted); font: 500 11.5px var(--font-mono); }
+.diagram .edge { stroke: var(--ink); stroke-width: 1.6; fill: none; }
+.diagram .edge.tcp { stroke: var(--data); }
+.diagram .edge.dash { stroke: var(--control); stroke-dasharray: 5 5; }
+.diagram .edge.event { stroke: var(--muted); stroke-dasharray: 2 4; }
+.diagram marker path { fill: context-stroke; }
+.diagram .arrow-ink { fill: var(--ink); } .diagram .arrow-data { fill: var(--data); } .diagram .arrow-ctrl { fill: var(--control); } .diagram .arrow-muted { fill: var(--muted); }
+
+.planes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.plane { padding: 20px; border-top: 4px solid var(--control); }
+.plane.data { border-top-color: var(--data); }
+.plane h3 { font-size: 18px; margin-bottom: 4px; }
+.plane .when { font: 500 12.5px var(--font-mono); color: var(--muted); }
+.plane ol { margin: 14px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+.plane ol code { color: var(--muted); }
+.plane .rule { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 14px; color: var(--muted); }
+
+/* ---------- Knowledge ---------- */
+.kgrid { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 28px; align-items: start; }
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); max-height: calc(100vh - 100px); overflow-y: auto; padding: 10px; }
+.toc input { width: 100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 8px 10px; font: inherit; margin-bottom: 8px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.toc a { display: grid; grid-template-columns: 26px minmax(0, 1fr) 10px; gap: 6px; align-items: center; text-decoration: none; color: var(--ink); padding: 6px 8px; border-radius: 6px; font-size: 13.5px; line-height: 1.35; }
+.toc a:hover { background: var(--surface-2); }
+.toc a[aria-current="true"] { background: var(--surface-2); font-weight: 600; }
+.toc .num { font: 600 11.5px var(--font-mono); color: var(--muted); }
+.toc .dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.done { background: var(--ok); } .dot.theory { background: var(--learn); } .dot.todo { background: transparent; box-shadow: inset 0 0 0 1.5px var(--todo); }
+.toc-toggle { display: none; }
+
+article.topic { min-width: 0; }
+.topic-head { display: grid; gap: 10px; padding-bottom: 18px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.topic-head h1 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; letter-spacing: -0.02em; }
+.topic-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13.5px; }
+.prose { max-width: 76ch; }
+.prose img { display: block; max-width: 100%; height: auto; margin: 16px auto; border-radius: 12px; }
+.prose p, .prose li { overflow-wrap: break-word; }
+.prose p { margin: 0 0 12px; }
+.prose ul, .prose ol { margin: 0 0 14px; padding-left: 22px; display: grid; gap: 4px; }
+.prose code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.prose pre { background: var(--surface-2); padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 16px; line-height: 1.5; }
+.prose pre code { background: none; padding: 0; }
+.prose blockquote { margin: 0 0 14px; padding: 10px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+.prose h3 { font-size: 17px; margin: 22px 0 10px; }
+.table-wrap { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 8px; }
+.prose table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.prose th, .prose td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.prose th { background: var(--surface-2); font-weight: 600; font-size: 13px; }
+.prose tr:last-child td { border-bottom: 0; }
+.callout { border-radius: var(--radius); padding: 14px 16px 2px; margin: 0 0 16px; border: 1px solid var(--line); background: var(--surface); }
+.callout > p:first-child { font-size: 12px; font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+.callout > p:first-child strong { font-weight: 700; }
+.callout.questions { border-color: var(--learn); background: var(--learn-soft); }
+.callout.questions > p:first-child { color: var(--learn); }
+.callout.trap { border-color: var(--accent); background: var(--accent-soft); }
+.callout.trap > p:first-child { color: var(--accent); }
+.callout.sample { border-color: var(--ok); background: var(--ok-soft); }
+.callout.sample > p:first-child { color: var(--ok); }
+.callout.incode { border-color: var(--control); background: var(--control-soft); }
+.callout.incode > p:first-child { color: var(--control); }
+.callout.self { border-style: dashed; background: transparent; }
+.callout.self blockquote { border: 0; padding: 0; font-style: italic; }
+.topic-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--line); }
+.topic-foot a { text-decoration: none; }
+.practice-link { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; margin-top: 22px; }
+
+/* ---------- Practice ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; margin-bottom: 16px; }
+.fgroup { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.fgroup .eyebrow { margin-right: 4px; }
+.pill { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 5px 11px; font: 600 13px var(--font-body); cursor: pointer; }
+.pill[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.card { padding: 26px; display: grid; gap: 18px; min-height: 320px; align-content: start; }
+.card-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13px; }
+.card-q { font-size: clamp(19px, 2.4vw, 24px); font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; text-wrap: pretty; }
+.card-q strong { font-weight: 700; }
+.hint { border-left: 3px solid var(--ok); padding: 10px 14px; background: var(--ok-soft); border-radius: 0 8px 8px 0; }
+.hint .eyebrow { color: var(--ok); display: block; margin-bottom: 6px; }
+.refs { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13.5px; }
+.refs a { text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; color: var(--ink); }
+.refs a:hover { border-color: var(--learn); color: var(--learn); }
+.card-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.card-actions .spacer { flex: 1; }
+.mark { font: 600 12px var(--font-mono); }
+.mark.known { color: var(--ok); } .mark.review { color: var(--accent); }
+.practice-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.counter { font: 600 13px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.kbd-help { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); }
+.empty { padding: 40px 26px; text-align: center; color: var(--muted); }
+
+/* ---------- Glossary ---------- */
+.gloss-search { width: min(100%, 420px); border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 9px 12px; font: inherit; margin-bottom: 16px; }
+.gloss { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.term { padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.term b { font-weight: 700; }
+.term span { color: var(--muted); font-size: 14px; }
+.term code { background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+
+footer { color: var(--muted); font-size: 12.5px; padding-block: 0 32px; }
+
+/* ---------- Slides ---------- */
+.slide-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.stage { display: grid; place-items: center; }
+.slide-frame {
+  width: min(100%, calc((100vh - 240px) * 16 / 9)); aspect-ratio: 16 / 9; max-width: 100%;
+  container-type: inline-size; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+}
+.stage:fullscreen { background: var(--bg); width: 100vw; height: 100vh; }
+.stage:fullscreen .slide-frame { width: min(100vw, calc(100vh * 16 / 9)); border-radius: 0; border: 0; }
+.slide {
+  height: 100%; overflow: auto; display: flex; flex-direction: column; justify-content: center; gap: 2.2cqw;
+  padding: 5cqw 7cqw 6cqw; font-size: 2.15cqw; line-height: 1.5; position: relative;
+  border-top: 0.6cqw solid var(--accent);
+}
+.slide > * { margin: 0; }
+.slide h1 { font-size: 6cqw; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+.slide h2 { font-size: 3.6cqw; font-weight: 800; letter-spacing: -0.02em; }
+.slide.cover { justify-content: flex-end; padding-bottom: 8cqw; background: linear-gradient(135deg, var(--accent-soft), transparent 60%); }
+.slide.cover h1 { color: var(--ink); max-width: 18ch; }
+.slide.cover p:first-of-type { font-size: 2.8cqw; color: var(--ink); max-width: 36ch; }
+.slide.cover p { color: var(--muted); }
+.slide ul, .slide ol { padding-left: 1.4em; display: grid; gap: 0.9cqw; }
+.slide strong { color: var(--accent); }
+.slide code { font-size: 0.85em; background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 0.3em; }
+.slide pre { background: var(--surface-2); border-radius: 1cqw; padding: 1.6cqw 2cqw; font-size: 1.6cqw; line-height: 1.45; overflow: auto; }
+.slide pre code { background: none; padding: 0; font-size: 1em; }
+.slide table { border-collapse: collapse; width: 100%; font-size: 1.85cqw; }
+.slide th, .slide td { text-align: left; vertical-align: top; padding: 1cqw 1.4cqw; border-bottom: 1px solid var(--line); }
+.slide th { color: var(--muted); font-weight: 600; font-size: 1.5cqw; text-transform: uppercase; letter-spacing: 0.06em; }
+.slide th:empty { padding: 0; border: 0; }
+.slide td strong { color: var(--ink); }
+.slide .slide-no { position: absolute; right: 3cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); }
+.slide .slide-brand { position: absolute; left: 7cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.slide .diagram { padding: 0; border: 0; background: none; overflow: visible; }
+.slide .diagram svg { min-width: 0; max-height: 34cqw; }
+.slide .planes { gap: 2cqw; }
+.slide .plane { padding: 1.8cqw 2cqw; border-radius: 1cqw; }
+.slide .plane h3 { font-size: 2.1cqw; margin-bottom: 0; }
+.slide .plane .eyebrow { font-size: 1.15cqw; }
+.slide .plane .when, .slide .plane .rule { display: none; }
+.slide .plane ol { font-size: 1.55cqw; gap: 0.4cqw; margin-top: 1.2cqw; line-height: 1.4; }
+.slide .plane ol code { font-size: 0.78em; background: none; padding: 0; }
+.slide-progress { height: 3px; background: var(--surface-2); border-radius: 999px; margin-top: 12px; overflow: hidden; }
+.slide-progress i { display: block; height: 100%; background: var(--accent); }
+.slide-notes { margin-top: 14px; padding: 14px 18px; font-size: 15px; }
+.slide-notes p { margin: 0; }
+.slide-notes .eyebrow { display: block; margin-bottom: 6px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 920px) {
+  .hero, .planes { grid-template-columns: minmax(0, 1fr); }
+  .kgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc { position: static; max-height: none; }
+  .toc-toggle { display: inline-flex; margin-bottom: 10px; }
+  .toc.collapsed ol, .toc.collapsed input { display: none; }
+}
+@media (max-width: 480px) {
+  .card { padding: 18px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pill, .btn, nav.tabs a { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+}
+
+/* ---------- Clean Architecture overview ---------- */
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.design-note { display: flex; align-items: center; gap: 12px; margin-top: 24px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+.design-note p { margin: 0; color: var(--muted); font-size: 13px; }
+.flow { display: grid; justify-items: center; gap: 8px; margin-top: 20px; }
+.flow span { width: 100%; text-align: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font: 500 13px var(--font-mono); overflow-wrap: anywhere; }
+.flow b { color: var(--muted); line-height: 1; }
+.flow .flow-core { color: var(--control); border-color: var(--control); background: var(--control-soft); }
+.data .flow-core { color: var(--data); border-color: var(--data); background: var(--data-soft); }
+.text-link { display: inline-block; color: var(--learn); font-size: 13px; font-weight: 600; margin-top: 14px; }
+.study-path { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.study-step { display: flex; flex-direction: column; padding: 22px; color: var(--ink); text-decoration: none; }
+.study-step:hover { border-color: var(--accent); }
+.study-step h3 { font-size: 18px; margin-top: 14px; }
+.study-step p { color: var(--muted); font-size: 14px; margin: 12px 0 18px; }
+.study-step .text-link { margin-top: auto; }
+.meter-row .label { flex-wrap: wrap; gap: 4px 10px; }
+button:disabled { opacity: 0.45; cursor: default; }
+.topic-foot .btn { max-width: 100%; overflow-wrap: anywhere; }
+@media (max-width: 920px) {
+  .study-path { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .brand { flex-wrap: wrap; gap: 4px 10px; }
+  nav.tabs { width: 100%; }
+  nav.tabs a { padding: 6px 9px; font-size: 13px; }
+  .design-note { align-items: flex-start; flex-direction: column; }
+  .gloss { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Sổ tay RabbitMQ</b><span id="gen-date"></span></div>
+    <nav class="tabs" aria-label="Các phần">
+      <a href="#overview" data-view="overview">Tổng quan</a>
+      <a href="#knowledge" data-view="knowledge">Kiến thức</a>
+      <a href="#practice" data-view="practice">Luyện câu hỏi</a>
+      <a href="#glossary" data-view="glossary">Từ điển</a>
+      <a href="#slides" data-view="slides">Slide</a>
+    </nav>
+    <button class="icon-btn" id="theme-btn" type="button" title="Đổi giao diện sáng/tối">Giao diện: hệ thống</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ================= OVERVIEW ================= -->
+  <section id="view-overview" data-view-panel="overview">
+    <div class="hero">
+      <div>
+        <span class="eyebrow">Exchange · Queue · Ack · At-least-once</span>
+        <h1>Gửi message đi rất dễ.<br><em>Không làm mất nó mới khó.</em></h1>
+        <p class="lead">Học RabbitMQ từ gốc: mô hình exchange, ack và prefetch, ba chặng độ tin cậy, retry và DLQ, quorum queue, và cách nói khi phỏng vấn.</p>
+        <div class="hero-actions"><a class="btn primary" href="#topic-0">Bắt đầu học →</a><a class="btn" href="#practice">Luyện phỏng vấn</a></div>
+      </div>
+      <div class="panel meter" id="meter" aria-live="polite"></div>
+    </div>
+    <div class="design-note"><span class="chip theory">Lý thuyết</span><p>Tài liệu tổng quát, không mô tả code của dự án. Code <code>amqplib</code> chỉ để minh họa và chưa chạy thử. Hành vi broker theo dòng RabbitMQ 3.13 và 4.x.</p></div>
+
+    <section class="block">
+      <div class="section-head"><h2>Hai câu hỏi cốt lõi</h2><p>Message đi đến đâu do exchange quyết định; message có đến nơi an toàn hay không do ba cơ chế ở ba chặng.</p></div>
+      <div class="planes" id="arch-diagram">
+        <div class="panel plane">
+          <span class="eyebrow">01 · Định tuyến</span><h3>Message đi vào queue nào</h3>
+          <div class="flow"><span>Producer publish kèm routing key</span><b aria-hidden="true">↓</b><span>Exchange so với binding</span><b aria-hidden="true">↓</b><span class="flow-core">Một, nhiều hoặc không queue</span></div>
+          <div class="rule">Producer không gửi thẳng vào queue. Mỗi service có queue riêng thì mỗi service đều nhận được bản sao.</div>
+          <a class="text-link" href="#topic-3">Học exchange và binding →</a>
+        </div>
+        <div class="panel plane data">
+          <span class="eyebrow">02 · Độ tin cậy</span><h3>Không mất ở cả ba chặng</h3>
+          <div class="flow"><span>Publisher confirm</span><b aria-hidden="true">↓</b><span>Durable, persistent, quorum queue</span><b aria-hidden="true">↓</b><span class="flow-core">Manual ack</span></div>
+          <div class="rule">Kết quả là at-least-once: message có thể trùng, nên consumer phải idempotent.</div>
+          <a class="text-link" href="#topic-6">Đi qua ba chặng →</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="section-head"><h2>Lộ trình học và ôn tập</h2><p>Đọc hai chủ đề mỗi ngày, tự giải thích trong 60–90 giây rồi luyện câu hỏi liên quan.</p></div>
+      <div class="study-path" id="planes">
+        <a class="panel study-step" href="#topic-0"><span class="eyebrow">01 · Nền tảng</span><h3>Hiểu mô hình trước</h3><p>Vì sao cần broker, connection và channel, exchange, queue, ack.</p><span class="text-link">Đọc bài nền tảng →</span></a>
+        <a class="panel study-step" href="#topic-6"><span class="eyebrow">02 · Độ tin cậy và lỗi</span><h3>Không mất, chịu được trùng</h3><p>Confirm, idempotent, DLX, retry, thứ tự message.</p><span class="text-link">Vào phần độ tin cậy →</span></a>
+        <a class="panel study-step" href="#topic-14"><span class="eyebrow">03 · Thực hành</span><h3>Nói trôi chảy khi phỏng vấn</h3><p>Khung trả lời, so sánh với Kafka và các câu thường gặp.</p><span class="text-link">Đọc bài kết →</span></a>
+      </div>
+    </section>
+  </section>
+
+  <!-- ================= KNOWLEDGE ================= -->
+  <section id="view-knowledge" data-view-panel="knowledge" hidden>
+    <div class="kgrid">
+      <aside class="panel toc" id="toc">
+        <button class="btn toc-toggle" id="toc-toggle" type="button" aria-expanded="false">Danh sách chủ đề</button>
+        <input id="toc-search" type="search" placeholder="Tìm chủ đề…" aria-label="Tìm chủ đề">
+        <ol id="toc-list"></ol>
+      </aside>
+      <article class="topic" id="topic"></article>
+    </div>
+  </section>
+
+  <!-- ================= PRACTICE ================= -->
+  <section id="view-practice" data-view-panel="practice" hidden>
+    <div class="section-head">
+      <h2>Luyện câu hỏi</h2>
+      <p>Nói thành tiếng câu trả lời trước, rồi mới mở ý chính để đối chiếu. Đánh dấu được lưu trong trình duyệt này.</p>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="practice-top">
+      <span class="counter" id="counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="shuffle-btn" type="button">Xáo thứ tự</button>
+        <button class="btn" id="reset-btn" type="button">Xoá đánh dấu</button>
+      </div>
+    </div>
+    <div class="panel" id="card"></div>
+    <p class="kbd-help"><kbd>Space</kbd> mở ý chính · <kbd>←</kbd> <kbd>→</kbd> câu trước/sau · <kbd>1</kbd> cần ôn lại · <kbd>2</kbd> đã thuộc</p>
+  </section>
+
+  <!-- ================= GLOSSARY ================= -->
+  <section id="view-glossary" data-view-panel="glossary" hidden>
+    <div class="section-head">
+      <h2>Từ điển nhanh</h2>
+      <p>Thuật ngữ gặp trong dự án và trong phỏng vấn.</p>
+    </div>
+    <input class="gloss-search" id="gloss-search" type="search" placeholder="Tìm thuật ngữ…" aria-label="Tìm thuật ngữ">
+    <div class="gloss" id="gloss"></div>
+  </section>
+
+  <!-- ================= SLIDES ================= -->
+  <section id="view-slides" data-view-panel="slides" hidden>
+    <div class="slide-bar">
+      <span class="counter" id="slide-counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="slide-prev" type="button">← Trước</button>
+        <button class="btn primary" id="slide-next" type="button">Sau →</button>
+        <button class="btn" id="slide-notes-btn" type="button" aria-pressed="false">Ghi chú người nói</button>
+        <button class="btn" id="slide-full" type="button">Toàn màn hình</button>
+      </div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="slide-frame">
+        <div class="slide" id="slide"></div>
+      </div>
+    </div>
+    <div class="slide-progress" aria-hidden="true"><i id="slide-progress"></i></div>
+    <div class="panel slide-notes" id="slide-notes" hidden></div>
+    <p class="kbd-help"><kbd>→</kbd> <kbd>Space</kbd> slide sau · <kbd>←</kbd> slide trước · <kbd>F</kbd> toàn màn hình · <kbd>N</kbd> ghi chú · <kbd>Home</kbd> <kbd>End</kbd> đầu/cuối. Nội dung sửa trong <code>documents/SLIDES.md</code>.</p>
+  </section>
+</main>
+<footer class="wrap" id="footer"></footer>
+
+<script id="data" type="application/json">{"generatedAt":"2026-11-10T15:13:52.008Z","topics":[{"n":0,"title":"RabbitMQ trong 60 giây","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003cp>\u003cstrong>RabbitMQ là một message broker\u003c/strong>: một server trung gian nhận message từ service gửi (\u003cstrong>producer\u003c/strong>), giữ chúng trong \u003cstrong>queue\u003c/strong>, rồi giao cho service nhận (\u003cstrong>consumer\u003c/strong>). Hai bên không gọi trực tiếp nhau và không cần chạy cùng lúc.\u003c/p>\n\u003cp>Điểm làm RabbitMQ khác một &quot;hàng đợi đơn giản&quot; là \u003cstrong>producer không gửi thẳng vào queue\u003c/strong>. Producer gửi vào một \u003cstrong>exchange\u003c/strong>, kèm một \u003cstrong>routing key\u003c/strong>. Exchange đối chiếu với các \u003cstrong>binding\u003c/strong> để quyết định message đi vào queue nào, có thể là một, nhiều, hoặc không queue nào.\u003c/p>\n\u003cp>Đường đi cơ bản của một message:\u003c/p>\n\u003col>\n\u003cli>Producer publish message vào exchange.\u003c/li>\n\u003cli>Exchange định tuyến message vào các queue khớp binding.\u003c/li>\n\u003cli>Queue giữ message cho đến khi có consumer.\u003c/li>\n\u003cli>Broker giao message cho consumer.\u003c/li>\n\u003cli>Consumer xử lý xong rồi gửi \u003cstrong>ack\u003c/strong>, broker mới xóa message.\u003c/li>\n\u003c/ol>\n\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA3NjAgMzIwIiBmb250LWZhbWlseT0ic3lzdGVtLXVpLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMiPgo8ZGVmcz48bWFya2VyIGlkPSJhIiBtYXJrZXJXaWR0aD0iOCIgbWFya2VySGVpZ2h0PSI4IiByZWZYPSI3IiByZWZZPSI0IiBvcmllbnQ9ImF1dG8iPjxwYXRoIGQ9Ik0wLDAgTDgsNCBMMCw4eiIgZmlsbD0iIzQ3NTU2OSIvPjwvbWFya2VyPjwvZGVmcz4KPHJlY3Qgd2lkdGg9Ijc2MCIgaGVpZ2h0PSIzMjAiIGZpbGw9IiNmOGZhZmMiLz4KPHJlY3QgeD0iMTYiIHk9IjEyMiIgd2lkdGg9IjExNiIgaGVpZ2h0PSI3NiIgcng9IjEwIiBmaWxsPSIjZTBmMmZlIiBzdHJva2U9IiMwMjg0YzciLz4KPHRleHQgeD0iNzQiIHk9IjE1MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzBjNGE2ZSI+UHJvZHVjZXI8L3RleHQ+Cjx0ZXh0IHg9Ijc0IiB5PSIxNzEiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMwYzRhNmUiPsSQxqFuIGjDoG5nPC90ZXh0Pgo8bGluZSB4MT0iMTMyIiB5MT0iMTYwIiB4Mj0iMjA4IiB5Mj0iMTYwIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMS42IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+Cjx0ZXh0IHg9IjE3MCIgeT0iMTM2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMzM0MTU1IiBmb250LXNpemU9IjExIj5yb3V0aW5nIGtleTwvdGV4dD4KPHRleHQgeD0iMTcwIiB5PSIxNTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPm9yZGVyLnBsYWNlZDwvdGV4dD4KPHJlY3QgeD0iMjEwIiB5PSIxMTIiIHdpZHRoPSIxMjQiIGhlaWdodD0iOTYiIHJ4PSIxMCIgZmlsbD0iI2ZlZjNjNyIgc3Ryb2tlPSIjZDk3NzA2Ii8+Cjx0ZXh0IHg9IjI3MiIgeT0iMTQ2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjNzgzNTBmIj5FeGNoYW5nZTwvdGV4dD4KPHRleHQgeD0iMjcyIiB5PSIxNjYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM3ODM1MGYiPnRvcGljPC90ZXh0Pgo8dGV4dCB4PSIyNzIiIHk9IjE4NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzc4MzUwZiIgZm9udC1zaXplPSIxMSI+c2hvcC5ldmVudHM8L3RleHQ+CjxwYXRoIGQ9Ik0zMzQsMTQwIEMzODAsMTAwIDM5MCw2MiA0NjgsNjIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPGxpbmUgeDE9IjMzNCIgeTE9IjE2MCIgeDI9IjQ2OCIgeTI9IjE2MCIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8cGF0aCBkPSJNMzM0LDE4MCBDMzgwLDIyMCAzOTAsMjU4IDQ2OCwyNTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPHRleHQgeD0iNDAyIiB5PSI1NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+YmluZGluZzogb3JkZXIuKjwvdGV4dD4KPHRleHQgeD0iNDAyIiB5PSIxNTEiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPmJpbmRpbmc6IG9yZGVyLnBsYWNlZDwvdGV4dD4KPHRleHQgeD0iNDAyIiB5PSIyNzIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPmJpbmRpbmc6ICM8L3RleHQ+CjxyZWN0IHg9IjQ3MCIgeT0iMzYiIHdpZHRoPSIxMzAiIGhlaWdodD0iNTIiIHJ4PSI4IiBmaWxsPSIjZGNmY2U3IiBzdHJva2U9IiMxNmEzNGEiLz4KPHRleHQgeD0iNTM1IiB5PSI1OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE0NTMyZCI+UXVldWU8L3RleHQ+Cjx0ZXh0IHg9IjUzNSIgeT0iNzciIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMxNDUzMmQiIGZvbnQtc2l6ZT0iMTEiPmVtYWlsLm9yZGVyLWV2ZW50czwvdGV4dD4KPHJlY3QgeD0iNDcwIiB5PSIxMzQiIHdpZHRoPSIxMzAiIGhlaWdodD0iNTIiIHJ4PSI4IiBmaWxsPSIjZGNmY2U3IiBzdHJva2U9IiMxNmEzNGEiLz4KPHRleHQgeD0iNTM1IiB5PSIxNTciIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNDUzMmQiPlF1ZXVlPC90ZXh0Pgo8dGV4dCB4PSI1MzUiIHk9IjE3NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzE0NTMyZCIgZm9udC1zaXplPSIxMSI+c2hpcHBpbmcub3JkZXJzPC90ZXh0Pgo8cmVjdCB4PSI0NzAiIHk9IjIzMiIgd2lkdGg9IjEzMCIgaGVpZ2h0PSI1MiIgcng9IjgiIGZpbGw9IiNkY2ZjZTciIHN0cm9rZT0iIzE2YTM0YSIvPgo8dGV4dCB4PSI1MzUiIHk9IjI1NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE0NTMyZCI+UXVldWU8L3RleHQ+Cjx0ZXh0IHg9IjUzNSIgeT0iMjczIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMTQ1MzJkIiBmb250LXNpemU9IjExIj5hdWRpdC5hbGw8L3RleHQ+CjxsaW5lIHgxPSI2MDAiIHkxPSI2MiIgeDI9IjY0NiIgeTI9IjYyIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMS42IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+CjxsaW5lIHgxPSI2MDAiIHkxPSIxNjAiIHgyPSI2NDYiIHkyPSIxNjAiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPGxpbmUgeDE9IjYwMCIgeTE9IjI1OCIgeDI9IjY0NiIgeTI9IjI1OCIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8cmVjdCB4PSI2NDgiIHk9IjQwIiB3aWR0aD0iOTYiIGhlaWdodD0iNDQiIHJ4PSI4IiBmaWxsPSIjZWRlOWZlIiBzdHJva2U9IiM3YzNhZWQiLz4KPHRleHQgeD0iNjk2IiB5PSI2NyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzRjMWQ5NSI+RW1haWw8L3RleHQ+CjxyZWN0IHg9IjY0OCIgeT0iMTM4IiB3aWR0aD0iOTYiIGhlaWdodD0iNDQiIHJ4PSI4IiBmaWxsPSIjZWRlOWZlIiBzdHJva2U9IiM3YzNhZWQiLz4KPHRleHQgeD0iNjk2IiB5PSIxNjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiM0YzFkOTUiPkdpYW8gaMOgbmc8L3RleHQ+CjxyZWN0IHg9IjY0OCIgeT0iMjM2IiB3aWR0aD0iOTYiIGhlaWdodD0iNDQiIHJ4PSI4IiBmaWxsPSIjZWRlOWZlIiBzdHJva2U9IiM3YzNhZWQiLz4KPHRleHQgeD0iNjk2IiB5PSIyNjMiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiM0YzFkOTUiPkF1ZGl0PC90ZXh0Pgo8dGV4dCB4PSIzODAiIHk9IjMxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzQ3NTU2OSIgZm9udC1zaXplPSIxMiI+TeG7l2kgcXVldWUgbmjhuq1uIG3hu5l0IGLhuqNuIHNhbyByacOqbmcgY+G7p2EgbWVzc2FnZS4gQ29uc3VtZXIgYWNrIHRow6wgbWVzc2FnZSBt4bubaSBi4buLIHjDs2Ega2jhu49pIHF1ZXVlIMSRw7MuPC90ZXh0Pgo8L3N2Zz4K\" alt=\"Exchange định tuyến message vào các queue theo binding\">\u003c/p>\n\u003ch3>Ví dụ đời thường: bưu điện\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Trong bưu điện\u003c/th>\n\u003cth>Trong RabbitMQ\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Người gửi thư\u003c/td>\n\u003ctd>Producer\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Phòng phân loại\u003c/td>\n\u003ctd>Exchange\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Địa chỉ ghi trên bì thư\u003c/td>\n\u003ctd>Routing key\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Quy tắc phân loại (&quot;thư quận 1 vào ngăn A&quot;)\u003c/td>\n\u003ctd>Binding\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Ngăn chứa thư\u003c/td>\n\u003ctd>Queue\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Bưu tá đi phát thư\u003c/td>\n\u003ctd>Consumer\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Chữ ký người nhận\u003c/td>\n\u003ctd>Ack\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Người gửi không cần biết bưu tá nào sẽ phát thư, và người nhận vắng nhà thì thư vẫn nằm trong ngăn.\u003c/p>\n\u003ch3>Ví dụ xuyên suốt: cửa hàng online\u003c/h3>\n\u003cp>Khi khách đặt đơn, service Đơn hàng phát event có routing key \u003ccode>order.placed\u003c/code>. Ba service cần biết: Email gửi mail xác nhận, Giao hàng tạo phiếu giao, Audit ghi nhật ký. Ví dụ này dùng lại ở các bài sau.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nói &quot;producer gửi message vào queue&quot;. Trong mô hình AMQP 0-9-1, producer luôn publish vào exchange. Khi trông như gửi thẳng vào queue, thực ra message đang đi qua default exchange (bài 3).\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> giải thích RabbitMQ cho người chưa biết gì trong ba câu, có nhắc đến exchange và ack.\u003c/p>\n"},{"n":1,"title":"Vì sao cần message broker","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003cp>Khi service A gọi HTTP sang service B, A phải chờ B trả lời. Cách này đơn giản nhưng có ba điểm yếu:\u003c/p>\n\u003cul>\n\u003cli>\u003cstrong>Ràng buộc thời gian:\u003c/strong> B chết hoặc chậm thì A cũng lỗi hoặc chậm theo.\u003c/li>\n\u003cli>\u003cstrong>Ràng buộc địa chỉ:\u003c/strong> A phải biết B là ai. Thêm service C cũng cần biết sự kiện đó thì phải sửa code A.\u003c/li>\n\u003cli>\u003cstrong>Không chịu được tải đột biến:\u003c/strong> bao nhiêu request vào A thì bấy nhiêu đổ sang B.\u003c/li>\n\u003c/ul>\n\u003cp>Broker đổi ba điểm đó thành ba lợi ích:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Lợi ích\u003c/th>\n\u003cth>Ý nghĩa\u003c/th>\n\u003cth>Ví dụ cửa hàng\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Temporal decoupling\u003c/td>\n\u003ctd>Consumer không cần đang chạy lúc message được gửi\u003c/td>\n\u003ctd>Service Email bảo trì 10 phút, mail gửi chậm chứ không mất\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Decoupling về địa chỉ\u003c/td>\n\u003ctd>Producer không cần biết ai nhận\u003c/td>\n\u003ctd>Thêm service Tích điểm mà không sửa service Đơn hàng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Load leveling\u003c/td>\n\u003ctd>Queue hấp thụ đột biến, consumer xử lý theo sức của nó\u003c/td>\n\u003ctd>Flash sale 10.000 đơn một phút, Email vẫn gửi đều\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Cái giá phải trả\u003c/h3>\n\u003cul>\n\u003cli>\u003cstrong>Thêm một hệ thống phải vận hành\u003c/strong>, và nó có thể trở thành điểm chết chung.\u003c/li>\n\u003cli>\u003cstrong>Eventual consistency:\u003c/strong> lúc đơn đã tạo, mail có thể chưa gửi.\u003c/li>\n\u003cli>\u003cstrong>Message có thể trùng hoặc đến sai thứ tự\u003c/strong>, nên consumer phải được thiết kế cho điều đó (bài 7, bài 9).\u003c/li>\n\u003cli>\u003cstrong>Khó debug hơn:\u003c/strong> một luồng nghiệp vụ trải qua nhiều process, cần correlation id và tracing.\u003c/li>\n\u003c/ul>\n\u003ch3>Khi nào dùng, khi nào không\u003c/h3>\n\u003cp>Dùng khi việc có thể làm sau, tốn thời gian, hoặc có nhiều bên quan tâm: gửi mail, xử lý ảnh, đồng bộ dữ liệu. Không dùng khi caller \u003cstrong>cần kết quả ngay để đi tiếp\u003c/strong>, như kiểm tra số dư trước khi cho thanh toán; lúc đó gọi đồng bộ đơn giản và đúng hơn.\u003c/p>\n\u003ch3>Message queue và event log\u003c/h3>\n\u003cp>Có hai họ công cụ thường bị gộp làm một:\u003c/p>\n\u003cul>\n\u003cli>\u003cstrong>Message queue\u003c/strong> (RabbitMQ): message được giao rồi xóa. Queue là chỗ chứa việc cần làm.\u003c/li>\n\u003cli>\u003cstrong>Event log\u003c/strong> (Kafka, RabbitMQ Stream): message được ghi nối đuôi và giữ lại theo thời gian. Consumer tự nhớ vị trí và đọc lại được.\u003c/li>\n\u003c/ul>\n\u003cp>Bài 13 so sánh chi tiết.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nói dùng queue &quot;để hệ thống nhanh hơn&quot;. Tổng thời gian xử lý thường không giảm. Thứ được cải thiện là thời gian phản hồi của caller, khả năng chịu lỗi và khả năng chịu tải đột biến.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> cho một luồng &quot;đăng ký tài khoản&quot;, phần nào nên đồng bộ, phần nào nên đưa qua queue, vì sao?\u003c/p>\n"},{"n":2,"title":"Kiến trúc: connection, channel, message","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003ch3>Giao thức AMQP 0-9-1\u003c/h3>\n\u003cp>RabbitMQ được xây quanh \u003cstrong>AMQP 0-9-1\u003c/strong>, giao thức định nghĩa cả cách truyền dữ liệu lẫn mô hình exchange, queue, binding. RabbitMQ cũng hỗ trợ AMQP 1.0, MQTT và STOMP, nhưng phỏng vấn gần như luôn dựa trên mô hình 0-9-1. Cổng mặc định là \u003ccode>5672\u003c/code>, TLS là \u003ccode>5671\u003c/code>.\u003c/p>\n\u003cp>Một điểm đáng chú ý: trong AMQP 0-9-1, \u003cstrong>ứng dụng tự khai báo\u003c/strong> exchange, queue và binding qua giao thức. Topology không nhất thiết do quản trị viên tạo trước.\u003c/p>\n\u003ch3>Connection và channel\u003c/h3>\n\u003cul>\n\u003cli>\u003cstrong>Connection\u003c/strong> là một kết nối TCP dài hạn tới broker. Mở connection tốn kém vì phải bắt tay TCP, TLS và xác thực.\u003c/li>\n\u003cli>\u003cstrong>Channel\u003c/strong> là kênh logic chạy bên trong connection, nhẹ hơn nhiều. Mọi thao tác như publish, consume, ack đều chạy trên channel.\u003c/li>\n\u003c/ul>\n\u003cp>Quy tắc thực tế: mỗi process giữ \u003cstrong>một hoặc vài connection dùng lâu dài\u003c/strong>, và dùng nhiều channel bên trong. Mở connection mới cho từng message là lỗi kinh điển.\u003c/p>\n\u003cp>Lỗi ở mức channel, ví dụ khai báo queue sai tham số, sẽ \u003cstrong>đóng channel đó\u003c/strong> mà không ảnh hưởng channel khác. Message đang chưa ack trên channel bị đóng sẽ quay lại queue.\u003c/p>\n\u003cp>Nên \u003cstrong>tách connection cho publish và consume\u003c/strong>. Khi broker chặn publisher vì thiếu tài nguyên (bài 11), connection đang publish bị chặn; nếu dùng chung, consumer trên connection đó cũng bị ảnh hưởng, đúng lúc cần nó xả bớt queue.\u003c/p>\n\u003ch3>Cấu trúc một message\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Phần\u003c/th>\n\u003cth>Nội dung\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Routing key\u003c/td>\n\u003ctd>Dùng để exchange định tuyến\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Properties\u003c/td>\n\u003ctd>Metadata chuẩn của AMQP\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Headers\u003c/td>\n\u003ctd>Metadata tự do dạng key-value, nằm trong properties\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Body\u003c/td>\n\u003ctd>Mảng byte. Broker không đọc và không quan tâm định dạng\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Các property nên biết:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Property\u003c/th>\n\u003cth>Dùng để\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003ccode>delivery_mode\u003c/code>\u003c/td>\n\u003ctd>\u003ccode>2\u003c/code> là persistent, ghi xuống đĩa (bài 6)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>content_type\u003c/code>\u003c/td>\n\u003ctd>Định dạng body, ví dụ \u003ccode>application/json\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>message_id\u003c/code>\u003c/td>\n\u003ctd>ID duy nhất, dùng để chống trùng (bài 7)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>correlation_id\u003c/code>\u003c/td>\n\u003ctd>Ghép reply với request (bài 10)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>reply_to\u003c/code>\u003c/td>\n\u003ctd>Queue nhận phản hồi (bài 10)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>expiration\u003c/code>\u003c/td>\n\u003ctd>TTL của riêng message này (bài 8)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>timestamp\u003c/code>\u003c/td>\n\u003ctd>Thời điểm tạo\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Vhost, user, permission\u003c/h3>\n\u003cp>\u003cstrong>Vhost\u003c/strong> là một không gian cô lập trong cùng broker, có exchange, queue và quyền riêng. Có thể hình dung như database trong một server SQL. \u003cstrong>User\u003c/strong> được cấp ba quyền theo từng vhost: \u003ccode>configure\u003c/code> (tạo, xóa tài nguyên), \u003ccode>write\u003c/code> (publish) và \u003ccode>read\u003c/code> (consume).\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Coi channel là &quot;connection nhẹ&quot; có thể dùng thoải mái giữa nhiều luồng. Nhiều thư viện client không an toàn khi nhiều thread dùng chung một channel. Mô hình phổ biến là mỗi thread một channel, dùng chung connection.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> vì sao RabbitMQ cần channel mà không chỉ dùng nhiều connection?\u003c/p>\n"},{"n":3,"title":"Exchange, binding, routing key","status":"theory","statusNote":"","step":"Định tuyến","html":"\u003cp>\u003cstrong>Binding\u003c/strong> là quy tắc nối exchange với queue. \u003cstrong>Routing key\u003c/strong> là nhãn producer gắn lên message. Loại exchange quyết định cách so khớp hai thứ đó.\u003c/p>\n\u003ch3>Bốn loại exchange\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Loại\u003c/th>\n\u003cth>Cách khớp\u003c/th>\n\u003cth>Dùng khi\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Direct\u003c/td>\n\u003ctd>Routing key \u003cstrong>bằng đúng\u003c/strong> binding key\u003c/td>\n\u003ctd>Phân loại theo giá trị cố định, ví dụ log theo \u003ccode>error\u003c/code>, \u003ccode>info\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Fanout\u003c/td>\n\u003ctd>Bỏ qua routing key, gửi \u003cstrong>mọi\u003c/strong> queue đã bind\u003c/td>\n\u003ctd>Broadcast cho tất cả\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Topic\u003c/td>\n\u003ctd>Khớp theo \u003cstrong>wildcard\u003c/strong> trên các từ cách nhau bởi dấu chấm\u003c/td>\n\u003ctd>Event domain, linh hoạt nhất\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Headers\u003c/td>\n\u003ctd>Khớp theo \u003cstrong>headers\u003c/strong>, dùng \u003ccode>x-match\u003c/code> là \u003ccode>all\u003c/code> hoặc \u003ccode>any\u003c/code>\u003c/td>\n\u003ctd>Điều kiện nhiều thuộc tính, ít gặp\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Wildcard của topic exchange\u003c/h3>\n\u003cul>\n\u003cli>\u003ccode>*\u003c/code> khớp \u003cstrong>đúng một\u003c/strong> từ.\u003c/li>\n\u003cli>\u003ccode>#\u003c/code> khớp \u003cstrong>không hoặc nhiều\u003c/strong> từ.\u003c/li>\n\u003c/ul>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Binding key\u003c/th>\n\u003cth>\u003ccode>order.placed\u003c/code>\u003c/th>\n\u003cth>\u003ccode>order.placed.vip\u003c/code>\u003c/th>\n\u003cth>\u003ccode>order\u003c/code>\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003ccode>order.*\u003c/code>\u003c/td>\n\u003ctd>Khớp\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>order.#\u003c/code>\u003c/td>\n\u003ctd>Khớp\u003c/td>\n\u003ctd>Khớp\u003c/td>\n\u003ctd>Khớp\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>*.placed\u003c/code>\u003c/td>\n\u003ctd>Khớp\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>#\u003c/code>\u003c/td>\n\u003ctd>Khớp\u003c/td>\n\u003ctd>Khớp\u003c/td>\n\u003ctd>Khớp\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Với ví dụ cửa hàng: Email bind \u003ccode>order.*\u003c/code>, Giao hàng bind \u003ccode>order.placed\u003c/code>, Audit bind \u003ccode>#\u003c/code>. Một event \u003ccode>order.placed\u003c/code> vào cả ba queue, mỗi queue có \u003cstrong>bản sao riêng\u003c/strong>, nên service này chậm không ảnh hưởng service kia.\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">await ch.assertExchange(&#39;shop.events&#39;, &#39;topic&#39;, { durable: true });\nawait ch.assertQueue(&#39;email.order-events&#39;, { durable: true });\nawait ch.bindQueue(&#39;email.order-events&#39;, &#39;shop.events&#39;, &#39;order.*&#39;);\n\nch.publish(&#39;shop.events&#39;, &#39;order.placed&#39;, Buffer.from(JSON.stringify(event)), {\n  persistent: true,\n  messageId: event.id,\n  contentType: &#39;application/json&#39;,\n});\n\u003c/code>\u003c/pre>\n\u003ch3>Default exchange\u003c/h3>\n\u003cp>Mỗi broker có sẵn một direct exchange không tên, gọi là \u003cstrong>default exchange\u003c/strong>. Mọi queue tự động được bind vào nó với binding key chính là \u003cstrong>tên queue\u003c/strong>. Vì thế \u003ccode>sendToQueue(&#39;email&#39;, ...)\u003c/code> thực chất là publish vào default exchange với routing key \u003ccode>email\u003c/code>. Tiện, nhưng producer phải biết tên queue của consumer, tức mất đi lợi ích decoupling.\u003c/p>\n\u003ch3>Message không có đường đi\u003c/h3>\n\u003cp>Message không khớp binding nào sẽ \u003cstrong>bị bỏ im lặng\u003c/strong>. Có hai cách phát hiện:\u003c/p>\n\u003cul>\n\u003cli>\u003cstrong>\u003ccode>mandatory: true\u003c/code>:\u003c/strong> broker trả message lại cho producer qua \u003ccode>basic.return\u003c/code>.\u003c/li>\n\u003cli>\u003cstrong>Alternate exchange:\u003c/strong> khai báo một exchange dự phòng để hứng message không route được.\u003c/li>\n\u003c/ul>\n\u003ch3>Quy ước đặt tên\u003c/h3>\n\u003cp>Exchange theo domain (\u003ccode>shop.events\u003c/code>), routing key theo dạng \u003ccode>&lt;thực thể&gt;.&lt;sự kiện&gt;\u003c/code> ở thì quá khứ (\u003ccode>order.placed\u003c/code>), queue theo \u003cstrong>người nhận\u003c/strong> và mục đích (\u003ccode>email.order-events\u003c/code>). Quy tắc quan trọng: \u003cstrong>consumer sở hữu queue và binding của mình\u003c/strong>, producer chỉ biết exchange.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nói exchange &quot;lưu&quot; message. Exchange chỉ định tuyến rồi thôi. Không có queue nào khớp thì message không được lưu ở đâu cả.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> với routing key \u003ccode>order.placed.vip\u003c/code>, binding nào trong \u003ccode>order.*\u003c/code>, \u003ccode>order.#\u003c/code>, \u003ccode>#.vip\u003c/code>, \u003ccode>*.*.vip\u003c/code> sẽ khớp?\u003c/p>\n"},{"n":4,"title":"Queue và các thuộc tính","status":"theory","statusNote":"","step":"Định tuyến","html":"\u003cp>Queue là nơi message thực sự nằm, hoạt động theo FIFO. Một queue được khai báo với các thuộc tính:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Thuộc tính\u003c/th>\n\u003cth>Ý nghĩa\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003ccode>durable\u003c/code>\u003c/td>\n\u003ctd>Định nghĩa queue còn lại sau khi broker restart\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>exclusive\u003c/code>\u003c/td>\n\u003ctd>Chỉ connection khai báo được dùng, và queue bị xóa khi connection đóng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>auto-delete\u003c/code>\u003c/td>\n\u003ctd>Bị xóa khi consumer cuối cùng rời đi\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Arguments\u003c/td>\n\u003ctd>Tính năng mở rộng dạng \u003ccode>x-...\u003c/code>, ví dụ \u003ccode>x-queue-type\u003c/code>, \u003ccode>x-dead-letter-exchange\u003c/code>\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Khai báo là \u003cstrong>idempotent\u003c/strong>: gọi lại với cùng tham số thì không có gì xảy ra. Khai báo lại với \u003cstrong>tham số khác\u003c/strong> thì broker trả lỗi \u003ccode>PRECONDITION_FAILED\u003c/code> và đóng channel. Muốn đổi, phải tạo queue mới và chuyển dữ liệu.\u003c/p>\n\u003ch3>Arguments và policy\u003c/h3>\n\u003cp>Nhiều cấu hình như TTL, DLX, giới hạn độ dài có thể đặt bằng hai cách. \u003cstrong>Queue arguments\u003c/strong> nằm trong code, cố định từ lúc tạo. \u003cstrong>Policy\u003c/strong> do broker quản lý theo pattern tên queue và đổi được khi đang chạy, nên linh hoạt hơn cho vận hành. Riêng loại queue thì không đổi được sau khi tạo.\u003c/p>\n\u003ch3>Queue dùng cho việc gì\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Mẫu queue\u003c/th>\n\u003cth>Cấu hình\u003c/th>\n\u003cth>Dùng cho\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Queue công việc, event quan trọng\u003c/td>\n\u003ctd>Durable, tên cố định\u003c/td>\n\u003ctd>Đa số trường hợp\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Queue tạm cho một instance\u003c/td>\n\u003ctd>Exclusive hoặc auto-delete, tên do broker sinh\u003c/td>\n\u003ctd>Nhận broadcast như làm mới cache\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Queue phình to là triệu chứng cần xử lý: nó tốn tài nguyên và làm message đến muộn. Broker \u003cstrong>không phải database\u003c/strong>, queue khỏe mạnh là queue gần như rỗng.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nghĩ \u003ccode>durable: true\u003c/code> nghĩa là message không mất. \u003ccode>durable\u003c/code> chỉ giữ \u003cstrong>định nghĩa queue\u003c/strong>. Message phải được đánh dấu persistent mới được ghi đĩa (bài 6).\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> bạn muốn đổi một queue đang chạy sang có DLX bằng queue argument thì sẽ gặp gì? Có cách nào khác không?\u003c/p>\n"},{"n":5,"title":"Consumer: ack, requeue, prefetch","status":"theory","statusNote":"","step":"Tiêu thụ","html":"\u003ch3>Push và pull\u003c/h3>\n\u003cul>\n\u003cli>\u003cstrong>\u003ccode>basic.consume\u003c/code> (push):\u003c/strong> consumer đăng ký, broker chủ động giao. Đây là cách nên dùng.\u003c/li>\n\u003cli>\u003cstrong>\u003ccode>basic.get\u003c/code> (pull):\u003c/strong> consumer hỏi từng message. Kém hiệu quả, chỉ hợp cho việc lẻ.\u003c/li>\n\u003c/ul>\n\u003ch3>Trạng thái message\u003c/h3>\n\u003cp>Trong queue, message ở một trong hai trạng thái:\u003c/p>\n\u003cul>\n\u003cli>\u003cstrong>Ready:\u003c/strong> đang chờ được giao.\u003c/li>\n\u003cli>\u003cstrong>Unacked:\u003c/strong> đã giao cho consumer, chưa có xác nhận.\u003c/li>\n\u003c/ul>\n\u003cp>Khi consumer chết hoặc channel đóng, mọi message unacked của nó \u003cstrong>trở về ready\u003c/strong> và được giao lại, kèm cờ \u003ccode>redelivered = true\u003c/code>. Đây là cơ chế cốt lõi giúp không mất việc khi consumer crash.\u003c/p>\n\u003ch3>Auto ack và manual ack\u003c/h3>\n\u003cul>\n\u003cli>\u003cstrong>Auto ack:\u003c/strong> broker coi message xong ngay khi gửi đi. Nhanh, nhưng consumer chết giữa chừng là mất.\u003c/li>\n\u003cli>\u003cstrong>Manual ack:\u003c/strong> consumer tự báo sau khi xử lý xong. Đây là mặc định nên chọn.\u003c/li>\n\u003c/ul>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Lệnh\u003c/th>\n\u003cth>Ý nghĩa\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003ccode>ack\u003c/code>\u003c/td>\n\u003ctd>Xử lý xong, xóa message\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>nack\u003c/code> với \u003ccode>requeue=true\u003c/code>\u003c/td>\n\u003ctd>Trả lại queue để giao lại\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>nack\u003c/code> với \u003ccode>requeue=false\u003c/code>\u003c/td>\n\u003ctd>Bỏ, hoặc chuyển sang DLX nếu có (bài 8)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>reject\u003c/code>\u003c/td>\n\u003ctd>Như \u003ccode>nack\u003c/code> nhưng từng message một; \u003ccode>nack\u003c/code> là mở rộng của RabbitMQ, hỗ trợ nhiều message\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cpre>\u003ccode class=\"language-ts\">await ch.prefetch(10);\nawait ch.consume(&#39;email.order-events&#39;, async (msg) =&gt; {\n  if (!msg) return; // broker hủy consumer\n  try {\n    await sendEmail(JSON.parse(msg.content.toString()));\n    ch.ack(msg); // chỉ ack sau khi việc đã xong\n  } catch {\n    ch.nack(msg, false, false);\n  }\n});\n\u003c/code>\u003c/pre>\n\u003cp>Hai lỗi kinh điển: \u003cstrong>quên ack\u003c/strong> làm message nằm unacked mãi và consumer ngừng nhận khi chạm prefetch; \u003cstrong>ack hai lần\u003c/strong> làm broker đóng channel. Ngoài ra broker có \u003ccode>consumer_timeout\u003c/code> (mặc định 30 phút): giữ message quá lâu mà không ack thì channel bị đóng và message được giao lại.\u003c/p>\n\u003ch3>Prefetch\u003c/h3>\n\u003cp>\u003cstrong>Prefetch\u003c/strong> (\u003ccode>basic.qos\u003c/code>) giới hạn số message unacked một consumer được giữ cùng lúc. Không đặt prefetch thì broker đẩy hết sang một consumer, làm consumer đó ngợp và các consumer khác rảnh rỗi.\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Prefetch\u003c/th>\n\u003cth>Ưu\u003c/th>\n\u003cth>Nhược\u003c/th>\n\u003cth>Hợp với\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Thấp (1 đến vài)\u003c/td>\n\u003ctd>Phân phối đều, ít việc dở dang khi crash\u003c/td>\n\u003ctd>Throughput thấp\u003c/td>\n\u003ctd>Việc nặng, lâu\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Cao (vài chục đến vài trăm)\u003c/td>\n\u003ctd>Throughput cao\u003c/td>\n\u003ctd>Một consumer ôm nhiều, phân phối kém đều\u003c/td>\n\u003ctd>Việc nhanh\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Với runtime bất đồng bộ như Node.js, prefetch chính là \u003cstrong>mức xử lý đồng thời\u003c/strong> của một consumer. Không có con số đúng cho mọi trường hợp, hãy đo.\u003c/p>\n\u003ch3>Competing consumers\u003c/h3>\n\u003cp>Nhiều consumer cùng đọc \u003cstrong>một queue\u003c/strong> thì mỗi message chỉ đến \u003cstrong>một\u003c/strong> consumer, theo kiểu round-robin có xét prefetch. Đây là cách scale ngang.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nói &quot;muốn nhiều service cùng nhận thì cho chúng cùng consume một queue&quot;. Làm vậy chúng sẽ \u003cstrong>chia nhau\u003c/strong> message. Muốn mỗi service đều nhận, mỗi service cần một queue riêng bind vào exchange.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> consumer xử lý xong, ghi DB thành công, rồi crash trước khi gửi ack. Chuyện gì xảy ra tiếp theo?\u003c/p>\n"},{"n":6,"title":"Không mất message: ba chặng","status":"theory","statusNote":"","step":"Độ tin cậy","html":"\u003cp>Message có thể mất ở ba chặng, và mỗi chặng cần một cơ chế riêng. Thiếu một chặng thì hai chặng còn lại vô nghĩa.\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Chặng\u003c/th>\n\u003cth>Rủi ro\u003c/th>\n\u003cth>Cơ chế\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Producer → broker\u003c/td>\n\u003ctd>Mất mạng, broker chết trước khi nhận\u003c/td>\n\u003ctd>\u003cstrong>Publisher confirm\u003c/strong>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Trong broker\u003c/td>\n\u003ctd>Broker restart\u003c/td>\n\u003ctd>\u003cstrong>Durable queue, persistent message\u003c/strong>, replicate bằng quorum queue\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Broker → consumer\u003c/td>\n\u003ctd>Consumer chết giữa chừng\u003c/td>\n\u003ctd>\u003cstrong>Manual ack\u003c/strong>\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Publisher confirm\u003c/h3>\n\u003cp>Bật chế độ confirm trên channel, broker sẽ gửi \u003ccode>ack\u003c/code> cho từng message (hoặc gộp nhiều message) khi đã nhận trách nhiệm với nó. Với message persistent vào durable queue, confirm đến sau khi message đã được ghi đĩa; với quorum queue là sau khi đa số node đã có.\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">const ch = await conn.createConfirmChannel();\nch.publish(&#39;shop.events&#39;, &#39;order.placed&#39;, body, { persistent: true });\nawait ch.waitForConfirms(); // lỗi nếu broker nack\n\u003c/code>\u003c/pre>\n\u003cp>Publish rồi chờ từng message là chậm nhất. Cách tốt hơn là \u003cstrong>gửi theo batch hoặc xử lý confirm bất đồng bộ\u003c/strong>.\u003c/p>\n\u003cp>AMQP cũng có \u003cstrong>transaction\u003c/strong> (\u003ccode>tx.select\u003c/code>), nhưng nó đồng bộ và chậm hơn rất nhiều, nên confirm là lựa chọn gần như mặc định. Lưu ý transaction của AMQP không liên quan gì đến transaction của database.\u003c/p>\n\u003ch3>Durable và persistent\u003c/h3>\n\u003cp>Cần \u003cstrong>cả hai\u003c/strong>. Queue không durable thì biến mất khi restart, kéo theo message. Message không persistent thì không sống sót dù queue durable.\u003c/p>\n\u003ch3>Vẫn còn khe hở\u003c/h3>\n\u003cul>\n\u003cli>Confirm chỉ nói broker đã nhận, \u003cstrong>không nói message đã vào queue nào\u003c/strong>. Message không route được vẫn được confirm, nên phải dùng thêm \u003ccode>mandatory\u003c/code> hoặc alternate exchange.\u003c/li>\n\u003cli>Broker chạy một node mà hỏng đĩa thì vẫn mất. Cần quorum queue trên cụm (bài 12).\u003c/li>\n\u003cli>Producer có thể \u003cstrong>commit DB thành công rồi chết\u003c/strong> trước khi publish. Đây là bài toán dual-write, giải bằng Outbox (bài 7).\u003c/li>\n\u003c/ul>\n\u003ch3>Khi không nhận được confirm\u003c/h3>\n\u003cp>Mất kết nối giữa lúc chờ confirm thì producer \u003cstrong>không biết\u003c/strong> broker đã nhận hay chưa. Cách an toàn là gửi lại, và chấp nhận có thể trùng. Đây chính là nguồn gốc của at-least-once.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Trả lời &quot;bật durable là không mất message&quot;. Câu trả lời đủ phải đi qua cả ba chặng, rồi nêu thêm khe hở unroutable và dual-write.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> vẽ đường đi một message và chỉ ra mỗi điểm có thể mất, cùng cơ chế che điểm đó.\u003c/p>\n"},{"n":7,"title":"Delivery semantics và idempotent","status":"theory","statusNote":"","step":"Độ tin cậy","html":"\u003ch3>Ba mức đảm bảo\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Mức\u003c/th>\n\u003cth>Ý nghĩa\u003c/th>\n\u003cth>Cách đạt\u003c/th>\n\u003cth>Rủi ro\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>At-most-once\u003c/td>\n\u003ctd>Tối đa một lần\u003c/td>\n\u003ctd>Auto ack, không confirm\u003c/td>\n\u003ctd>Có thể mất\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>At-least-once\u003c/td>\n\u003ctd>Ít nhất một lần\u003c/td>\n\u003ctd>Confirm và manual ack\u003c/td>\n\u003ctd>Có thể trùng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Exactly-once\u003c/td>\n\u003ctd>Đúng một lần\u003c/td>\n\u003ctd>Không đạt được ở mức delivery\u003c/td>\n\u003ctd>—\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Trong hệ phân tán, bên gửi không thể phân biệt &quot;bên kia chưa nhận&quot; với &quot;bên kia đã nhận nhưng phản hồi bị mất&quot;. Vì thế chỉ có hai lựa chọn: gửi lại và chấp nhận trùng, hoặc không gửi lại và chấp nhận mất.\u003c/p>\n\u003cp>Điều đạt được trong thực tế là \u003cstrong>effectively-once processing = at-least-once delivery + consumer idempotent\u003c/strong>.\u003c/p>\n\u003ch3>Idempotent consumer\u003c/h3>\n\u003cp>Xử lý một message hai lần cho kết quả như xử lý một lần. Các cách làm:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Cách\u003c/th>\n\u003cth>Ví dụ\u003c/th>\n\u003cth>Lưu ý\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Thao tác tự nhiên idempotent\u003c/td>\n\u003ctd>\u003ccode>SET status = &#39;paid&#39;\u003c/code>, upsert theo khóa\u003c/td>\n\u003ctd>Đơn giản nhất, ưu tiên nếu làm được\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Bảng dedupe (Inbox)\u003c/td>\n\u003ctd>Lưu \u003ccode>message_id\u003c/code> với unique index\u003c/td>\n\u003ctd>Phải ghi \u003cstrong>cùng transaction\u003c/strong> với hiệu ứng nghiệp vụ\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>So version\u003c/td>\n\u003ctd>Bỏ qua nếu version trong message cũ hơn\u003c/td>\n\u003ctd>Đồng thời giải quyết sai thứ tự\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Khóa idempotency ở bên thứ ba\u003c/td>\n\u003ctd>Truyền idempotency key khi gọi cổng thanh toán\u003c/td>\n\u003ctd>Khi hiệu ứng nằm ngoài DB của mình\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Message nên mang một \u003ccode>message_id\u003c/code> do \u003cstrong>producer\u003c/strong> sinh và không đổi khi gửi lại.\u003c/p>\n\u003ch3>Dual-write và Outbox\u003c/h3>\n\u003cp>Service vừa ghi DB vừa publish là ghi vào hai hệ thống không có transaction chung. Process chết giữa hai việc thì mất event hoặc sinh event cho việc chưa xảy ra.\u003c/p>\n\u003cp>\u003cstrong>Transactional Outbox\u003c/strong> ghi event vào bảng \u003ccode>outbox\u003c/code> trong \u003cstrong>cùng transaction\u003c/strong> với dữ liệu, rồi một relay đọc bảng đó và publish có confirm. Relay có thể gửi trùng, nên consumer vẫn phải idempotent. Chi tiết xem sổ tay Transactional Outbox.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nói &quot;RabbitMQ đảm bảo exactly-once&quot;. RabbitMQ cho at-least-once khi cấu hình đúng. Câu trả lời đúng là chuyển trọng tâm sang idempotent ở consumer.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> service Tích điểm cộng 100 điểm khi nhận \u003ccode>order.placed\u003c/code>. Message bị giao lại thì làm sao không cộng hai lần?\u003c/p>\n"},{"n":8,"title":"Xử lý lỗi: DLX, poison message, retry","status":"theory","statusNote":"","step":"Xử lý lỗi","html":"\u003ch3>Ba loại lỗi cần phân biệt\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Loại\u003c/th>\n\u003cth>Ví dụ\u003c/th>\n\u003cth>Nên làm\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Tạm thời\u003c/td>\n\u003ctd>DB chập chờn, API timeout\u003c/td>\n\u003ctd>Retry có backoff\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Vĩnh viễn\u003c/td>\n\u003ctd>JSON sai, dữ liệu không hợp lệ\u003c/td>\n\u003ctd>Không retry, chuyển DLQ\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Lỗi code\u003c/td>\n\u003ctd>Bug sau khi deploy\u003c/td>\n\u003ctd>Giữ message, sửa rồi replay\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Poison message\u003c/h3>\n\u003cp>Một message luôn làm consumer lỗi. Nếu \u003ccode>nack\u003c/code> với \u003ccode>requeue=true\u003c/code>, nó quay về queue và lại lỗi, tạo \u003cstrong>vòng lặp vô hạn\u003c/strong> tốn CPU, chặn các message khác và làm đầy log. Không bao giờ requeue vô điều kiện.\u003c/p>\n\u003ch3>Dead letter exchange\u003c/h3>\n\u003cp>Queue có thể khai báo \u003cstrong>DLX\u003c/strong>: message &quot;chết&quot; sẽ được chuyển sang exchange đó, thường nối tới một \u003cstrong>DLQ\u003c/strong> để chứa và điều tra.\u003c/p>\n\u003cp>Message trở thành dead letter khi:\u003c/p>\n\u003col>\n\u003cli>Bị \u003ccode>nack\u003c/code> hoặc \u003ccode>reject\u003c/code> với \u003ccode>requeue=false\u003c/code>.\u003c/li>\n\u003cli>Hết TTL.\u003c/li>\n\u003cli>Bị đẩy ra vì queue vượt giới hạn độ dài.\u003c/li>\n\u003cli>Vượt \u003ccode>delivery-limit\u003c/code> của quorum queue.\u003c/li>\n\u003c/ol>\n\u003cp>Broker thêm header \u003ccode>x-death\u003c/code> ghi lại queue gốc, lý do và số lần. DLQ phải được \u003cstrong>giám sát và có người xử lý\u003c/strong>, nếu không nó chỉ là nơi giấu lỗi.\u003c/p>\n\u003ch3>TTL và giới hạn độ dài\u003c/h3>\n\u003cul>\n\u003cli>\u003ccode>x-message-ttl\u003c/code>: TTL cho mọi message trong queue.\u003c/li>\n\u003cli>\u003ccode>expiration\u003c/code>: TTL cho riêng từng message.\u003c/li>\n\u003cli>\u003ccode>x-expires\u003c/code>: xóa cả queue nếu không dùng.\u003c/li>\n\u003cli>\u003ccode>x-max-length\u003c/code>, \u003ccode>x-max-length-bytes\u003c/code>: giới hạn queue. \u003ccode>x-overflow\u003c/code> quyết định khi đầy thì bỏ message cũ (\u003ccode>drop-head\u003c/code>, mặc định) hay từ chối message mới (\u003ccode>reject-publish\u003c/code>).\u003c/li>\n\u003c/ul>\n\u003ch3>Retry với backoff\u003c/h3>\n\u003cp>RabbitMQ không có sẵn &quot;retry sau 30 giây&quot; cho queue thường. Cách phổ biến là dùng \u003cstrong>retry queue có TTL và không có consumer\u003c/strong>:\u003c/p>\n\u003cpre>\u003ccode class=\"language-text\">queue chính ──nack──▶ retry exchange ──▶ retry.30s (TTL 30s, không consumer)\n     ▲                                          │ hết TTL, dead-letter\n     └──────────────────────────────────────────┘\n\u003c/code>\u003c/pre>\n\u003cp>Consumer đọc \u003ccode>x-death\u003c/code> để đếm số lần. Quá N lần thì publish sang DLQ cuối cùng (parking lot) rồi ack. Muốn backoff tăng dần thì tạo nhiều queue: \u003ccode>retry.5s\u003c/code>, \u003ccode>retry.30s\u003c/code>, \u003ccode>retry.5m\u003c/code>.\u003c/p>\n\u003cp>Có thể dùng plugin \u003ccode>rabbitmq_delayed_message_exchange\u003c/code>, nhưng đây là plugin ngoài và có giới hạn về độ bền, độ sẵn sàng; cần đọc kỹ trước khi dùng cho production.\u003c/p>\n\u003cp>Với quorum queue, \u003ccode>x-delivery-limit\u003c/code> giới hạn số lần giao lại rồi chuyển sang DLX, nhưng requeue vẫn diễn ra ngay, không có độ trễ.\u003c/p>\n\u003ch3>Replay từ DLQ\u003c/h3>\n\u003cp>Sau khi sửa lỗi, đẩy message từ DLQ về queue chính bằng Shovel hoặc script. Vì đã có khả năng xử lý lặp, consumer phải idempotent.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Dùng per-message TTL khác nhau trong \u003cstrong>cùng một\u003c/strong> retry queue. Message hết hạn chỉ được xử lý khi lên đầu queue, nên message TTL ngắn nằm sau message TTL dài sẽ bị kẹt. Vì thế mỗi mức delay nên có một queue riêng với TTL cố định.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> thiết kế luồng retry 3 lần (5 giây, 30 giây, 5 phút) rồi vào DLQ. Cần những queue và exchange nào?\u003c/p>\n"},{"n":9,"title":"Thứ tự message","status":"theory","statusNote":"","step":"Xử lý lỗi","html":"\u003cp>RabbitMQ chỉ đảm bảo: message được publish trên \u003cstrong>một channel\u003c/strong>, qua \u003cstrong>một exchange\u003c/strong>, vào \u003cstrong>một queue\u003c/strong> và đi ra qua \u003cstrong>một channel\u003c/strong> thì giữ thứ tự.\u003c/p>\n\u003cp>Thứ tự bị phá khi:\u003c/p>\n\u003cul>\n\u003cli>\u003cstrong>Nhiều consumer cùng queue:\u003c/strong> message 1 và 2 giao cho hai consumer, message 2 có thể xong trước.\u003c/li>\n\u003cli>\u003cstrong>Prefetch lớn kèm xử lý đồng thời\u003c/strong>, ngay trong một consumer.\u003c/li>\n\u003cli>\u003cstrong>Requeue hoặc retry:\u003c/strong> message lỗi quay lại sau các message khác.\u003c/li>\n\u003cli>\u003cstrong>Nhiều producer hoặc nhiều channel\u003c/strong> cùng publish.\u003c/li>\n\u003c/ul>\n\u003ch3>Các cách xử lý khi cần thứ tự\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Cách\u003c/th>\n\u003cth>Cơ chế\u003c/th>\n\u003cth>Đánh đổi\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Consumer tự chịu sai thứ tự\u003c/td>\n\u003ctd>So \u003ccode>version\u003c/code> hoặc \u003ccode>occurredAt\u003c/code>, bỏ event cũ\u003c/td>\n\u003ctd>Cách nên nghĩ đến đầu tiên\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Single active consumer\u003c/td>\n\u003ctd>Chỉ một consumer nhận, các consumer khác dự phòng\u003c/td>\n\u003ctd>Không scale throughput của queue đó\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Consistent hash exchange\u003c/td>\n\u003ctd>Băm theo \u003ccode>orderId\u003c/code>, cùng đơn luôn vào cùng queue\u003c/td>\n\u003ctd>Thứ tự theo từng key, phải quản lý nhiều queue\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Prefetch = 1, một consumer\u003c/td>\n\u003ctd>Tuần tự hoàn toàn\u003c/td>\n\u003ctd>Chậm nhất\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Hầu như không ai cần \u003cstrong>thứ tự toàn cục\u003c/strong>. Thứ cần là thứ tự \u003cstrong>theo từng thực thể\u003c/strong>: các event của cùng một đơn hàng. Khi đã xác định như vậy, partition theo key giải quyết được và vẫn scale.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nói &quot;queue là FIFO nên message luôn được xử lý đúng thứ tự&quot;. FIFO chỉ nói về thứ tự \u003cstrong>giao đi\u003c/strong>, không phải thứ tự \u003cstrong>xử lý xong\u003c/strong>.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> \u003ccode>order.updated\u003c/code> đến trước \u003ccode>order.created\u003c/code>. Consumer nên làm gì? Liệt kê hai cách.\u003c/p>\n"},{"n":10,"title":"Messaging patterns","status":"theory","statusNote":"","step":"Patterns","html":"\u003ch3>Năm mẫu cơ bản\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Pattern\u003c/th>\n\u003cth>Cấu trúc\u003c/th>\n\u003cth>Ví dụ\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Work queue\u003c/td>\n\u003ctd>Một queue, nhiều consumer chia việc\u003c/td>\n\u003ctd>Xử lý ảnh\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Publish/subscribe\u003c/td>\n\u003ctd>Fanout, mỗi subscriber một queue\u003c/td>\n\u003ctd>Làm mới cache mọi instance\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Routing\u003c/td>\n\u003ctd>Direct, chọn theo key\u003c/td>\n\u003ctd>Log theo mức độ\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Topics\u003c/td>\n\u003ctd>Topic, chọn theo wildcard\u003c/td>\n\u003ctd>Event domain\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>RPC\u003c/td>\n\u003ctd>Request-reply qua hai đường\u003c/td>\n\u003ctd>Hỏi thông tin từ service khác\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Request-reply\u003c/h3>\n\u003col>\n\u003cli>Client publish request kèm \u003ccode>reply_to\u003c/code> và một \u003ccode>correlation_id\u003c/code> duy nhất.\u003c/li>\n\u003cli>Server xử lý, publish reply vào queue \u003ccode>reply_to\u003c/code> với cùng \u003ccode>correlation_id\u003c/code>.\u003c/li>\n\u003cli>Client dùng \u003ccode>correlation_id\u003c/code> để ghép reply với request đang chờ, luôn kèm \u003cstrong>timeout\u003c/strong>.\u003c/li>\n\u003c/ol>\n\u003cp>\u003cstrong>Direct Reply-To\u003c/strong> (\u003ccode>amq.rabbitmq.reply-to\u003c/code>) cho phép nhận reply mà không cần tạo queue, nhanh và gọn hơn tạo queue tạm cho mỗi client.\u003c/p>\n\u003cp>RPC qua broker có giá của cả hai phía: caller vẫn phải chờ, lại thêm một chặng. Timeout cũng \u003cstrong>không chứng minh\u003c/strong> request chưa được xử lý. Nếu cần kết quả ngay, cân nhắc gRPC hoặc HTTP.\u003c/p>\n\u003ch3>Event và command\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>\u003c/th>\n\u003cth>Command\u003c/th>\n\u003cth>Event\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Ý nghĩa\u003c/td>\n\u003ctd>&quot;Hãy làm việc này&quot;\u003c/td>\n\u003ctd>&quot;Việc này đã xảy ra&quot;\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Đặt tên\u003c/td>\n\u003ctd>Mệnh lệnh: \u003ccode>send-email\u003c/code>\u003c/td>\n\u003ctd>Quá khứ: \u003ccode>order.placed\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Số người nhận\u003c/td>\n\u003ctd>Thường một\u003c/td>\n\u003ctd>Không hoặc nhiều\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Ai quyết định\u003c/td>\n\u003ctd>Người gửi biết việc cần làm\u003c/td>\n\u003ctd>Người nhận tự quyết định phản ứng\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Saga\u003c/h3>\n\u003cp>Khi một nghiệp vụ trải trên nhiều service, không có transaction chung. \u003cstrong>Saga\u003c/strong> chia thành các bước cục bộ, mỗi bước có \u003cstrong>hành động bù trừ\u003c/strong> khi bước sau thất bại. Có hai kiểu: \u003cstrong>choreography\u003c/strong> (các service phản ứng theo event của nhau, không có điều phối viên) và \u003cstrong>orchestration\u003c/strong> (một thành phần điều phối ra lệnh từng bước).\u003c/p>\n\u003ch3>Priority queue\u003c/h3>\n\u003cp>Khai báo \u003ccode>x-max-priority\u003c/code> để message ưu tiên cao được giao trước. Dùng tiết chế, ít mức ưu tiên, vì message ưu tiên thấp có thể bị đói.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Coi mọi message đều là event. Khi producer cần một việc cụ thể được làm và biết rõ ai làm, đó là command. Nhầm hai khái niệm này dẫn đến thiết kế ràng buộc ngầm.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> luồng đặt hàng gồm trừ kho, thanh toán, giao hàng. Thanh toán thất bại thì saga bù trừ thế nào?\u003c/p>\n"},{"n":11,"title":"Vận hành: flow control, kết nối, giám sát","status":"theory","statusNote":"","step":"Vận hành","html":"\u003ch3>Flow control\u003c/h3>\n\u003cp>Khi quá tải, RabbitMQ tự bảo vệ:\u003c/p>\n\u003cul>\n\u003cli>\u003cstrong>Credit-based flow control:\u003c/strong> làm chậm connection publish nhanh hơn khả năng xử lý.\u003c/li>\n\u003cli>\u003cstrong>Memory alarm và disk alarm:\u003c/strong> vượt ngưỡng thì broker \u003cstrong>chặn mọi connection đang publish\u003c/strong> trên toàn cụm. Client nhận được thông báo \u003ccode>connection.blocked\u003c/code> nếu đăng ký.\u003c/li>\n\u003c/ul>\n\u003cp>Hậu quả thường gặp: producer treo khi publish. Vì vậy cần timeout và tách connection như bài 2.\u003c/p>\n\u003ch3>Kết nối bền bỉ\u003c/h3>\n\u003cul>\n\u003cli>\u003cstrong>Heartbeat\u003c/strong> phát hiện connection chết khi mạng không báo lỗi.\u003c/li>\n\u003cli>\u003cstrong>Auto-reconnect\u003c/strong>: phải tái lập cả connection, channel, \u003cstrong>topology và consumer\u003c/strong>.\u003c/li>\n\u003cli>\u003cstrong>Graceful shutdown\u003c/strong>: ngừng nhận (cancel consumer), đợi xử lý xong và ack, rồi mới đóng connection. Message chưa ack sẽ được giao lại nên vẫn an toàn, nhưng chạy lại là lãng phí.\u003c/li>\n\u003c/ul>\n\u003ch3>Giám sát\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Chỉ số\u003c/th>\n\u003cth>Ý nghĩa khi bất thường\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Queue depth (ready) tăng dần\u003c/td>\n\u003ctd>Consumer không theo kịp\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Unacked cao\u003c/td>\n\u003ctd>Consumer treo, chậm, hoặc quên ack\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Consumer count = 0\u003c/td>\n\u003ctd>Consumer chết hoặc chưa deploy\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Publish rate so với deliver rate\u003c/td>\n\u003ctd>Xu hướng dồn ứ\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Consumer utilisation thấp\u003c/td>\n\u003ctd>Prefetch quá nhỏ hoặc mạng chậm\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Độ dài DLQ\u003c/td>\n\u003ctd>Có message đang lỗi\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Số connection, channel tăng liên tục\u003c/td>\n\u003ctd>Rò rỉ connection\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Công cụ: Management UI (cổng \u003ccode>15672\u003c/code>) để xem nhanh, plugin Prometheus (cổng \u003ccode>15692\u003c/code>) kèm Grafana cho giám sát thật.\u003c/p>\n\u003ch3>Xử lý queue dồn ứ\u003c/h3>\n\u003col>\n\u003cli>Xem \u003ccode>publish\u003c/code> và \u003ccode>deliver\u003c/code>: lượng vào tăng hay lượng ra giảm?\u003c/li>\n\u003cli>Xem consumer: còn sống không, unacked có đầy không, có lỗi không?\u003c/li>\n\u003cli>Nếu downstream chậm thì sửa downstream. Thêm consumer khi đó chỉ làm downstream tệ hơn.\u003c/li>\n\u003cli>Nếu consumer đơn thuần thiếu năng lực thì scale consumer, tăng prefetch.\u003c/li>\n\u003cli>Bảo vệ broker bằng \u003ccode>max-length\u003c/code> hoặc TTL nếu message có thể bỏ.\u003c/li>\n\u003c/ol>\n\u003ch3>Bảo mật\u003c/h3>\n\u003cp>Dùng \u003cstrong>TLS\u003c/strong> (\u003ccode>amqps\u003c/code>), không dùng tài khoản \u003ccode>guest\u003c/code> (mặc định chỉ đăng nhập được từ localhost), cấp quyền tối thiểu theo từng vhost, không log URI có mật khẩu.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Trả lời queue dồn ứ bằng &quot;thêm consumer&quot;. Nếu nút thắt là DB, thêm consumer làm DB chết nhanh hơn. Phải xác định nút thắt trước.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> dashboard báo queue tăng đều từ 30 phút trước, consumer vẫn chạy, unacked đạt đúng tổng prefetch. Bạn nghi điều gì?\u003c/p>\n"},{"n":12,"title":"High availability: cluster, quorum, stream","status":"theory","statusNote":"","step":"Vận hành","html":"\u003ch3>Cluster\u003c/h3>\n\u003cp>Nhiều node gộp thành một broker logic. \u003cstrong>Metadata\u003c/strong> (user, vhost, exchange, binding, định nghĩa queue) được chia sẻ trên mọi node, còn \u003cstrong>nội dung queue\u003c/strong> thì không tự động được nhân bản, trừ khi dùng loại queue có replicate. Client kết nối node nào cũng được, nhưng dùng load balancer và kết nối lại khi node chết.\u003c/p>\n\u003ch3>Các loại queue\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>\u003c/th>\n\u003cth>Classic\u003c/th>\n\u003cth>Quorum\u003c/th>\n\u003cth>Stream\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Replicate\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003ctd>Có, bằng Raft\u003c/td>\n\u003ctd>Có\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Đọc message\u003c/td>\n\u003ctd>Xóa khi ack\u003c/td>\n\u003ctd>Xóa khi ack\u003c/td>\n\u003ctd>\u003cstrong>Không xóa\u003c/strong>, đọc theo offset\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Đọc lại\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003ctd>Có\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Hợp với\u003c/td>\n\u003ctd>Việc tạm, không cần HA\u003c/td>\n\u003ctd>\u003cstrong>Mặc định cho dữ liệu quan trọng\u003c/strong>\u003c/td>\n\u003ctd>Log, nhiều consumer đọc lại, fan-out lớn\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Classic \u003cstrong>mirrored queue\u003c/strong> là cơ chế HA cũ, đã bị \u003cstrong>loại bỏ từ RabbitMQ 4.0\u003c/strong>. Khi học tài liệu cũ, đừng dùng nó làm câu trả lời.\u003c/p>\n\u003ch3>Quorum queue\u003c/h3>\n\u003cp>Mỗi queue có một leader và các follower. Message chỉ được confirm khi \u003cstrong>đa số\u003c/strong> node đã ghi. Cần \u003ccode>2f+1\u003c/code> node để chịu được \u003ccode>f\u003c/code> node chết: 3 node chịu 1, 5 node chịu 2. Số node chẵn không tăng khả năng chịu lỗi.\u003c/p>\n\u003cp>Quorum queue đánh đổi: tốn đĩa và bộ nhớ hơn, độ trễ cao hơn classic, và là queue \u003cstrong>luôn durable\u003c/strong>. Nó có sẵn \u003ccode>x-delivery-limit\u003c/code> để chặn poison message.\u003c/p>\n\u003ch3>Network partition\u003c/h3>\n\u003cp>Mạng giữa các node đứt tạo ra split-brain. Quorum queue xử lý nhờ nguyên tắc đa số: phía thiểu số ngừng phục vụ queue đó. Với cấu hình cụm, có các chế độ \u003ccode>pause_minority\u003c/code>, \u003ccode>autoheal\u003c/code> và \u003ccode>ignore\u003c/code>; \u003ccode>pause_minority\u003c/code> thường được khuyến nghị.\u003c/p>\n\u003ch3>Federation và Shovel\u003c/h3>\n\u003cp>Cluster được thiết kế cho mạng LAN ổn định. Khi cần nối qua WAN hoặc nhiều datacenter, dùng \u003cstrong>Federation\u003c/strong> (chia sẻ exchange hoặc queue giữa các broker) hoặc \u003cstrong>Shovel\u003c/strong> (chuyển message từ nguồn sang đích, hữu ích cho migration).\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Nói &quot;có cluster nghĩa là HA&quot;. Cluster chỉ chia sẻ metadata; một classic queue vẫn nằm trên một node, node đó chết thì queue không dùng được.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> cụm 3 node chạy quorum queue. Một node chết thì sao? Hai node chết thì sao?\u003c/p>\n"},{"n":13,"title":"RabbitMQ và Kafka","status":"theory","statusNote":"","step":"So sánh","html":"\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Tiêu chí\u003c/th>\n\u003cth>RabbitMQ\u003c/th>\n\u003cth>Kafka\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Mô hình\u003c/td>\n\u003ctd>Message broker, smart broker\u003c/td>\n\u003ctd>Distributed log, dumb broker\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Sau khi đọc\u003c/td>\n\u003ctd>Message bị xóa khi ack\u003c/td>\n\u003ctd>Vẫn giữ theo thời gian retention\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Đọc lại\u003c/td>\n\u003ctd>Không (trừ Stream)\u003c/td>\n\u003ctd>Có, theo offset\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Định tuyến\u003c/td>\n\u003ctd>Rất linh hoạt qua exchange\u003c/td>\n\u003ctd>Đơn giản, theo topic và partition\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Theo dõi tiến độ\u003c/td>\n\u003ctd>Broker theo dõi từng message\u003c/td>\n\u003ctd>Consumer lưu offset\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Giao hàng\u003c/td>\n\u003ctd>Push\u003c/td>\n\u003ctd>Pull\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Thứ tự\u003c/td>\n\u003ctd>Theo queue, dễ bị phá khi scale\u003c/td>\n\u003ctd>Theo partition, giữ được khi scale\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Scale consumer\u003c/td>\n\u003ctd>Thêm consumer vào queue\u003c/td>\n\u003ctd>Giới hạn bởi số partition\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Throughput\u003c/td>\n\u003ctd>Tốt\u003c/td>\n\u003ctd>Rất cao\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Độ trễ\u003c/td>\n\u003ctd>Rất thấp ở tải vừa\u003c/td>\n\u003ctd>Thấp, tối ưu cho batch\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Tính năng từng message\u003c/td>\n\u003ctd>TTL, priority, DLX có sẵn\u003c/td>\n\u003ctd>Phải tự xây retry, DLQ\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Chọn như thế nào\u003c/h3>\n\u003cp>\u003cstrong>Chọn RabbitMQ\u003c/strong> khi cần định tuyến phức tạp, task queue, xử lý theo từng message, retry và DLQ theo message, request-reply.\u003c/p>\n\u003cp>\u003cstrong>Chọn Kafka\u003c/strong> khi cần lưu lại sự kiện, đọc lại, stream processing, nhiều consumer độc lập đọc cùng dữ liệu, hoặc throughput rất lớn.\u003c/p>\n\u003cp>Khác biệt cốt lõi cần nói được: RabbitMQ là \u003cstrong>hàng đợi công việc\u003c/strong> có broker lo phân phối, Kafka là \u003cstrong>cuốn nhật ký\u003c/strong> để consumer tự đọc. Hai công cụ không thay thế hoàn toàn cho nhau, và một hệ thống lớn có thể dùng cả hai.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Chỉ so &quot;Kafka nhanh hơn&quot;. Throughput hiếm khi là lý do chính, trả lời nên xoay quanh việc có cần giữ và đọc lại dữ liệu hay không.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> chọn công cụ cho từng việc: gửi mail xác nhận, lưu clickstream để phân tích, đồng bộ dữ liệu sang search index cần rebuild được.\u003c/p>\n"},{"n":14,"title":"Cách nói khi phỏng vấn","status":"theory","statusNote":"","step":"Thực hành","html":"\u003ch3>Khung trả lời\u003c/h3>\n\u003cp>Định nghĩa → cơ chế → đánh đổi → khi nào không dùng. Nói 60–90 giây rồi dừng để người hỏi đào tiếp.\u003c/p>\n\u003ch3>Câu &quot;làm sao không mất message&quot; trong 90 giây\u003c/h3>\n\u003cblockquote>\n\u003cp>Message có thể mất ở ba chặng. Từ producer đến broker, tôi dùng publisher confirm và xử lý message không route được bằng mandatory hoặc alternate exchange. Trong broker, tôi dùng durable queue, persistent message, và quorum queue trên cụm ba node để chịu được một node chết. Từ broker đến consumer, tôi dùng manual ack và chỉ ack sau khi xử lý xong. Cách này cho at-least-once, nên message có thể trùng và consumer phải idempotent, thường bằng \u003ccode>message_id\u003c/code> với unique index cùng transaction nghiệp vụ. Còn trường hợp ghi DB xong mà chưa kịp publish thì dùng Transactional Outbox.\u003c/p>\n\u003c/blockquote>\n\u003ch3>Câu &quot;RabbitMQ khác Kafka&quot; trong 60 giây\u003c/h3>\n\u003cblockquote>\n\u003cp>RabbitMQ là broker hàng đợi: định tuyến linh hoạt, giao từng message, xóa sau khi ack, broker theo dõi trạng thái từng message. Kafka là log phân tán: message được giữ theo retention, consumer tự quản lý offset và đọc lại được. Tôi chọn RabbitMQ cho task queue và định tuyến theo message, chọn Kafka khi cần lưu sự kiện để replay hoặc stream processing.\u003c/p>\n\u003c/blockquote>\n\u003ch3>Câu &quot;thiết kế retry&quot; trong 60 giây\u003c/h3>\n\u003cblockquote>\n\u003cp>Trước tiên phân loại lỗi. Lỗi vĩnh viễn đi thẳng vào DLQ. Lỗi tạm thời nack sang retry queue có TTL và không có consumer, hết TTL thì dead-letter về queue chính, với nhiều queue cho các mức delay. Đếm số lần qua \u003ccode>x-death\u003c/code>, vượt ngưỡng thì chuyển parking lot và cảnh báo. Consumer phải idempotent vì message chạy lại nhiều lần.\u003c/p>\n\u003c/blockquote>\n\u003ch3>Những câu nên nói thật\u003c/h3>\n\u003cp>Nếu chưa vận hành RabbitMQ production, hãy nói rõ: &quot;Tôi nắm cơ chế và đã thử ở môi trường local, chưa có kinh nghiệm chạy cụm production.&quot; Người phỏng vấn đánh giá cao ranh giới rõ ràng hơn là những con số không có thật.\u003c/p>\n\u003ch3>Danh sách nhanh trước khi vào phòng\u003c/h3>\n\u003cul>\n\u003cli>Producer gửi vào exchange, không gửi vào queue.\u003c/li>\n\u003cli>Bốn loại exchange, \u003ccode>*\u003c/code> một từ, \u003ccode>#\u003c/code> không hoặc nhiều từ.\u003c/li>\n\u003cli>Ba chặng mất message và ba cơ chế tương ứng.\u003c/li>\n\u003cli>At-least-once cộng idempotent.\u003c/li>\n\u003cli>DLX, poison message, retry queue có TTL.\u003c/li>\n\u003cli>FIFO không có nghĩa là xử lý đúng thứ tự.\u003c/li>\n\u003cli>Prefetch là gì và ảnh hưởng thế nào.\u003c/li>\n\u003cli>Quorum queue, \u003ccode>2f+1\u003c/code>, mirrored queue đã bị bỏ.\u003c/li>\n\u003cli>RabbitMQ khác Kafka ở chỗ giữ và đọc lại dữ liệu.\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> Liệt kê tính năng mà không nêu đánh đổi. Một câu kiểu &quot;tôi sẽ không dùng queue ở đây vì caller cần kết quả ngay&quot; thường có giá trị hơn năm thuật ngữ.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> nói liền mạch câu &quot;làm sao không mất message&quot; mà không nhìn tài liệu.\u003c/p>\n"}],"glossary":[{"term":"Broker","def":"Server trung gian nhận, lưu và giao message"},{"term":"Producer","def":"Bên gửi message"},{"term":"Consumer","def":"Bên nhận và xử lý message"},{"term":"Exchange","def":"Thành phần định tuyến message tới queue"},{"term":"Queue","def":"Nơi message được lưu chờ xử lý"},{"term":"Binding","def":"Quy tắc nối exchange với queue"},{"term":"Routing key","def":"Nhãn trên message dùng để định tuyến"},{"term":"Default exchange","def":"Direct exchange không tên, routing key là tên queue"},{"term":"Connection","def":"Kết nối TCP dài hạn tới broker"},{"term":"Channel","def":"Kênh logic nhẹ chạy trong connection"},{"term":"Vhost","def":"Không gian cô lập trong broker"},{"term":"Ack","def":"Consumer xác nhận đã xử lý xong"},{"term":"Nack","def":"Consumer từ chối message, có thể requeue"},{"term":"Requeue","def":"Đưa message trở lại queue"},{"term":"Prefetch","def":"Số message chưa ack tối đa một consumer được giữ"},{"term":"Ready","def":"Message đang chờ được giao"},{"term":"Unacked","def":"Message đã giao, chưa được xác nhận"},{"term":"Publisher confirm","def":"Broker xác nhận đã nhận message"},{"term":"Durable","def":"Định nghĩa queue hoặc exchange còn sau khi restart"},{"term":"Persistent","def":"Message được ghi xuống đĩa"},{"term":"At-least-once","def":"Message đến ít nhất một lần, có thể trùng"},{"term":"Idempotent","def":"Xử lý nhiều lần cho kết quả như một lần"},{"term":"DLX","def":"Exchange nhận message đã chết"},{"term":"DLQ","def":"Queue chứa message đã chết"},{"term":"Poison message","def":"Message luôn làm consumer lỗi"},{"term":"TTL","def":"Thời gian sống của message hoặc queue"},{"term":"Competing consumers","def":"Nhiều consumer chia nhau một queue"},{"term":"Direct Reply-To","def":"Nhận reply RPC mà không cần tạo queue"},{"term":"Quorum queue","def":"Queue nhân bản bằng Raft"},{"term":"Stream","def":"Queue dạng log, đọc lại được theo offset"},{"term":"Outbox","def":"Ghi event cùng transaction DB rồi relay publish"},{"term":"Federation","def":"Chia sẻ message giữa các broker qua WAN"},{"term":"Shovel","def":"Chuyển message từ nguồn sang đích"}],"intro":"\u003cp>Sổ tay học RabbitMQ từ gốc: vì sao cần message broker, message đi qua broker thế nào, làm sao không mất message, xử lý lỗi ra sao, và vận hành ở mức một backend developer cần biết. Đây là \u003cstrong>tài liệu lý thuyết tổng quát\u003c/strong>, không mô tả code của dự án. Các đoạn code dùng \u003ccode>amqplib\u003c/code> chỉ để minh họa và chưa được chạy thử. Hành vi broker được mô tả theo dòng RabbitMQ 3.13 và 4.x; khi đi làm thật, hãy đối chiếu tài liệu chính thức của đúng phiên bản.\u003c/p>\n\u003cp>Học theo thứ tự 0–14, bài sau dựa trên bài trước. Bài 0–7 là phần bắt buộc, bài 8–14 giúp trả lời sâu hơn. Mỗi ngày đọc hai bài rồi tự nói câu trả lời trong 60–90 giây. Trạng thái 📖 là tài liệu lý thuyết, không khẳng định bạn đã học thuộc.\u003c/p>\n","questions":[{"id":"d870dfe3be","part":"A","partTitle":"Nền tảng và định tuyến","group":"Vì sao cần broker","level":"basic","text":"Vì sao dùng message queue thay vì gọi HTTP trực tiếp?","hintLabel":"Ý chính","hint":"Temporal decoupling (bên nhận không cần đang chạy), decoupling về địa chỉ (bên gửi không cần biết ai nhận), load leveling (hấp thụ đột biến). \u003cstrong>Bẫy cần tránh:\u003c/strong> nói dùng queue để &quot;nhanh hơn&quot;.","refs":[1]},{"id":"426253a772","part":"A","partTitle":"Nền tảng và định tuyến","group":"Vì sao cần broker","level":"mid","text":"Nhược điểm của việc đưa message broker vào hệ thống là gì?","hintLabel":"Ý chính","hint":"Thêm hệ thống phải vận hành, eventual consistency, message có thể trùng hoặc sai thứ tự, khó debug và cần tracing.","refs":[1]},{"id":"0360a67cdb","part":"A","partTitle":"Nền tảng và định tuyến","group":"Vì sao cần broker","level":"mid","text":"Khi nào không nên dùng queue?","hintLabel":"Ý chính","hint":"Khi caller cần kết quả ngay để đi tiếp, như kiểm tra số dư. Gọi đồng bộ đơn giản và đúng hơn.","refs":[1]},{"id":"36c00a932e","part":"A","partTitle":"Nền tảng và định tuyến","group":"Kiến trúc","level":"basic","text":"Connection và channel khác nhau thế nào?","hintLabel":"Ý chính","hint":"Connection là TCP dài hạn, tốn kém. Channel là kênh logic nhẹ bên trong. Mỗi process giữ ít connection, dùng nhiều channel.","refs":[2]},{"id":"ef8fc5f260","part":"A","partTitle":"Nền tảng và định tuyến","group":"Kiến trúc","level":"mid","text":"Vì sao nên tách connection cho publish và consume?","hintLabel":"Ý chính","hint":"Khi có alarm, connection publish bị chặn; consumer dùng chung sẽ bị ảnh hưởng đúng lúc cần xả queue.","refs":[2]},{"id":"9b5bfe52ce","part":"A","partTitle":"Nền tảng và định tuyến","group":"Kiến trúc","level":"basic","text":"Vhost là gì?","hintLabel":"Ý chính","hint":"Không gian cô lập trong một broker, có exchange, queue và quyền riêng.","refs":[2]},{"id":"b0b38a54e3","part":"A","partTitle":"Nền tảng và định tuyến","group":"Exchange và queue","level":"basic","text":"Message đi qua RabbitMQ như thế nào?","hintLabel":"Ý chính","hint":"Producer publish vào exchange với routing key, exchange so binding để đưa vào queue, broker giao cho consumer, consumer ack thì message bị xóa.","refs":[0]},{"id":"2aa5115403","part":"A","partTitle":"Nền tảng và định tuyến","group":"Exchange và queue","level":"basic","text":"Có những loại exchange nào, khác nhau ra sao?","hintLabel":"Ý chính","hint":"Direct khớp chính xác, fanout gửi tất cả, topic khớp wildcard, headers khớp theo header.","refs":[3]},{"id":"7a5a85b74d","part":"A","partTitle":"Nền tảng và định tuyến","group":"Exchange và queue","level":"basic","text":"Trong topic exchange, \u003ccode>*\u003c/code> và \u003ccode>#\u003c/code> khác nhau thế nào?","hintLabel":"Ý chính","hint":"\u003ccode>*\u003c/code> đúng một từ, \u003ccode>#\u003c/code> không hoặc nhiều từ, từ cách nhau bởi dấu chấm.","refs":[3]},{"id":"3ae10c518a","part":"A","partTitle":"Nền tảng và định tuyến","group":"Exchange và queue","level":"mid","text":"Default exchange là gì?","hintLabel":"Ý chính","hint":"Direct exchange không tên, mọi queue tự bind theo tên của nó. \u003ccode>sendToQueue\u003c/code> thực chất dùng exchange này.","refs":[3]},{"id":"4e2aa9aed6","part":"A","partTitle":"Nền tảng và định tuyến","group":"Exchange và queue","level":"mid","text":"Message không khớp binding nào thì sao?","hintLabel":"Ý chính","hint":"Bị bỏ im lặng. Dùng \u003ccode>mandatory\u003c/code> để trả về producer, hoặc alternate exchange để hứng.","refs":[3]},{"id":"cd768d014a","part":"A","partTitle":"Nền tảng và định tuyến","group":"Exchange và queue","level":"mid","text":"Durable, exclusive, auto-delete khác nhau thế nào?","hintLabel":"Ý chính","hint":"Durable còn sau restart; exclusive gắn với một connection; auto-delete xóa khi consumer cuối rời đi.","refs":[4]},{"id":"fd73671766","part":"A","partTitle":"Nền tảng và định tuyến","group":"Exchange và queue","level":"mid","text":"Khai báo lại queue với tham số khác thì sao?","hintLabel":"Ý chính","hint":"Lỗi \u003ccode>PRECONDITION_FAILED\u003c/code>, channel bị đóng. Phải tạo queue mới; policy cho phép đổi một số cấu hình khi đang chạy.","refs":[4]},{"id":"852f37685e","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Consumer","level":"basic","text":"Auto ack và manual ack khác nhau thế nào?","hintLabel":"Ý chính","hint":"Auto ack coi là xong ngay khi gửi, consumer chết là mất. Manual ack xác nhận sau khi xử lý, an toàn hơn.","refs":[5]},{"id":"9aa701e829","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Consumer","level":"mid","text":"Consumer chết khi đang xử lý thì message ra sao?","hintLabel":"Ý chính","hint":"Message unacked trở về ready, giao lại kèm \u003ccode>redelivered = true\u003c/code>.","refs":[5]},{"id":"c3817ea3ca","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Consumer","level":"mid","text":"Prefetch là gì? Chọn giá trị thế nào?","hintLabel":"Ý chính","hint":"Số message unacked tối đa của consumer. Thấp thì phân phối đều cho việc nặng, cao thì throughput tốt cho việc nhanh. Phải đo.","refs":[5]},{"id":"e40a5b7c12","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Consumer","level":"mid","text":"Làm sao để nhiều service cùng nhận một event?","hintLabel":"Ý chính","hint":"Mỗi service một queue bind vào exchange. Cùng consume một queue thì chúng chia nhau message.","refs":[5]},{"id":"49eb6aab9e","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Consumer","level":"mid","text":"Quên ack thì chuyện gì xảy ra?","hintLabel":"Ý chính","hint":"Message nằm unacked, chạm prefetch thì consumer ngừng nhận, connection đóng thì message được giao lại.","refs":[5]},{"id":"fce573e02d","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Không mất message","level":"basic","text":"Làm sao đảm bảo không mất message?","hintLabel":"Ý chính","hint":"Ba chặng: publisher confirm; durable queue cộng persistent message, thêm quorum queue; manual ack. \u003cstrong>Bẫy cần tránh:\u003c/strong> chỉ nói durable.","refs":[6]},{"id":"4248962746","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Không mất message","level":"mid","text":"Durable queue và persistent message khác nhau thế nào?","hintLabel":"Ý chính","hint":"Durable giữ định nghĩa queue, persistent ghi message xuống đĩa. Cần cả hai.","refs":[6]},{"id":"f6ed6faf70","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Không mất message","level":"mid","text":"Publisher confirm là gì? Vì sao không dùng transaction?","hintLabel":"Ý chính","hint":"Broker xác nhận đã nhận trách nhiệm với message. Transaction đồng bộ và chậm hơn nhiều.","refs":[6]},{"id":"c960ce8e77","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Không mất message","level":"hard","text":"Publisher nhận được ack thì message chắc chắn đã vào queue chưa?","hintLabel":"Ý chính","hint":"Chưa chắc. Message không route được vẫn được confirm; cần \u003ccode>mandatory\u003c/code> hoặc alternate exchange.","refs":[6]},{"id":"15eafd477a","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Không mất message","level":"hard","text":"Mất kết nối khi đang chờ confirm thì làm gì?","hintLabel":"Ý chính","hint":"Không biết broker nhận chưa, nên gửi lại và chấp nhận trùng. Đây là nguồn gốc của at-least-once.","refs":[6]},{"id":"118241166e","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Delivery semantics","level":"basic","text":"At-most-once, at-least-once, exactly-once khác nhau thế nào?","hintLabel":"Ý chính","hint":"Có thể mất; có thể trùng; đúng một lần không đạt được ở mức delivery, chỉ đạt effectively-once bằng at-least-once cộng idempotent.","refs":[7]},{"id":"5531475fd9","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Delivery semantics","level":"mid","text":"Làm consumer idempotent bằng cách nào?","hintLabel":"Ý chính","hint":"Thao tác tự nhiên idempotent, bảng dedupe theo \u003ccode>message_id\u003c/code> với unique index, so version, hoặc idempotency key với bên thứ ba.","refs":[7]},{"id":"3805e1f888","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Delivery semantics","level":"hard","text":"Vì sao dấu &quot;đã xử lý&quot; phải cùng transaction với hiệu ứng nghiệp vụ?","hintLabel":"Ý chính","hint":"Tách ra thì có khoảng hở: xử lý xong chưa ghi dấu thì chạy lại, ghi dấu chưa xử lý thì mất.","refs":[7]},{"id":"77c479e99c","part":"B","partTitle":"Tiêu thụ và độ tin cậy","group":"Delivery semantics","level":"mid","text":"Dual-write là gì, xử lý thế nào?","hintLabel":"Ý chính","hint":"Ghi DB và publish không có transaction chung. Transactional Outbox ghi event cùng transaction rồi relay publish.","refs":[7]},{"id":"91076fc798","part":"C","partTitle":"Xử lý lỗi và patterns","group":"Lỗi và retry","level":"basic","text":"DLX và DLQ là gì?","hintLabel":"Ý chính","hint":"Exchange và queue nhận message đã chết, để điều tra hoặc replay.","refs":[8]},{"id":"51106b03bb","part":"C","partTitle":"Xử lý lỗi và patterns","group":"Lỗi và retry","level":"mid","text":"Khi nào message trở thành dead letter?","hintLabel":"Ý chính","hint":"Nack không requeue, hết TTL, queue vượt giới hạn, vượt delivery-limit của quorum queue.","refs":[8]},{"id":"2cd61b13b0","part":"C","partTitle":"Xử lý lỗi và patterns","group":"Lỗi và retry","level":"mid","text":"Poison message là gì, xử lý ra sao?","hintLabel":"Ý chính","hint":"Message luôn gây lỗi. Không requeue vô điều kiện; giới hạn số lần rồi chuyển DLQ.","refs":[8]},{"id":"e342cd34a9","part":"C","partTitle":"Xử lý lỗi và patterns","group":"Lỗi và retry","level":"mid","text":"Thiết kế retry có backoff trong RabbitMQ thế nào?","hintLabel":"Ý chính","hint":"Retry queue có TTL, không consumer, hết TTL dead-letter về queue chính; đếm qua \u003ccode>x-death\u003c/code>; vượt ngưỡng thì chuyển parking lot.","refs":[8]},{"id":"1b3063e352","part":"C","partTitle":"Xử lý lỗi và patterns","group":"Lỗi và retry","level":"hard","text":"Vì sao không dùng per-message TTL khác nhau trong cùng một retry queue?","hintLabel":"Ý chính","hint":"Message hết hạn chỉ được xử lý khi lên đầu queue, nên TTL ngắn nằm sau TTL dài sẽ bị kẹt.","refs":[8]},{"id":"e25ad3a707","part":"C","partTitle":"Xử lý lỗi và patterns","group":"Thứ tự","level":"mid","text":"RabbitMQ đảm bảo thứ tự như thế nào?","hintLabel":"Ý chính","hint":"Giữ thứ tự trên một channel publish, một queue, một channel consume. Nhiều consumer, prefetch cao hoặc requeue đều phá vỡ.","refs":[9]},{"id":"84890767e6","part":"C","partTitle":"Xử lý lỗi và patterns","group":"Thứ tự","level":"hard","text":"Cần thứ tự theo từng đơn hàng mà vẫn scale thì làm sao?","hintLabel":"Ý chính","hint":"Consistent hash exchange theo \u003ccode>orderId\u003c/code>, mỗi queue một consumer; hoặc consumer so version và bỏ event cũ.","refs":[9]},{"id":"977f5a0f1a","part":"C","partTitle":"Xử lý lỗi và patterns","group":"Thứ tự","level":"mid","text":"Single active consumer là gì?","hintLabel":"Ý chính","hint":"Chỉ một consumer nhận, các consumer khác dự phòng. Giữ thứ tự, có failover, nhưng không tăng throughput.","refs":[9]},{"id":"3d2b307fa1","part":"C","partTitle":"Xử lý lỗi và patterns","group":"Patterns","level":"mid","text":"Triển khai RPC qua RabbitMQ thế nào?","hintLabel":"Ý chính","hint":"Request kèm \u003ccode>reply_to\u003c/code> và \u003ccode>correlation_id\u003c/code>, server trả về queue đó, client ghép theo \u003ccode>correlation_id\u003c/code> và luôn có timeout.","refs":[10]},{"id":"bfab726e71","part":"C","partTitle":"Xử lý lỗi và patterns","group":"Patterns","level":"mid","text":"Command và event khác nhau thế nào?","hintLabel":"Ý chính","hint":"Command là yêu cầu làm, thường một người nhận. Event là việc đã xảy ra, không hoặc nhiều người nhận, người nhận tự quyết định.","refs":[10]},{"id":"d3090ef836","part":"C","partTitle":"Xử lý lỗi và patterns","group":"Patterns","level":"hard","text":"Saga choreography và orchestration khác nhau thế nào?","hintLabel":"Ý chính","hint":"Choreography phản ứng theo event, không có điều phối viên, khó theo dõi khi luồng dài. Orchestration có điều phối tập trung, dễ quan sát nhưng thêm thành phần.","refs":[10]},{"id":"22d8f9749c","part":"D","partTitle":"Vận hành và high availability","group":"Vận hành","level":"mid","text":"Memory alarm xảy ra thì hệ thống bị gì?","hintLabel":"Ý chính","hint":"Broker chặn mọi connection đang publish, producer có thể treo. Cần timeout và tách connection.","refs":[11]},{"id":"0d224a5598","part":"D","partTitle":"Vận hành và high availability","group":"Vận hành","level":"mid","text":"Những chỉ số nào cần giám sát?","hintLabel":"Ý chính","hint":"Queue depth, unacked, consumer count, publish so với deliver rate, consumer utilisation, độ dài DLQ, số connection.","refs":[11]},{"id":"a319027044","part":"D","partTitle":"Vận hành và high availability","group":"Vận hành","level":"hard","text":"Queue bị dồn ứ, bạn xử lý thế nào?","hintLabel":"Ý chính","hint":"So rate vào và ra, xem consumer và unacked, tìm nút thắt. Downstream chậm thì sửa downstream, thêm consumer chỉ tệ hơn. \u003cstrong>Bẫy cần tránh:\u003c/strong> trả lời ngay &quot;thêm consumer&quot;.","refs":[11]},{"id":"b24a034615","part":"D","partTitle":"Vận hành và high availability","group":"Vận hành","level":"mid","text":"Graceful shutdown của consumer gồm những bước nào?","hintLabel":"Ý chính","hint":"Cancel consumer để ngừng nhận, đợi việc đang chạy xong và ack, rồi đóng channel và connection.","refs":[11]},{"id":"39bcf7bb21","part":"D","partTitle":"Vận hành và high availability","group":"High availability","level":"basic","text":"Quorum queue là gì?","hintLabel":"Ý chính","hint":"Queue nhân bản bằng Raft, confirm khi đa số node đã ghi. Lựa chọn mặc định cho dữ liệu quan trọng.","refs":[12]},{"id":"06c117d4ff","part":"D","partTitle":"Vận hành và high availability","group":"High availability","level":"mid","text":"Cụm RabbitMQ chia sẻ những gì?","hintLabel":"Ý chính","hint":"Metadata được chia sẻ. Nội dung queue chỉ nhân bản khi dùng quorum hoặc stream.","refs":[12]},{"id":"06eaa9c70a","part":"D","partTitle":"Vận hành và high availability","group":"High availability","level":"mid","text":"Cụm 3 node chịu được mấy node chết? Vì sao không dùng 4 node?","hintLabel":"Ý chính","hint":"Chịu 1 node theo \u003ccode>2f+1\u003c/code>. Bốn node vẫn chỉ chịu 1 vì đa số là 3.","refs":[12]},{"id":"2875791439","part":"D","partTitle":"Vận hành và high availability","group":"High availability","level":"mid","text":"Vì sao không nên học mirrored queue làm đáp án HA?","hintLabel":"Ý chính","hint":"Classic mirrored queue đã bị loại bỏ từ RabbitMQ 4.0, thay bằng quorum queue và stream.","refs":[12]},{"id":"cc3e886a3e","part":"D","partTitle":"Vận hành và high availability","group":"High availability","level":"hard","text":"Quorum queue đánh đổi những gì?","hintLabel":"Ý chính","hint":"Tốn đĩa và bộ nhớ hơn, độ trễ cao hơn classic, không dùng cho message tạm thời hoặc queue exclusive.","refs":[12]},{"id":"d3dd56145e","part":"E","partTitle":"So sánh và tình huống","group":"So sánh","level":"basic","text":"RabbitMQ khác Kafka thế nào?","hintLabel":"Ý chính","hint":"RabbitMQ là hàng đợi, xóa sau ack, định tuyến linh hoạt. Kafka là log, giữ theo retention, consumer tự quản offset và đọc lại được.","refs":[13]},{"id":"ba1e659167","part":"E","partTitle":"So sánh và tình huống","group":"So sánh","level":"mid","text":"Khi nào chọn RabbitMQ, khi nào chọn Kafka?","hintLabel":"Ý chính","hint":"RabbitMQ cho task queue, định tuyến, retry từng message. Kafka cho lưu sự kiện, replay, stream processing, throughput rất lớn.","refs":[13]},{"id":"f11ef6352e","part":"E","partTitle":"So sánh và tình huống","group":"So sánh","level":"mid","text":"RabbitMQ Stream khác quorum queue thế nào?","hintLabel":"Ý chính","hint":"Stream không xóa khi đọc, đọc lại theo offset, hợp fan-out lớn. Quorum queue xóa khi ack và theo dõi từng message.","refs":[12]},{"id":"69a4c88aa9","part":"E","partTitle":"So sánh và tình huống","group":"Tình huống","level":"hard","text":"Thiết kế hệ thống gửi email với RabbitMQ sao cho không mất, không gửi trùng?","hintLabel":"Ý chính","hint":"Outbox phía producer, confirm, quorum queue, manual ack, dedupe theo \u003ccode>message_id\u003c/code>, retry có backoff, DLQ có cảnh báo. Thừa nhận gửi mail ra ngoài khó đạt tuyệt đối exactly-once.","refs":[14]},{"id":"f9dd4c1d72","part":"E","partTitle":"So sánh và tình huống","group":"Tình huống","level":"hard","text":"Sau một lần deploy, DLQ tăng vọt. Bạn làm gì?","hintLabel":"Ý chính","hint":"Xem \u003ccode>x-death\u003c/code> và log, rollback nếu do bug, sửa xong replay từ DLQ, và nhờ idempotent nên chạy lại an toàn.","refs":[8]},{"id":"1739ff8aaf","part":"E","partTitle":"So sánh và tình huống","group":"Tình huống","level":"mid","text":"Mỗi request bạn mở một connection mới để publish. Có vấn đề gì?","hintLabel":"Ý chính","hint":"Tốn tài nguyên ở cả client và broker, chậm, dễ rò rỉ. Dùng connection dài hạn và tái sử dụng channel.","refs":[2]}],"slides":[{"cover":true,"html":"\u003ch1>RabbitMQ từ nền tảng\u003c/h1>\n\u003cp>Message đi qua broker thế nào, và làm sao không mất nó.\u003c/p>\n\u003cp>Tài liệu lý thuyết tổng quát.\u003c/p>\n","notes":"\u003cp>Mục tiêu: nói được mô hình exchange, ba chặng độ tin cậy và các đánh đổi.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Vì sao cần broker\u003c/h2>\n\u003cp>Tách thời gian: bên nhận không cần đang chạy.\u003c/p>\n\u003cp>Tách địa chỉ: bên gửi không cần biết ai nhận.\u003c/p>\n\u003cp>San tải: queue hấp thụ đột biến.\u003c/p>\n","notes":"\u003cp>Không nói &quot;để nhanh hơn&quot;. Cái giá: thêm hệ thống, eventual consistency, trùng và sai thứ tự.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Đường đi của message\u003c/h2>\n\u003cp>\u003cimg src=\"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA3NjAgMzIwIiBmb250LWZhbWlseT0ic3lzdGVtLXVpLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTMiPgo8ZGVmcz48bWFya2VyIGlkPSJhIiBtYXJrZXJXaWR0aD0iOCIgbWFya2VySGVpZ2h0PSI4IiByZWZYPSI3IiByZWZZPSI0IiBvcmllbnQ9ImF1dG8iPjxwYXRoIGQ9Ik0wLDAgTDgsNCBMMCw4eiIgZmlsbD0iIzQ3NTU2OSIvPjwvbWFya2VyPjwvZGVmcz4KPHJlY3Qgd2lkdGg9Ijc2MCIgaGVpZ2h0PSIzMjAiIGZpbGw9IiNmOGZhZmMiLz4KPHJlY3QgeD0iMTYiIHk9IjEyMiIgd2lkdGg9IjExNiIgaGVpZ2h0PSI3NiIgcng9IjEwIiBmaWxsPSIjZTBmMmZlIiBzdHJva2U9IiMwMjg0YzciLz4KPHRleHQgeD0iNzQiIHk9IjE1MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzBjNGE2ZSI+UHJvZHVjZXI8L3RleHQ+Cjx0ZXh0IHg9Ijc0IiB5PSIxNzEiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMwYzRhNmUiPsSQxqFuIGjDoG5nPC90ZXh0Pgo8bGluZSB4MT0iMTMyIiB5MT0iMTYwIiB4Mj0iMjA4IiB5Mj0iMTYwIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMS42IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+Cjx0ZXh0IHg9IjE3MCIgeT0iMTM2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMzM0MTU1IiBmb250LXNpemU9IjExIj5yb3V0aW5nIGtleTwvdGV4dD4KPHRleHQgeD0iMTcwIiB5PSIxNTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPm9yZGVyLnBsYWNlZDwvdGV4dD4KPHJlY3QgeD0iMjEwIiB5PSIxMTIiIHdpZHRoPSIxMjQiIGhlaWdodD0iOTYiIHJ4PSIxMCIgZmlsbD0iI2ZlZjNjNyIgc3Ryb2tlPSIjZDk3NzA2Ii8+Cjx0ZXh0IHg9IjI3MiIgeT0iMTQ2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSIjNzgzNTBmIj5FeGNoYW5nZTwvdGV4dD4KPHRleHQgeD0iMjcyIiB5PSIxNjYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM3ODM1MGYiPnRvcGljPC90ZXh0Pgo8dGV4dCB4PSIyNzIiIHk9IjE4NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzc4MzUwZiIgZm9udC1zaXplPSIxMSI+c2hvcC5ldmVudHM8L3RleHQ+CjxwYXRoIGQ9Ik0zMzQsMTQwIEMzODAsMTAwIDM5MCw2MiA0NjgsNjIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPGxpbmUgeDE9IjMzNCIgeTE9IjE2MCIgeDI9IjQ2OCIgeTI9IjE2MCIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8cGF0aCBkPSJNMzM0LDE4MCBDMzgwLDIyMCAzOTAsMjU4IDQ2OCwyNTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPHRleHQgeD0iNDAyIiB5PSI1NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzMzNDE1NSIgZm9udC1zaXplPSIxMSI+YmluZGluZzogb3JkZXIuKjwvdGV4dD4KPHRleHQgeD0iNDAyIiB5PSIxNTEiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPmJpbmRpbmc6IG9yZGVyLnBsYWNlZDwvdGV4dD4KPHRleHQgeD0iNDAyIiB5PSIyNzIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMzMzQxNTUiIGZvbnQtc2l6ZT0iMTEiPmJpbmRpbmc6ICM8L3RleHQ+CjxyZWN0IHg9IjQ3MCIgeT0iMzYiIHdpZHRoPSIxMzAiIGhlaWdodD0iNTIiIHJ4PSI4IiBmaWxsPSIjZGNmY2U3IiBzdHJva2U9IiMxNmEzNGEiLz4KPHRleHQgeD0iNTM1IiB5PSI1OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE0NTMyZCI+UXVldWU8L3RleHQ+Cjx0ZXh0IHg9IjUzNSIgeT0iNzciIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMxNDUzMmQiIGZvbnQtc2l6ZT0iMTEiPmVtYWlsLm9yZGVyLWV2ZW50czwvdGV4dD4KPHJlY3QgeD0iNDcwIiB5PSIxMzQiIHdpZHRoPSIxMzAiIGhlaWdodD0iNTIiIHJ4PSI4IiBmaWxsPSIjZGNmY2U3IiBzdHJva2U9IiMxNmEzNGEiLz4KPHRleHQgeD0iNTM1IiB5PSIxNTciIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMxNDUzMmQiPlF1ZXVlPC90ZXh0Pgo8dGV4dCB4PSI1MzUiIHk9IjE3NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzE0NTMyZCIgZm9udC1zaXplPSIxMSI+c2hpcHBpbmcub3JkZXJzPC90ZXh0Pgo8cmVjdCB4PSI0NzAiIHk9IjIzMiIgd2lkdGg9IjEzMCIgaGVpZ2h0PSI1MiIgcng9IjgiIGZpbGw9IiNkY2ZjZTciIHN0cm9rZT0iIzE2YTM0YSIvPgo8dGV4dCB4PSI1MzUiIHk9IjI1NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzE0NTMyZCI+UXVldWU8L3RleHQ+Cjx0ZXh0IHg9IjUzNSIgeT0iMjczIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMTQ1MzJkIiBmb250LXNpemU9IjExIj5hdWRpdC5hbGw8L3RleHQ+CjxsaW5lIHgxPSI2MDAiIHkxPSI2MiIgeDI9IjY0NiIgeTI9IjYyIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMS42IiBtYXJrZXItZW5kPSJ1cmwoI2EpIi8+CjxsaW5lIHgxPSI2MDAiIHkxPSIxNjAiIHgyPSI2NDYiIHkyPSIxNjAiIHN0cm9rZT0iIzQ3NTU2OSIgc3Ryb2tlLXdpZHRoPSIxLjYiIG1hcmtlci1lbmQ9InVybCgjYSkiLz4KPGxpbmUgeDE9IjYwMCIgeTE9IjI1OCIgeDI9IjY0NiIgeTI9IjI1OCIgc3Ryb2tlPSIjNDc1NTY5IiBzdHJva2Utd2lkdGg9IjEuNiIgbWFya2VyLWVuZD0idXJsKCNhKSIvPgo8cmVjdCB4PSI2NDgiIHk9IjQwIiB3aWR0aD0iOTYiIGhlaWdodD0iNDQiIHJ4PSI4IiBmaWxsPSIjZWRlOWZlIiBzdHJva2U9IiM3YzNhZWQiLz4KPHRleHQgeD0iNjk2IiB5PSI2NyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzRjMWQ5NSI+RW1haWw8L3RleHQ+CjxyZWN0IHg9IjY0OCIgeT0iMTM4IiB3aWR0aD0iOTYiIGhlaWdodD0iNDQiIHJ4PSI4IiBmaWxsPSIjZWRlOWZlIiBzdHJva2U9IiM3YzNhZWQiLz4KPHRleHQgeD0iNjk2IiB5PSIxNjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiM0YzFkOTUiPkdpYW8gaMOgbmc8L3RleHQ+CjxyZWN0IHg9IjY0OCIgeT0iMjM2IiB3aWR0aD0iOTYiIGhlaWdodD0iNDQiIHJ4PSI4IiBmaWxsPSIjZWRlOWZlIiBzdHJva2U9IiM3YzNhZWQiLz4KPHRleHQgeD0iNjk2IiB5PSIyNjMiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiM0YzFkOTUiPkF1ZGl0PC90ZXh0Pgo8dGV4dCB4PSIzODAiIHk9IjMxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzQ3NTU2OSIgZm9udC1zaXplPSIxMiI+TeG7l2kgcXVldWUgbmjhuq1uIG3hu5l0IGLhuqNuIHNhbyByacOqbmcgY+G7p2EgbWVzc2FnZS4gQ29uc3VtZXIgYWNrIHRow6wgbWVzc2FnZSBt4bubaSBi4buLIHjDs2Ega2jhu49pIHF1ZXVlIMSRw7MuPC90ZXh0Pgo8L3N2Zz4K\" alt=\"Exchange định tuyến message vào các queue theo binding\">\u003c/p>\n","notes":"\u003cp>Producer luôn publish vào exchange. Exchange không lưu message.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Bốn loại exchange\u003c/h2>\n\u003cp>Direct: khớp chính xác.\u003c/p>\n\u003cp>Fanout: gửi tất cả.\u003c/p>\n\u003cp>Topic: wildcard, \u003ccode>*\u003c/code> một từ, \u003ccode>#\u003c/code> không hoặc nhiều từ.\u003c/p>\n\u003cp>Headers: khớp theo header.\u003c/p>\n","notes":"\u003cp>Mỗi service một queue riêng thì mỗi service đều nhận. Cùng một queue thì chia nhau.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Connection và channel\u003c/h2>\n\u003cp>Connection: TCP dài hạn, tốn kém.\u003c/p>\n\u003cp>Channel: kênh logic nhẹ.\u003c/p>\n\u003cp>Tách connection publish và consume.\u003c/p>\n","notes":"\u003cp>Khi có alarm, connection publish bị chặn, không để consumer bị vạ lây.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Ack và prefetch\u003c/h2>\n\u003cp>Manual ack: chỉ xác nhận sau khi xử lý xong.\u003c/p>\n\u003cp>Consumer chết: unacked quay lại ready.\u003c/p>\n\u003cp>Prefetch: số message chưa ack được giữ cùng lúc.\u003c/p>\n","notes":"\u003cp>Prefetch thấp phân phối đều, cao thì throughput tốt. Phải đo.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Ba chặng không mất message\u003c/h2>\n\u003cp>Producer → broker: publisher confirm.\u003c/p>\n\u003cp>Trong broker: durable, persistent, quorum queue.\u003c/p>\n\u003cp>Broker → consumer: manual ack.\u003c/p>\n","notes":"\u003cp>Khe hở còn lại: message không route được vẫn được confirm, và dual-write.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>At-least-once\u003c/h2>\n\u003cp>Gửi lại khi không chắc, nên có thể trùng.\u003c/p>\n\u003cp>Effectively-once = at-least-once + idempotent.\u003c/p>\n","notes":"\u003cp>Dedupe theo message_id, ghi cùng transaction với hiệu ứng nghiệp vụ.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Xử lý lỗi\u003c/h2>\n\u003cp>Lỗi tạm thời: retry có backoff.\u003c/p>\n\u003cp>Lỗi vĩnh viễn: thẳng vào DLQ.\u003c/p>\n\u003cp>Không requeue vô điều kiện.\u003c/p>\n","notes":"\u003cp>Retry queue có TTL, không consumer, hết TTL dead-letter về queue chính. Đếm bằng x-death.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Thứ tự\u003c/h2>\n\u003cp>FIFO là thứ tự giao đi, không phải thứ tự xử lý xong.\u003c/p>\n\u003cp>Thường chỉ cần thứ tự theo từng thực thể.\u003c/p>\n","notes":"\u003cp>Consumer so version, hoặc consistent hash theo key, hoặc single active consumer.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Vận hành\u003c/h2>\n\u003cp>Alarm chặn publisher.\u003c/p>\n\u003cp>Theo dõi queue depth, unacked, DLQ.\u003c/p>\n\u003cp>Dồn ứ: tìm nút thắt trước khi thêm consumer.\u003c/p>\n","notes":"\u003cp>Nếu nút thắt là DB thì thêm consumer làm DB chết nhanh hơn.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>High availability\u003c/h2>\n\u003cp>Cluster chỉ chia sẻ metadata.\u003c/p>\n\u003cp>Quorum queue: Raft, \u003ccode>2f+1\u003c/code> node.\u003c/p>\n\u003cp>Mirrored queue đã bị bỏ từ 4.0.\u003c/p>\n","notes":"\u003cp>3 node chịu 1 node chết, 4 node vẫn chỉ chịu 1.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>RabbitMQ và Kafka\u003c/h2>\n\u003cp>RabbitMQ: hàng đợi, xóa sau ack, định tuyến linh hoạt.\u003c/p>\n\u003cp>Kafka: log, giữ theo retention, đọc lại được.\u003c/p>\n","notes":"\u003cp>Tiêu chí chính là có cần giữ và đọc lại dữ liệu hay không, không phải tốc độ.\u003c/p>\n"}]}</script>
+<script>
+(() => {
+  // Mở nhầm file template (chưa có dữ liệu) thì báo rõ thay vì hỏng im lặng.
+  const raw = document.getElementById('data').textContent.trim();
+  if (!raw.startsWith('{')) {
+    document.querySelector('main').innerHTML =
+      '<div class="panel" style="padding:24px;margin-top:24px"><h2>Đây là file template, chưa có dữ liệu</h2>' +
+      '<p>Hãy mở <code>knowledge-base/index.html#rabbitmq</code> (file đã sinh). ' +
+      'Nếu chưa có, chạy <code>npm run docs:knowledge-base</code> ở thư mục gốc.</p></div>';
+    return;
+  }
+  const DATA = JSON.parse(raw);
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const el = (tag, attrs = {}, html) => {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') node.className = v;
+      else if (k === 'text') node.textContent = v;
+      else node.setAttribute(k, v);
+    }
+    if (html !== undefined) node.innerHTML = html;
+    return node;
+  };
+  const STATUS_LABEL = { done: 'Đã làm', theory: 'Lý thuyết', todo: 'Chưa học' };
+  const LEVEL_LABEL = { basic: 'Cơ bản', mid: 'Trung bình', hard: 'Nâng cao' };
+  const topicByN = new Map(DATA.topics.map((t) => [t.n, t]));
+
+  // ---------- storage (có thể bị chặn: luôn bọc try/catch) ----------
+  const store = {
+    get(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* bỏ qua */ } },
+  };
+  let marks = store.get('rabbitmq-practice-marks', {});
+
+  // ---------- theme ----------
+  const themeBtn = $('#theme-btn');
+  const THEMES = ['system', 'light', 'dark'];
+  const THEME_LABEL = { system: 'hệ thống', light: 'sáng', dark: 'tối' };
+  let theme = store.get('rabbitmq-theme', 'system');
+  function applyTheme() {
+    if (theme === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.textContent = 'Giao diện: ' + THEME_LABEL[theme];
+  }
+  themeBtn.addEventListener('click', () => {
+    theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    store.set('rabbitmq-theme', theme);
+    applyTheme();
+  });
+  applyTheme();
+
+  const generated = new Date(DATA.generatedAt);
+  $('#gen-date').textContent = 'cập nhật ' + generated.toLocaleDateString('vi-VN');
+  $('#footer').textContent = 'Sinh tự động từ documents/KNOWLEDGE.md và documents/INTERVIEW-QUESTIONS.md lúc ' +
+    generated.toLocaleString('vi-VN') + '. Sửa nội dung trong file markdown rồi chạy lại: npm run docs:knowledge';
+
+  // ================= OVERVIEW: meter =================
+  function renderMeter() {
+    const counts = { done: 0, theory: 0, todo: 0 };
+    DATA.topics.forEach((t) => counts[t.status]++);
+    const total = DATA.topics.length;
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    const review = DATA.questions.filter((q) => marks[q.id] === 'review').length;
+    const qTotal = DATA.questions.length;
+    const pct = (n, of) => (of ? (n / of) * 100 : 0) + '%';
+    $('#meter').innerHTML = `
+      <span class="eyebrow">Tiến độ</span>
+      <div class="meter-row">
+        <div class="label"><span>Chủ đề</span><b>${counts.done} đã làm · ${counts.theory} lý thuyết · ${counts.todo} chưa học</b></div>
+        <div class="bar"><i class="b-done" style="width:${pct(counts.done, total)}"></i><i class="b-theory" style="width:${pct(counts.theory, total)}"></i></div>
+      </div>
+      <div class="meter-row">
+        <div class="label"><span>Câu hỏi luyện</span><b>${known}/${qTotal} đã thuộc · ${review} cần ôn</b></div>
+        <div class="bar"><i class="b-known" style="width:${pct(known, qTotal)}"></i><i class="b-review" style="width:${pct(review, qTotal)}"></i></div>
+      </div>
+      <div class="legend"><a class="btn" href="#topic-0">Đọc bài đầu tiên</a><a class="btn primary" href="#practice">Luyện câu hỏi</a></div>`;
+  }
+
+  // ================= KNOWLEDGE =================
+  const LABELS = [
+    ['Câu hỏi phỏng vấn', 'questions'],
+    ['Bẫy phỏng vấn', 'trap'],
+    ['Ví dụ w-identity', 'incode'],
+    ['Kịch bản thiết kế', 'incode'],
+    ['Bẫy thực tế', 'trap'],
+    ['Bẫy cần nhớ', 'trap'],
+    ['Mẫu trả lời', 'sample'],
+    ['Trong code', 'incode'],
+    ['Tự trả lời', 'self'],
+    ['Tự viết', 'self'],
+  ];
+  function decorate(root) {
+    root.querySelectorAll('table').forEach((t) => {
+      const w = el('div', { class: 'table-wrap' });
+      t.replaceWith(w);
+      w.appendChild(t);
+    });
+    [...root.querySelectorAll(':scope > p')].forEach((p) => {
+      const strong = p.firstElementChild;
+      if (!strong || strong.tagName !== 'STRONG' || p.firstChild !== strong) return;
+      const hit = LABELS.find(([label]) => strong.textContent.startsWith(label));
+      if (!hit) return;
+      const box = el('div', { class: 'callout ' + hit[1] });
+      p.before(box);
+      const next = p.nextElementSibling;
+      box.appendChild(p);
+      if (p.textContent.trim().length > strong.textContent.trim().length + 2) return; // nội dung nằm ngay trong đoạn
+      if (next && /^(UL|OL|BLOCKQUOTE|PRE|DIV)$/.test(next.tagName)) box.appendChild(next);
+    });
+  }
+
+  const questionsByTopic = new Map();
+  DATA.questions.forEach((q) => q.refs.forEach((r) => questionsByTopic.set(r, (questionsByTopic.get(r) ?? 0) + 1)));
+
+  function renderToc(currentN) {
+    const filter = $('#toc-search').value.trim().toLowerCase();
+    const list = $('#toc-list');
+    list.innerHTML = '';
+    DATA.topics
+      .filter((t) => !filter || (t.n + '. ' + t.title).toLowerCase().includes(filter))
+      .forEach((t) => {
+        const li = el('li');
+        const a = el('a', { href: '#topic-' + t.n, title: STATUS_LABEL[t.status] });
+        if (t.n === currentN) a.setAttribute('aria-current', 'true');
+        a.innerHTML = `<span class="num">${String(t.n).padStart(2, '0')}</span><span></span><span class="dot ${t.status}"></span>`;
+        a.children[1].textContent = t.title;
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+    if (!list.children.length) list.appendChild(el('li', { class: 'empty', text: 'Không tìm thấy chủ đề phù hợp.' }));
+  }
+  function renderTopic(n) {
+    const idx = DATA.topics.findIndex((t) => t.n === n);
+    const t = DATA.topics[idx] ?? DATA.topics[0];
+    currentTopic = t.n;
+    const prev = DATA.topics[idx - 1];
+    const next = DATA.topics[idx + 1];
+    const qCount = questionsByTopic.get(t.n) ?? 0;
+    const art = $('#topic');
+    art.innerHTML = `
+      <div class="topic-head">
+        <span class="eyebrow">Chủ đề ${String(t.n).padStart(2, '0')} · ${t.step}</span>
+        <h1></h1>
+        <div class="topic-meta"><span class="chip ${t.status}">${STATUS_LABEL[t.status]}</span><span class="status-note"></span></div>
+      </div>
+      <div class="prose" id="prose">${t.html}</div>
+      ${qCount ? `<div class="panel practice-link"><span>Có <b>${qCount}</b> câu hỏi luyện tập liên quan tới chủ đề này.</span><a class="btn primary" href="#practice" data-topic="${t.n}">Luyện ngay</a></div>` : ''}
+      <div class="topic-foot">
+        ${prev ? `<a class="btn" href="#topic-${prev.n}">← ${prev.n}. </a>` : '<span></span>'}
+        ${next ? `<a class="btn" href="#topic-${next.n}">${next.n}. →</a>` : '<span></span>'}
+      </div>`;
+    $('h1', art).textContent = t.title;
+    $('.status-note', art).textContent = t.statusNote;
+    const foot = art.querySelectorAll('.topic-foot a');
+    if (prev) foot[0].textContent = '← ' + prev.n + '. ' + prev.title;
+    if (next) foot[foot.length - 1].textContent = next.n + '. ' + next.title + ' →';
+    decorate($('#prose'));
+    const link = art.querySelector('[data-topic]');
+    if (link) link.addEventListener('click', () => { practiceState.topic = t.n; practiceState.pos = 0; });
+    renderToc(t.n);
+  }
+  let currentTopic = 0;
+  $('#toc-search').addEventListener('input', () => renderToc(currentTopic));
+  $('#toc-toggle').addEventListener('click', () => {
+    const toc = $('#toc');
+    const collapsed = toc.classList.toggle('collapsed');
+    $('#toc-toggle').setAttribute('aria-expanded', String(!collapsed));
+  });
+  if (matchMedia('(max-width: 920px)').matches) $('#toc').classList.add('collapsed');
+
+  // ================= PRACTICE =================
+  const PARTS = [...new Map(DATA.questions.map((q) => [q.part, q.partTitle])).entries()];
+  const practiceState = { part: 'all', level: 'all', onlyReview: false, topic: null, order: DATA.questions.map((_, i) => i), pos: 0, revealed: false };
+
+  function filtered() {
+    return practiceState.order
+      .map((i) => DATA.questions[i])
+      .filter((q) => practiceState.part === 'all' || q.part === practiceState.part)
+      .filter((q) => practiceState.level === 'all' || q.level === practiceState.level)
+      .filter((q) => !practiceState.onlyReview || marks[q.id] !== 'known')
+      .filter((q) => practiceState.topic === null || q.refs.includes(practiceState.topic));
+  }
+  function pillGroup(label, options, key) {
+    const g = el('div', { class: 'fgroup', role: 'group', 'aria-label': label });
+    g.appendChild(el('span', { class: 'eyebrow', text: label }));
+    options.forEach(([value, text]) => {
+      const b = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState[key] === value) });
+      b.textContent = text;
+      b.addEventListener('click', () => { practiceState[key] = value; practiceState.pos = 0; practiceState.revealed = false; renderPractice(); });
+      g.appendChild(b);
+    });
+    return g;
+  }
+  function renderFilters() {
+    const f = $('#filters');
+    f.innerHTML = '';
+    f.appendChild(pillGroup('Phần', [['all', 'Tất cả'], ...PARTS.map(([id, title]) => [id, id + ' · ' + title])], 'part'));
+    f.appendChild(pillGroup('Mức', [['all', 'Tất cả'], ['basic', 'Cơ bản'], ['mid', 'Trung bình'], ['hard', 'Nâng cao']], 'level'));
+    const extra = el('div', { class: 'fgroup' });
+    const rb = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState.onlyReview) });
+    rb.textContent = 'Ẩn câu đã thuộc';
+    rb.addEventListener('click', () => { practiceState.onlyReview = !practiceState.onlyReview; practiceState.pos = 0; renderPractice(); });
+    extra.appendChild(rb);
+    if (practiceState.topic !== null) {
+      const t = topicByN.get(practiceState.topic);
+      const tb = el('button', { type: 'button', class: 'pill', 'aria-pressed': 'true', title: 'Bỏ lọc theo chủ đề' });
+      tb.textContent = 'Chủ đề ' + practiceState.topic + (t ? ' · ' + t.title : '') + '  ✕';
+      tb.addEventListener('click', () => { practiceState.topic = null; practiceState.pos = 0; renderPractice(); });
+      extra.appendChild(tb);
+    }
+    f.appendChild(extra);
+  }
+  function setMark(q, value) {
+    if (marks[q.id] === value) delete marks[q.id]; else marks[q.id] = value;
+    store.set('rabbitmq-practice-marks', marks);
+  }
+  function renderPractice() {
+    renderFilters();
+    const list = filtered();
+    if (practiceState.pos >= list.length) practiceState.pos = Math.max(0, list.length - 1);
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    $('#counter').textContent = list.length
+      ? `Câu ${practiceState.pos + 1}/${list.length} trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`
+      : `0 câu trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`;
+    const card = $('#card');
+    if (!list.length) {
+      card.className = 'panel empty';
+      card.innerHTML = 'Không còn câu nào khớp bộ lọc. Bỏ bớt bộ lọc hoặc tắt "Ẩn câu đã thuộc".';
+      return;
+    }
+    const q = list[practiceState.pos];
+    const mark = marks[q.id];
+    card.className = 'panel card';
+    card.innerHTML = `
+      <div class="card-meta">
+        <span class="eyebrow">Phần ${q.part}${q.group ? ' · ' + q.group : ''}</span>
+        ${q.level ? `<span class="chip ${q.level}">${LEVEL_LABEL[q.level]}</span>` : ''}
+        ${mark ? `<span class="mark ${mark}">${mark === 'known' ? '✓ đã thuộc' : '↺ cần ôn lại'}</span>` : ''}
+      </div>
+      <div class="card-q">${q.text}</div>
+      <div id="hint-area"></div>
+      <div class="card-actions">
+        <button class="btn" id="prev-btn" type="button" ${practiceState.pos === 0 ? 'disabled' : ''}>← Trước</button>
+        <button class="btn primary" id="reveal-btn" type="button">${practiceState.revealed ? 'Ẩn ý chính' : 'Hiện ý chính'}</button>
+        <span class="spacer"></span>
+        <button class="btn again" id="again-btn" type="button">Cần ôn lại</button>
+        <button class="btn good" id="known-btn" type="button">Đã thuộc</button>
+        <button class="btn" id="next-btn" type="button" ${practiceState.pos >= list.length - 1 ? 'disabled' : ''}>Sau →</button>
+      </div>`;
+    if (practiceState.revealed) {
+      const area = $('#hint-area');
+      const refs = q.refs.map((r) => topicByN.get(r)).filter(Boolean);
+      area.innerHTML = `
+        ${q.hint ? `<div class="hint"><span class="eyebrow">${q.hintLabel ?? 'Ý chính'}</span>${q.hint}</div>` : '<div class="hint"><span class="eyebrow">Gợi ý</span>Tự trả lời theo khung: định nghĩa → vì sao / đánh đổi → ví dụ từ dự án.</div>'}
+        ${refs.length ? `<div class="refs"><span class="eyebrow">Đọc lại</span>${refs.map((t) => `<a href="#topic-${t.n}">#${t.n} ${escapeHtml(t.title)}</a>`).join('')}</div>` : ''}`;
+    }
+    $('#prev-btn').addEventListener('click', () => move(-1));
+    $('#next-btn').addEventListener('click', () => move(1));
+    $('#reveal-btn').addEventListener('click', toggleReveal);
+    $('#again-btn').addEventListener('click', () => { setMark(q, 'review'); move(1, true); });
+    $('#known-btn').addEventListener('click', () => { setMark(q, 'known'); move(1, true); });
+  }
+  function move(delta, afterMark) {
+    const list = filtered();
+    const nextPos = practiceState.pos + delta;
+    if (nextPos >= 0 && nextPos < list.length) practiceState.pos = nextPos;
+    practiceState.revealed = false;
+    renderPractice();
+    if (afterMark) renderMeter();
+  }
+  function toggleReveal() { practiceState.revealed = !practiceState.revealed; renderPractice(); }
+  $('#shuffle-btn').addEventListener('click', () => {
+    const o = practiceState.order;
+    for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+    practiceState.pos = 0; practiceState.revealed = false; renderPractice();
+  });
+  const resetBtn = $('#reset-btn');
+  let resetArmed = false;
+  resetBtn.addEventListener('click', () => {
+    if (!resetArmed) { resetArmed = true; resetBtn.textContent = 'Bấm lần nữa để xoá'; setTimeout(() => { resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu'; }, 3000); return; }
+    marks = {}; store.set('rabbitmq-practice-marks', marks); resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu';
+    renderPractice(); renderMeter();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'practice' || e.target.closest('input, textarea')) return;
+    const list = filtered();
+    const q = list[practiceState.pos];
+    if (e.key === ' ') { e.preventDefault(); toggleReveal(); }
+    else if (e.key === 'ArrowRight') move(1);
+    else if (e.key === 'ArrowLeft') move(-1);
+    else if (e.key === '1' && q) { setMark(q, 'review'); move(1, true); }
+    else if (e.key === '2' && q) { setMark(q, 'known'); move(1, true); }
+  });
+
+  // ================= GLOSSARY =================
+  function renderGlossary() {
+    const filter = $('#gloss-search').value.trim().toLowerCase();
+    const box = $('#gloss');
+    box.innerHTML = '';
+    DATA.glossary
+      .filter((g) => !filter || (g.term + ' ' + g.def).toLowerCase().includes(filter))
+      .forEach((g) => box.appendChild(el('div', { class: 'panel term' }, `<b>${g.term}</b><span>${g.def}</span>`)));
+    if (!box.children.length) box.appendChild(el('p', { class: 'panel empty', text: 'Không tìm thấy thuật ngữ phù hợp.' }));
+  }
+  $('#gloss-search').addEventListener('input', renderGlossary);
+
+  // ================= SLIDES =================
+  let slideIdx = 0;
+  let showNotes = false;
+  /** Chèn lại sơ đồ của tab Tổng quan vào slide. Đổi id của marker trong SVG để không trùng. */
+  function embed(sourceId, suffix) {
+    const clone = document.getElementById(sourceId).cloneNode(true);
+    clone.removeAttribute('id');
+    clone.querySelectorAll('[id]').forEach((n) => { n.id = n.id + suffix; });
+    clone.querySelectorAll('[marker-start],[marker-end]').forEach((n) => {
+      ['marker-start', 'marker-end'].forEach((attr) => {
+        const v = n.getAttribute(attr);
+        if (v) n.setAttribute(attr, v.replace(/url\(#([^)]+)\)/, `url(#$1${suffix})`));
+      });
+    });
+    return clone;
+  }
+  const EMBEDS = { '{{architecture}}': 'arch-diagram', '{{planes}}': 'planes' };
+  function renderSlide() {
+    const total = DATA.slides.length;
+    slideIdx = Math.max(0, Math.min(slideIdx, total - 1));
+    const s = DATA.slides[slideIdx];
+    const slide = $('#slide');
+    slide.className = 'slide' + (s.cover ? ' cover' : '');
+    slide.innerHTML = s.html +
+      `<span class="slide-brand">RabbitMQ</span><span class="slide-no">${String(slideIdx + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}</span>`;
+    slide.querySelectorAll('p').forEach((p) => {
+      const id = EMBEDS[p.textContent.trim()];
+      if (id) p.replaceWith(embed(id, '-s' + slideIdx));
+    });
+    $('#slide-counter').textContent = `Slide ${slideIdx + 1}/${total}`;
+    $('#slide-progress').style.width = ((slideIdx + 1) / total) * 100 + '%';
+    $('#slide-prev').disabled = slideIdx === 0;
+    $('#slide-next').disabled = slideIdx === total - 1;
+    const notes = $('#slide-notes');
+    notes.hidden = !showNotes;
+    notes.innerHTML = '<span class="eyebrow">Ghi chú người nói</span>' + (s.notes || '<p>Không có ghi chú cho slide này.</p>');
+    $('#slide-notes-btn').setAttribute('aria-pressed', String(showNotes));
+  }
+  function slideGo(i) {
+    slideIdx = i;
+    renderSlide();
+    // Đổi slide không tạo thêm mục trong lịch sử (Back quay về tab trước, không lùi từng slide).
+    try { history.replaceState(null, '', '#slide-' + (slideIdx + 1)); } catch { /* bỏ qua */ }
+  }
+  function toggleFullscreen() {
+    const stage = $('#stage');
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else stage.requestFullscreen?.().catch(() => undefined);
+    } catch { /* trình xem không hỗ trợ toàn màn hình */ }
+  }
+  $('#slide-prev').addEventListener('click', () => slideGo(slideIdx - 1));
+  $('#slide-next').addEventListener('click', () => slideGo(slideIdx + 1));
+  $('#slide-full').addEventListener('click', toggleFullscreen);
+  $('#slide-notes-btn').addEventListener('click', () => { showNotes = !showNotes; renderSlide(); });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'slides' || e.target.closest('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+    const last = DATA.slides.length - 1;
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); slideGo(Math.min(slideIdx + 1, last)); }
+    else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); slideGo(Math.max(slideIdx - 1, 0)); }
+    else if (e.key === 'Home') slideGo(0);
+    else if (e.key === 'End') slideGo(last);
+    else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+    else if (e.key === 'n' || e.key === 'N') { showNotes = !showNotes; renderSlide(); }
+  });
+
+  function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+
+  // ================= ROUTING (#overview, #knowledge, #topic-N, #practice, #glossary) =================
+  // Không dựa vào sự kiện hashchange để chuyển view: một số trình xem (preview trong IDE, app desktop,
+  // file:// bị chặn điều hướng) không đổi hash khi bấm link. Bấm link nội bộ → gọi go() trực tiếp;
+  // cập nhật URL chỉ là phụ, lỗi thì bỏ qua.
+  let currentView = 'overview';
+  function go(hash, updateUrl = true) {
+    route(hash);
+    if (!updateUrl) return;
+    try {
+      if (location.hash !== '#' + hash) history.pushState(null, '', '#' + hash);
+    } catch { /* trình xem không cho đổi URL: view vẫn đã chuyển */ }
+  }
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    go(a.getAttribute('href').slice(1));
+  });
+  function route(hash) {
+    const topicMatch = /^topic-(\d+)$/.exec(hash);
+    const slideMatch = /^slide-(\d+)$/.exec(hash);
+    const view = topicMatch ? 'knowledge'
+      : slideMatch ? 'slides'
+      : ['overview', 'knowledge', 'practice', 'glossary', 'slides'].includes(hash) ? hash : 'overview';
+    currentView = view;
+    document.querySelectorAll('[data-view-panel]').forEach((p) => { p.hidden = p.dataset.viewPanel !== view; });
+    document.querySelectorAll('nav.tabs a').forEach((a) => {
+      if (a.dataset.view === view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    if (view === 'knowledge') renderTopic(topicMatch ? Number(topicMatch[1]) : DATA.topics[0].n);
+    if (view === 'practice') renderPractice();
+    if (view === 'glossary') renderGlossary();
+    if (view === 'overview') renderMeter();
+    if (view === 'slides') {
+      if (slideMatch) slideIdx = Number(slideMatch[1]) - 1;
+      renderSlide();
+    }
+    window.scrollTo(0, 0);
+  }
+  // Nút Back/Forward của trình duyệt, hoặc người dùng tự sửa hash.
+  const fromUrl = () => route(location.hash.slice(1));
+  window.addEventListener('hashchange', fromUrl);
+  window.addEventListener('popstate', fromUrl);
+
+  fromUrl();
+})();
+</script>
+</body>
+</html>

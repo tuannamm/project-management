@@ -44,5 +44,12 @@
     "app": "apps/w-identity",
     "docs": "documents/outbox",
     "tagline": "Dual write · Relay · At-least-once · Ôn phỏng vấn"
+  },
+  {
+    "id": "rabbitmq",
+    "name": "RabbitMQ",
+    "app": "apps/w-identity",
+    "docs": "documents/rabbitmq",
+    "tagline": "Exchange · Ack · Độ tin cậy · Retry và DLQ · Ôn phỏng vấn"
   }
 ]

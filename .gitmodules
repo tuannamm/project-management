@@ -7,3 +7,16 @@
 [submodule "apps/keycloakify"]
 	path = apps/keycloakify
 	url = https://github.com/keycloakify/keycloakify.git
+
+[submodule "apps/api-gateway"]
+	path = apps/api-gateway
+	url = https://github.com/tuannamm/api-gateway.git
+[submodule "apps/service-discovery"]
+	path = apps/service-discovery
+	url = https://github.com/tuannamm/service-discovery.git
+[submodule "apps/w-identity"]
+	path = apps/w-identity
+	url = https://github.com/tuannamm/w-identity.git
+[submodule "apps/lib-infrastructure"]
+	path = apps/lib-infrastructure
+	url = https://github.com/tuannamm/lib-infrastructure.git

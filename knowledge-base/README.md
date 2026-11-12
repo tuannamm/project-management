@@ -47,6 +47,11 @@ Thông số (thời hạn token, tên cookie, mã lỗi) được đo bằng scr
 Mục `#outbox` là sổ tay về Transactional Outbox: dual write, cấu trúc outbox và transaction trên MongoDB, relay (claim bằng lease, publisher confirm), at-least-once và inbox idempotent, thứ tự/retry/poison message, polling so với change stream, vận hành, và cách nói khi phỏng vấn (có sơ đồ `outbox-flow.svg` và mô phỏng tương tác ở trang Tổng quan).
 Đây là tài liệu thiết kế: dự án chưa cài outbox và code ví dụ chưa chạy thử. Nguồn đặt trong `apps/w-identity/documents/outbox/`; template ở `knowledge-base/projects/outbox/template.html`; đánh dấu ôn tập dùng khóa `outbox-practice-marks`.
 
+## RabbitMQ
+
+Mục `#rabbitmq` là sổ tay học RabbitMQ từ nền tảng, gồm 15 bài (0–14): vì sao cần broker, connection và channel, exchange và binding, queue, ack và prefetch, ba chặng không mất message, at-least-once và idempotent, DLX và retry, thứ tự, patterns, vận hành, cluster và quorum queue, so sánh với Kafka, và cách nói khi phỏng vấn (có sơ đồ `rabbitmq-routing.svg`).
+Đây là tài liệu lý thuyết tổng quát, không mô tả code của `@lib-infrastructure/rabbitmq`; code `amqplib` chỉ để minh họa và chưa chạy thử. Nguồn đặt trong `apps/w-identity/documents/rabbitmq/`; template ở `knowledge-base/projects/rabbitmq/template.html`; đánh dấu ôn tập dùng khóa `rabbitmq-practice-marks`.
+
 ## Thêm project mới
 
 1. Trong `apps/<project>/`: viết `documents/KNOWLEDGE.md`, `INTERVIEW-QUESTIONS.md`, `SLIDES.md`

@@ -39,21 +39,42 @@ body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 var(-
 h1, h2, h3 { margin: 0; line-height: 1.2; text-wrap: balance; }
 .eyebrow { font: 600 11px/1 var(--font-mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
 
-/* ---------- Thanh project ---------- */
-.kb-bar {
-  flex: none; min-height: var(--bar-h); display: flex; align-items: center; gap: 14px;
-  padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
-  background: var(--bg); color: var(--ink); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none;
+/* ---------- Sidebar project (theo nhóm kỹ thuật, thu/mở được) ---------- */
+body { flex-direction: row; }
+.kb-side {
+  flex: none; width: 280px; display: flex; flex-direction: column; background: var(--surface); border-right: 1px solid var(--line);
+  transition: margin-left .2s ease; z-index: 20; padding-top: env(safe-area-inset-top, 0px);
 }
-.kb-bar::-webkit-scrollbar { display: none; }
+body.side-closed .kb-side { margin-left: -280px; }
+.kb-side-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 12px 12px 16px; border-bottom: 1px solid var(--line); }
 .kb-brand { font: 700 12px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; color: var(--accent); text-decoration: none; }
-.kb-tabs { display: flex; gap: 2px; }
-.kb-tabs a {
-  white-space: nowrap; text-decoration: none; color: var(--muted); font-weight: 600; font-size: 13.5px;
-  padding: 5px 12px; border-radius: 8px; border: 1px solid transparent;
+.kb-icon-btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font: 600 14px var(--font-mono); display: grid; place-items: center; }
+.kb-icon-btn:hover { background: var(--surface-2); }
+.kb-tabs { flex: 1; overflow-y: auto; padding: 8px 8px 16px; }
+.kb-home { display: block; text-decoration: none; color: var(--muted); font-weight: 600; font-size: 13.5px; padding: 7px 10px; border-radius: 8px; border: 1px solid transparent; }
+.kb-group { margin-top: 6px; }
+.kb-group > button {
+  width: 100%; display: flex; align-items: center; gap: 8px; background: none; border: 0; cursor: pointer; text-align: left;
+  font: 700 11px var(--font-mono); letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); padding: 8px 10px; border-radius: 8px;
 }
+.kb-group > button:hover { background: var(--surface-2); color: var(--ink); }
+.kb-group > button .chev { transition: transform .15s; display: inline-block; font-size: 10px; }
+.kb-group.open > button .chev { transform: rotate(90deg); }
+.kb-group > button .cnt { margin-left: auto; font-weight: 500; opacity: .7; }
+.kb-group ul { list-style: none; margin: 0; padding: 0 0 0 14px; display: none; }
+.kb-group.open ul { display: block; }
+.kb-tabs a { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: none; color: var(--muted); font-weight: 600; font-size: 13.5px; padding: 6px 10px; border-radius: 8px; border: 1px solid transparent; }
 .kb-tabs a:hover { color: var(--ink); background: var(--surface-2); }
-.kb-tabs a[aria-current="page"] { color: var(--ink); background: var(--surface); border-color: var(--line); }
+.kb-tabs a[aria-current="page"] { color: var(--ink); background: var(--accent-soft); border-color: var(--line); }
+.kb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+.kb-open { position: absolute; top: 10px; left: 10px; z-index: 15; display: none; }
+body.side-closed .kb-open { display: grid; }
+.kb-scrim { display: none; }
+@media (max-width: 760px) {
+  .kb-side { position: fixed; inset: 0 auto 0 0; box-shadow: 0 0 40px #0006; }
+  body:not(.side-closed) .kb-scrim { display: block; position: fixed; inset: 0; background: #0005; z-index: 19; }
+}
+#home { overflow-y: auto; flex: 1; }
 
 /* ---------- Khung project ---------- */
 #frames { flex: 1; min-height: 0; position: relative; }
@@ -110,10 +131,16 @@ h1, h2, h3 { margin: 0; line-height: 1.2; text-wrap: balance; }
 </style>
 </head>
 <body>
-<nav class="kb-bar" aria-label="Project">
-  <a class="kb-brand" href="#home">Knowledge Base</a>
-  <div class="kb-tabs" id="kb-tabs"></div>
-</nav>
+<aside class="kb-side" aria-label="Danh mục project">
+  <div class="kb-side-head">
+    <a class="kb-brand" href="#home">Knowledge Base</a>
+    <button class="kb-icon-btn" id="kb-close" title="Thu gọn menu" aria-label="Thu gọn menu">«</button>
+  </div>
+  <nav class="kb-tabs" id="kb-tabs"></nav>
+</aside>
+<div class="kb-scrim" id="kb-scrim"></div>
+<div class="kb-main">
+<button class="kb-icon-btn kb-open" id="kb-open" title="Mở menu" aria-label="Mở menu">»</button>
 
 <main id="home" hidden>
   <div class="wrap">
@@ -146,6 +173,7 @@ h1, h2, h3 { margin: 0; line-height: 1.2; text-wrap: balance; }
 </main>
 
 <div id="frames" hidden></div>
+</div>
 
 <script id="kb-data" type="application/json">__KB_DATA__</script>
 <script>
@@ -163,9 +191,41 @@ h1, h2, h3 { margin: 0; line-height: 1.2; text-wrap: balance; }
   const readMarks = (key) => { try { return key ? JSON.parse(localStorage.getItem(key) || '{}') : {}; } catch { return {}; } };
   const pct = (n, of) => (of ? (n / of) * 100 : 0) + '%';
 
-  // ---------- Thanh project ----------
-  $('#kb-tabs').innerHTML = [['home', 'Trang chủ'], ...KB.projects.map((p) => [p.id, p.name])]
-    .map(([id, name]) => `<a href="#${id}" data-id="${id}">${esc(name)}</a>`).join('');
+  // ---------- Sidebar theo nhóm kỹ thuật ----------
+  const store = {
+    get: (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* bỏ qua */ } },
+  };
+  const groups = [];
+  KB.projects.forEach((p) => {
+    const name = p.category || 'Khác';
+    let g = groups.find((x) => x.name === name);
+    if (!g) groups.push((g = { name, items: [] }));
+    g.items.push(p);
+  });
+  let openGroups = new Set(store.get('kb-open-groups') ?? groups.map((g) => g.name));
+  const saveGroups = () => store.set('kb-open-groups', [...openGroups]);
+  $('#kb-tabs').innerHTML = `<a class="kb-home" href="#home" data-id="home">Trang chủ</a>` + groups.map((g, i) =>
+    `<div class="kb-group" data-g="${esc(g.name)}"><button type="button" aria-expanded="false"><span class="chev">▶</span>${esc(g.name)}<span class="cnt">${g.items.length}</span></button>` +
+    `<ul>${g.items.map((p) => `<li><a href="#${p.id}" data-id="${p.id}" title="${esc(p.tagline ?? '')}">${esc(p.name)}</a></li>`).join('')}</ul></div>`).join('');
+  function paintGroups() {
+    document.querySelectorAll('.kb-group').forEach((el) => {
+      const o = openGroups.has(el.dataset.g);
+      el.classList.toggle('open', o);
+      el.querySelector('button').setAttribute('aria-expanded', o);
+    });
+  }
+  document.querySelectorAll('.kb-group > button').forEach((b) => b.addEventListener('click', () => {
+    const n = b.parentElement.dataset.g;
+    openGroups.has(n) ? openGroups.delete(n) : openGroups.add(n);
+    saveGroups(); paintGroups();
+  }));
+  const setSide = (closed) => { document.body.classList.toggle('side-closed', closed); store.set('kb-side-closed', closed); };
+  setSide(store.get('kb-side-closed') ?? window.matchMedia('(max-width: 760px)').matches);
+  $('#kb-close').onclick = () => setSide(true);
+  $('#kb-open').onclick = () => setSide(false);
+  $('#kb-scrim').onclick = () => setSide(true);
+  paintGroups();
 
   // ---------- Trang chủ ----------
   function progressOf(p) {
@@ -260,6 +320,11 @@ h1, h2, h3 { margin: 0; line-height: 1.2; text-wrap: balance; }
     document.querySelectorAll('#kb-tabs a').forEach((a) => {
       if (a.dataset.id === (project ?? 'home')) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
+    if (project) {
+      const cat = byId.get(project).category || 'Khác';
+      if (!openGroups.has(cat)) { openGroups.add(cat); saveGroups(); paintGroups(); }
+      if (window.matchMedia('(max-width: 760px)').matches) setSide(true);
+    }
     $('#home').hidden = !!project;
     $('#frames').hidden = !project;
     frames.forEach((e, k) => { e.el.hidden = k !== project; });

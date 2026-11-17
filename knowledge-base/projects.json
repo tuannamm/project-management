@@ -3,60 +3,85 @@
     "id": "api-gateway",
     "name": "API Gateway",
     "app": "apps/api-gateway",
-    "tagline": "Contract-first · HTTP → TCP RPC · NestJS + Fastify"
+    "tagline": "Contract-first · HTTP → TCP RPC · NestJS + Fastify",
+    "category": "Kiến trúc hệ thống"
   },
   {
     "id": "service-discovery",
     "name": "Service Registry",
     "app": "apps/service-discovery",
-    "tagline": "Service discovery · HTTP + JSON · NestJS · in-memory"
+    "tagline": "Service discovery · HTTP + JSON · NestJS · in-memory",
+    "category": "Kiến trúc hệ thống"
   },
   {
     "id": "clean-architecture",
     "name": "Clean Architecture",
     "app": "apps/w-identity",
-    "tagline": "Dependency Rule · Ports & Adapters · Ôn phỏng vấn với w-identity"
+    "tagline": "Dependency Rule · Ports & Adapters · Ôn phỏng vấn với w-identity",
+    "category": "Thiết kế phần mềm"
   },
   {
     "id": "ddd",
     "name": "Domain-Driven Design",
     "app": "apps/w-identity",
     "docs": "documents/ddd",
-    "tagline": "Bounded Context · Aggregate · Ubiquitous Language · Ôn phỏng vấn"
+    "tagline": "Bounded Context · Aggregate · Ubiquitous Language · Ôn phỏng vấn",
+    "category": "Thiết kế phần mềm"
   },
   {
     "id": "authz",
     "name": "Phân quyền",
     "app": "apps/w-identity",
     "docs": "documents/authz",
-    "tagline": "AuthN vs AuthZ · RBAC · Gateway · Ôn phỏng vấn"
+    "tagline": "AuthN vs AuthZ · RBAC · Gateway · Ôn phỏng vấn",
+    "category": "Bảo mật & Định danh"
   },
   {
     "id": "oidc",
     "name": "Keycloak và OIDC",
     "app": "apps/w-identity",
     "docs": "documents/oidc",
-    "tagline": "OIDC · PKCE · Token · Session · Đăng xuất"
+    "tagline": "OIDC · PKCE · Token · Session · Đăng xuất",
+    "category": "Bảo mật & Định danh"
   },
   {
     "id": "outbox",
     "name": "Transactional Outbox",
     "app": "apps/w-identity",
     "docs": "documents/outbox",
-    "tagline": "Dual write · Relay · At-least-once · Ôn phỏng vấn"
+    "tagline": "Dual write · Relay · At-least-once · Ôn phỏng vấn",
+    "category": "Messaging & Giao dịch phân tán"
   },
   {
     "id": "rabbitmq",
     "name": "RabbitMQ",
     "app": "apps/w-identity",
     "docs": "documents/rabbitmq",
-    "tagline": "Exchange · Ack · Độ tin cậy · Retry và DLQ · Ôn phỏng vấn"
+    "tagline": "Exchange · Ack · Độ tin cậy · Retry và DLQ · Ôn phỏng vấn",
+    "category": "Messaging & Giao dịch phân tán"
   },
   {
     "id": "saga",
     "name": "Saga Pattern",
     "app": "apps/w-identity",
     "docs": "documents/saga",
-    "tagline": "Distributed transaction · Compensation · Orchestration · Ôn phỏng vấn"
+    "tagline": "Distributed transaction · Compensation · Orchestration · Ôn phỏng vấn",
+    "category": "Messaging & Giao dịch phân tán"
+  },
+  {
+    "id": "oop",
+    "name": "OOP",
+    "app": "knowledge-base/projects/oop",
+    "docs": "documents",
+    "tagline": "Bốn trụ cột · SOLID · Composition · Design pattern · Ôn phỏng vấn",
+    "category": "Thiết kế phần mềm"
+  },
+  {
+    "id": "solid",
+    "name": "SOLID",
+    "app": "knowledge-base/projects/solid",
+    "docs": "documents",
+    "tagline": "SRP · OCP · LSP · ISP · DIP · Refactor · Ôn phỏng vấn",
+    "category": "Thiết kế phần mềm"
   }
 ]

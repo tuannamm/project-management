@@ -59,6 +59,18 @@ Mục `#saga` là sổ tay về Saga Pattern, gồm 12 bài (0–11): giao dịc
 Đây là tài liệu thiết kế: dự án chưa cài saga, code chưa chạy thử, saga tạo project ở bài 9 là đề xuất. Nguồn đặt trong `knowledge-base/projects/w-identity/documents/saga/`; template ở `knowledge-base/projects/saga/template.html`; đánh dấu ôn tập dùng khóa `saga-practice-marks`.
 Sinh lại sổ tay này: `node knowledge-base/build-handbook.mjs saga knowledge-base/projects/w-identity/documents/saga`, rồi `node knowledge-base/build.mjs --no-rebuild`. `build-handbook.mjs` là builder chung (tham số `<id> <thư mục docs>`, tự nhúng ảnh `./*.svg` dạng base64), dùng được cho các sổ tay khác có cùng định dạng markdown.
 
+## OOP
+
+Mục `#oop` là sổ tay độc lập về lập trình hướng đối tượng, gồm 14 bài (0–13): bốn trụ cột, composition so với inheritance, quan hệ giữa các lớp, SOLID (tóm tắt, bản đầy đủ ở `#solid`), coupling/cohesion, design pattern, OOP trong TypeScript/JavaScript, anti-pattern và OOP so với FP, cách nói khi phỏng vấn; kèm 48 câu luyện tập và 15 slide.
+Đây là tài liệu lý thuyết tổng quát, không mô tả code dự án; code TypeScript chưa chạy thử. Nguồn đặt trong `knowledge-base/projects/oop/documents/`; template ở `knowledge-base/projects/oop/template.html`; đánh dấu ôn tập dùng khóa `oop-practice-marks`.
+Sinh lại: `node knowledge-base/build-handbook.mjs oop knowledge-base/projects/oop/documents`, rồi `node knowledge-base/build.mjs --no-rebuild` (builder cần gói `marked`, repo chưa khai báo nên phải cài tạm).
+
+## SOLID
+
+Mục `#solid` là sổ tay độc lập, tách ra từ bài 8 của `#oop` (bài đó nay chỉ còn bản tóm tắt), gồm 11 bài (0–10): SOLID trong 60 giây, từng nguyên tắc SRP/OCP/LSP/ISP/DIP kèm ví dụ vi phạm và cách sửa, bài refactor `OrderService` xuyên suốt, liên hệ với design pattern và kiến trúc (Clean Architecture/Hexagonal), SOLID trong TypeScript/NestJS (token DI), khi nào không áp dụng, và cách nói khi phỏng vấn; kèm 37 câu luyện tập và 13 slide.
+Đây là tài liệu lý thuyết tổng quát; code TypeScript chưa chạy thử. Nguồn đặt trong `knowledge-base/projects/solid/documents/`; template ở `knowledge-base/projects/solid/template.html`; đánh dấu ôn tập dùng khóa `solid-practice-marks`.
+Sinh lại: `node knowledge-base/build-handbook.mjs solid knowledge-base/projects/solid/documents`, rồi `node knowledge-base/build.mjs --no-rebuild`.
+
 ## Thêm project mới
 
 1. Trong `apps/<project>/`: viết `documents/KNOWLEDGE.md`, `INTERVIEW-QUESTIONS.md`, `SLIDES.md`

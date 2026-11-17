@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ tay OOP</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Cùng hệ giao diện với sổ tay API Gateway và Service Registry.
+   Nội dung được sinh từ markdown; tiến độ ôn tập dùng khóa riêng oop-practice-marks. */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #e9edf2;
+  --ink: #17202b;
+  --muted: #5a6574;
+  --line: #d6dce4;
+  --accent: #c2410c;
+  --accent-soft: #fbe5d8;
+  --control: #4352c9;
+  --control-soft: #e3e6fb;
+  --data: #0d7d72;
+  --data-soft: #d6f0ec;
+  --ok: #2b7a3f;
+  --ok-soft: #dcf0e1;
+  --learn: #2559c7;
+  --learn-soft: #dfe8fb;
+  --todo: #6b7482;
+  --todo-soft: #e6e9ee;
+  --danger: #b4321f;
+  --danger-soft: #f9e0db;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+    --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+    --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+    --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+  --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+  --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+  --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+[hidden] { display: none !important; }
+a { color: var(--learn); }
+code, pre, kbd { font-family: var(--font-mono); font-size: 0.86em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.eyebrow { font: 600 11px/1 var(--font-mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- Header ---------- */
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-block: 10px; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand b { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
+.brand span { font: 500 12px var(--font-mono); color: var(--muted); }
+nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+nav.tabs a {
+  text-decoration: none; color: var(--muted); font-weight: 600; font-size: 14px;
+  padding: 6px 12px; border-radius: 999px;
+}
+nav.tabs a:hover { color: var(--ink); background: var(--surface-2); }
+nav.tabs a[aria-current="page"] { color: var(--surface); background: var(--ink); }
+.icon-btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px;
+  font: 600 12px var(--font-mono); padding: 6px 10px; cursor: pointer;
+}
+main { padding-block: 28px 64px; }
+
+/* ---------- Shared bits ---------- */
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--font-mono); padding: 4px 8px; border-radius: 999px; white-space: nowrap; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.done { color: var(--ok); background: var(--ok-soft); }
+.chip.theory { color: var(--learn); background: var(--learn-soft); }
+.chip.todo { color: var(--todo); background: var(--todo-soft); }
+.chip.basic { color: var(--ok); background: var(--ok-soft); }
+.chip.mid { color: #a16207; background: #fbefcf; }
+.chip.hard { color: var(--danger); background: var(--danger-soft); }
+:root[data-theme="dark"] .chip.mid { color: #e8c062; background: #3a2f14; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip.mid { color: #e8c062; background: #3a2f14; } }
+.status-code { font: 700 13px var(--font-mono); padding: 2px 7px; border-radius: 6px; background: var(--surface-2); }
+.status-code.s2 { color: var(--ok); background: var(--ok-soft); }
+.status-code.s4 { color: #a16207; background: #fbefcf; }
+.status-code.s5 { color: var(--danger); background: var(--danger-soft); }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font: 600 14px var(--font-body); padding: 8px 14px; border-radius: 8px; cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn.good { background: var(--ok); color: var(--surface); border-color: var(--ok); }
+.btn.again { color: var(--accent); border-color: var(--accent); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.section-head h2 { font-size: 21px; font-weight: 700; }
+.section-head p { margin: 0; color: var(--muted); max-width: 62ch; }
+section.block { margin-top: 44px; }
+
+/* ---------- Overview ---------- */
+.hero { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 32px; align-items: end; }
+.hero h1 { font-size: clamp(30px, 4.6vw, 46px); font-weight: 800; letter-spacing: -0.025em; margin-top: 10px; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero p.lead { font-size: 17px; color: var(--muted); max-width: 58ch; margin: 14px 0 0; }
+.meter { padding: 18px; display: grid; gap: 14px; }
+.meter-row { display: grid; gap: 6px; }
+.meter-row .label { display: flex; justify-content: space-between; font-size: 13.5px; }
+.meter-row .label b { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.bar { height: 10px; border-radius: 999px; background: var(--surface-2); display: flex; overflow: hidden; }
+.bar i { display: block; height: 100%; }
+.bar .b-done { background: var(--ok); } .bar .b-theory { background: var(--learn); } .bar .b-known { background: var(--ok); } .bar .b-review { background: var(--accent); }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.diagram { overflow-x: auto; padding: 16px; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.diagram .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+.diagram .node.gw rect { fill: var(--accent-soft); stroke: var(--accent); }
+.diagram .node.svc rect { fill: var(--data-soft); stroke: var(--data); }
+.diagram .node.infra rect { fill: var(--control-soft); stroke: var(--control); }
+.diagram text { fill: var(--ink); font-family: var(--font-body); font-size: 14px; font-weight: 600; }
+.diagram text.small { fill: var(--muted); font: 500 11.5px var(--font-mono); }
+.diagram .edge { stroke: var(--ink); stroke-width: 1.6; fill: none; }
+.diagram .edge.tcp { stroke: var(--data); }
+.diagram .edge.dash { stroke: var(--control); stroke-dasharray: 5 5; }
+.diagram .edge.event { stroke: var(--muted); stroke-dasharray: 2 4; }
+.diagram marker path { fill: context-stroke; }
+.diagram .arrow-ink { fill: var(--ink); } .diagram .arrow-data { fill: var(--data); } .diagram .arrow-ctrl { fill: var(--control); } .diagram .arrow-muted { fill: var(--muted); }
+
+.planes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.plane { padding: 20px; border-top: 4px solid var(--control); }
+.plane.data { border-top-color: var(--data); }
+.plane h3 { font-size: 18px; margin-bottom: 4px; }
+.plane .when { font: 500 12.5px var(--font-mono); color: var(--muted); }
+.plane ol { margin: 14px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+.plane ol code { color: var(--muted); }
+.plane .rule { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 14px; color: var(--muted); }
+
+/* ---------- Knowledge ---------- */
+.kgrid { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 28px; align-items: start; }
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); max-height: calc(100vh - 100px); overflow-y: auto; padding: 10px; }
+.toc input { width: 100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 8px 10px; font: inherit; margin-bottom: 8px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.toc a { display: grid; grid-template-columns: 26px minmax(0, 1fr) 10px; gap: 6px; align-items: center; text-decoration: none; color: var(--ink); padding: 6px 8px; border-radius: 6px; font-size: 13.5px; line-height: 1.35; }
+.toc a:hover { background: var(--surface-2); }
+.toc a[aria-current="true"] { background: var(--surface-2); font-weight: 600; }
+.toc .num { font: 600 11.5px var(--font-mono); color: var(--muted); }
+.toc .dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.done { background: var(--ok); } .dot.theory { background: var(--learn); } .dot.todo { background: transparent; box-shadow: inset 0 0 0 1.5px var(--todo); }
+.toc-toggle { display: none; }
+
+article.topic { min-width: 0; }
+.topic-head { display: grid; gap: 10px; padding-bottom: 18px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.topic-head h1 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; letter-spacing: -0.02em; }
+.topic-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13.5px; }
+.prose { max-width: 76ch; }
+.prose img { display: block; max-width: 100%; height: auto; margin: 16px auto; border-radius: 12px; }
+.prose p, .prose li { overflow-wrap: break-word; }
+.prose p { margin: 0 0 12px; }
+.prose ul, .prose ol { margin: 0 0 14px; padding-left: 22px; display: grid; gap: 4px; }
+.prose code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.prose pre { background: var(--surface-2); padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 16px; line-height: 1.5; }
+.prose pre code { background: none; padding: 0; }
+.prose blockquote { margin: 0 0 14px; padding: 10px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+.prose h3 { font-size: 17px; margin: 22px 0 10px; }
+.table-wrap { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 8px; }
+.prose table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.prose th, .prose td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.prose th { background: var(--surface-2); font-weight: 600; font-size: 13px; }
+.prose tr:last-child td { border-bottom: 0; }
+.callout { border-radius: var(--radius); padding: 14px 16px 2px; margin: 0 0 16px; border: 1px solid var(--line); background: var(--surface); }
+.callout > p:first-child { font-size: 12px; font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+.callout > p:first-child strong { font-weight: 700; }
+.callout.questions { border-color: var(--learn); background: var(--learn-soft); }
+.callout.questions > p:first-child { color: var(--learn); }
+.callout.trap { border-color: var(--accent); background: var(--accent-soft); }
+.callout.trap > p:first-child { color: var(--accent); }
+.callout.sample { border-color: var(--ok); background: var(--ok-soft); }
+.callout.sample > p:first-child { color: var(--ok); }
+.callout.incode { border-color: var(--control); background: var(--control-soft); }
+.callout.incode > p:first-child { color: var(--control); }
+.callout.self { border-style: dashed; background: transparent; }
+.callout.self blockquote { border: 0; padding: 0; font-style: italic; }
+.topic-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--line); }
+.topic-foot a { text-decoration: none; }
+.practice-link { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; margin-top: 22px; }
+
+/* ---------- Practice ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; margin-bottom: 16px; }
+.fgroup { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.fgroup .eyebrow { margin-right: 4px; }
+.pill { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 5px 11px; font: 600 13px var(--font-body); cursor: pointer; }
+.pill[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.card { padding: 26px; display: grid; gap: 18px; min-height: 320px; align-content: start; }
+.card-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13px; }
+.card-q { font-size: clamp(19px, 2.4vw, 24px); font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; text-wrap: pretty; }
+.card-q strong { font-weight: 700; }
+.hint { border-left: 3px solid var(--ok); padding: 10px 14px; background: var(--ok-soft); border-radius: 0 8px 8px 0; }
+.hint .eyebrow { color: var(--ok); display: block; margin-bottom: 6px; }
+.refs { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13.5px; }
+.refs a { text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; color: var(--ink); }
+.refs a:hover { border-color: var(--learn); color: var(--learn); }
+.card-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.card-actions .spacer { flex: 1; }
+.mark { font: 600 12px var(--font-mono); }
+.mark.known { color: var(--ok); } .mark.review { color: var(--accent); }
+.practice-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.counter { font: 600 13px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.kbd-help { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); }
+.empty { padding: 40px 26px; text-align: center; color: var(--muted); }
+
+/* ---------- Glossary ---------- */
+.gloss-search { width: min(100%, 420px); border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 9px 12px; font: inherit; margin-bottom: 16px; }
+.gloss { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.term { padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.term b { font-weight: 700; }
+.term span { color: var(--muted); font-size: 14px; }
+.term code { background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+
+footer { color: var(--muted); font-size: 12.5px; padding-block: 0 32px; }
+
+/* ---------- Slides ---------- */
+.slide-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.stage { display: grid; place-items: center; }
+.slide-frame {
+  width: min(100%, calc((100vh - 240px) * 16 / 9)); aspect-ratio: 16 / 9; max-width: 100%;
+  container-type: inline-size; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+}
+.stage:fullscreen { background: var(--bg); width: 100vw; height: 100vh; }
+.stage:fullscreen .slide-frame { width: min(100vw, calc(100vh * 16 / 9)); border-radius: 0; border: 0; }
+.slide {
+  height: 100%; overflow: auto; display: flex; flex-direction: column; justify-content: center; gap: 2.2cqw;
+  padding: 5cqw 7cqw 6cqw; font-size: 2.15cqw; line-height: 1.5; position: relative;
+  border-top: 0.6cqw solid var(--accent);
+}
+.slide > * { margin: 0; }
+.slide h1 { font-size: 6cqw; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+.slide h2 { font-size: 3.6cqw; font-weight: 800; letter-spacing: -0.02em; }
+.slide.cover { justify-content: flex-end; padding-bottom: 8cqw; background: linear-gradient(135deg, var(--accent-soft), transparent 60%); }
+.slide.cover h1 { color: var(--ink); max-width: 18ch; }
+.slide.cover p:first-of-type { font-size: 2.8cqw; color: var(--ink); max-width: 36ch; }
+.slide.cover p { color: var(--muted); }
+.slide ul, .slide ol { padding-left: 1.4em; display: grid; gap: 0.9cqw; }
+.slide strong { color: var(--accent); }
+.slide code { font-size: 0.85em; background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 0.3em; }
+.slide pre { background: var(--surface-2); border-radius: 1cqw; padding: 1.6cqw 2cqw; font-size: 1.6cqw; line-height: 1.45; overflow: auto; }
+.slide pre code { background: none; padding: 0; font-size: 1em; }
+.slide table { border-collapse: collapse; width: 100%; font-size: 1.85cqw; }
+.slide th, .slide td { text-align: left; vertical-align: top; padding: 1cqw 1.4cqw; border-bottom: 1px solid var(--line); }
+.slide th { color: var(--muted); font-weight: 600; font-size: 1.5cqw; text-transform: uppercase; letter-spacing: 0.06em; }
+.slide th:empty { padding: 0; border: 0; }
+.slide td strong { color: var(--ink); }
+.slide .slide-no { position: absolute; right: 3cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); }
+.slide .slide-brand { position: absolute; left: 7cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.slide .diagram { padding: 0; border: 0; background: none; overflow: visible; }
+.slide .diagram svg { min-width: 0; max-height: 34cqw; }
+.slide .planes { gap: 2cqw; }
+.slide .plane { padding: 1.8cqw 2cqw; border-radius: 1cqw; }
+.slide .plane h3 { font-size: 2.1cqw; margin-bottom: 0; }
+.slide .plane .eyebrow { font-size: 1.15cqw; }
+.slide .plane .when, .slide .plane .rule { display: none; }
+.slide .plane ol { font-size: 1.55cqw; gap: 0.4cqw; margin-top: 1.2cqw; line-height: 1.4; }
+.slide .plane ol code { font-size: 0.78em; background: none; padding: 0; }
+.slide-progress { height: 3px; background: var(--surface-2); border-radius: 999px; margin-top: 12px; overflow: hidden; }
+.slide-progress i { display: block; height: 100%; background: var(--accent); }
+.slide-notes { margin-top: 14px; padding: 14px 18px; font-size: 15px; }
+.slide-notes p { margin: 0; }
+.slide-notes .eyebrow { display: block; margin-bottom: 6px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 920px) {
+  .hero, .planes { grid-template-columns: minmax(0, 1fr); }
+  .kgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc { position: static; max-height: none; }
+  .toc-toggle { display: inline-flex; margin-bottom: 10px; }
+  .toc.collapsed ol, .toc.collapsed input { display: none; }
+}
+@media (max-width: 480px) {
+  .card { padding: 18px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pill, .btn, nav.tabs a { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+}
+
+/* ---------- Clean Architecture overview ---------- */
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.design-note { display: flex; align-items: center; gap: 12px; margin-top: 24px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+.design-note p { margin: 0; color: var(--muted); font-size: 13px; }
+.flow { display: grid; justify-items: center; gap: 8px; margin-top: 20px; }
+.flow span { width: 100%; text-align: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font: 500 13px var(--font-mono); overflow-wrap: anywhere; }
+.flow b { color: var(--muted); line-height: 1; }
+.flow .flow-core { color: var(--control); border-color: var(--control); background: var(--control-soft); }
+.data .flow-core { color: var(--data); border-color: var(--data); background: var(--data-soft); }
+.text-link { display: inline-block; color: var(--learn); font-size: 13px; font-weight: 600; margin-top: 14px; }
+.study-path { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.study-step { display: flex; flex-direction: column; padding: 22px; color: var(--ink); text-decoration: none; }
+.study-step:hover { border-color: var(--accent); }
+.study-step h3 { font-size: 18px; margin-top: 14px; }
+.study-step p { color: var(--muted); font-size: 14px; margin: 12px 0 18px; }
+.study-step .text-link { margin-top: auto; }
+.meter-row .label { flex-wrap: wrap; gap: 4px 10px; }
+button:disabled { opacity: 0.45; cursor: default; }
+.topic-foot .btn { max-width: 100%; overflow-wrap: anywhere; }
+@media (max-width: 920px) {
+  .study-path { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .brand { flex-wrap: wrap; gap: 4px 10px; }
+  nav.tabs { width: 100%; }
+  nav.tabs a { padding: 6px 9px; font-size: 13px; }
+  .design-note { align-items: flex-start; flex-direction: column; }
+  .gloss { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Sổ tay OOP</b><span id="gen-date"></span></div>
+    <nav class="tabs" aria-label="Các phần">
+      <a href="#overview" data-view="overview">Tổng quan</a>
+      <a href="#knowledge" data-view="knowledge">Kiến thức</a>
+      <a href="#practice" data-view="practice">Luyện câu hỏi</a>
+      <a href="#glossary" data-view="glossary">Từ điển</a>
+      <a href="#slides" data-view="slides">Slide</a>
+    </nav>
+    <button class="icon-btn" id="theme-btn" type="button" title="Đổi giao diện sáng/tối">Giao diện: hệ thống</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ================= OVERVIEW ================= -->
+  <section id="view-overview" data-view-panel="overview">
+    <div class="hero">
+      <div>
+        <span class="eyebrow">Encapsulation · Abstraction · Inheritance · Polymorphism · SOLID</span>
+        <h1>Class thì ai cũng viết được.<br><em>Thiết kế object cho đúng mới là chuyện khác.</em></h1>
+        <p class="lead">Nắm OOP để ôn phỏng vấn: bốn trụ cột, composition so với inheritance, quan hệ giữa các lớp, SOLID, coupling và cohesion, design pattern, OOP trong TypeScript/JavaScript, và anti-pattern.</p>
+        <div class="hero-actions"><a class="btn primary" href="#topic-0">Bắt đầu học →</a><a class="btn" href="#practice">Luyện phỏng vấn</a></div>
+      </div>
+      <div class="panel meter" id="meter" aria-live="polite"></div>
+    </div>
+    <div class="design-note"><span class="chip theory">Lý thuyết</span><p>Đây là tài liệu lý thuyết tổng quát, không mô tả code của dự án. Code TypeScript là minh họa, chưa chạy thử.</p></div>
+
+    <section class="block">
+      <div class="section-head"><h2>Hai hướng mở rộng code</h2><p>Cùng một mục tiêu là thêm hành vi mới, nhưng kế thừa gắn chặt còn composition gắn lỏng.</p></div>
+      <div class="planes" id="arch-diagram">
+        <div class="panel plane">
+          <span class="eyebrow">01 · Inheritance</span><h3>Is-a: thừa hưởng</h3>
+          <div class="flow"><span>Account</span><b aria-hidden="true">↓</b><span>SavingsAccount extends Account</span><b aria-hidden="true">↓</b><span class="flow-core">Chỉ đúng khi con thay được cha (Liskov)</span></div>
+          <div class="rule">Gắn chặt lúc biên dịch; sửa cha có thể làm vỡ con.</div>
+          <a class="text-link" href="#topic-4">Kế thừa →</a>
+        </div>
+        <div class="panel plane data">
+          <span class="eyebrow">02 · Composition</span><h3>Has-a: ghép và ủy quyền</h3>
+          <div class="flow"><span>Checkout</span><b aria-hidden="true">↓</b><span>PaymentMethod (interface)</span><b aria-hidden="true">↓</b><span class="flow-core">Card, EWallet, Bank: đổi được lúc chạy</span></div>
+          <div class="rule">Gắn lỏng, dễ test; thêm kiểu mới không sửa code gọi.</div>
+          <a class="text-link" href="#topic-6">Composition →</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="section-head"><h2>Lộ trình học và ôn tập</h2><p>Đọc hai chủ đề mỗi ngày, tự giải thích trong 60–90 giây rồi luyện câu hỏi liên quan.</p></div>
+      <div class="study-path" id="planes">
+        <a class="panel study-step" href="#topic-0"><span class="eyebrow">01 · Nền tảng và bốn trụ cột</span><h3>Hiểu bản chất trước</h3><p>OOP trong 60 giây, class và object, đóng gói, trừu tượng, kế thừa, đa hình.</p><span class="text-link">Đọc bài nền tảng →</span></a>
+        <a class="panel study-step" href="#topic-6"><span class="eyebrow">02 · Thiết kế</span><h3>Composition, quan hệ lớp, SOLID</h3><p>Ưu tiên composition, aggregation so với composition, SOLID, coupling và cohesion.</p><span class="text-link">Vào phần thiết kế →</span></a>
+        <a class="panel study-step" href="#topic-13"><span class="eyebrow">03 · Thực hành</span><h3>Pattern và cách nói khi phỏng vấn</h3><p>Design pattern, TypeScript/JS, anti-pattern, và khung trả lời 90 giây.</p><span class="text-link">Đọc bài kết →</span></a>
+      </div>
+    </section>
+  </section>
+
+  <!-- ================= KNOWLEDGE ================= -->
+  <section id="view-knowledge" data-view-panel="knowledge" hidden>
+    <div class="kgrid">
+      <aside class="panel toc" id="toc">
+        <button class="btn toc-toggle" id="toc-toggle" type="button" aria-expanded="false">Danh sách chủ đề</button>
+        <input id="toc-search" type="search" placeholder="Tìm chủ đề…" aria-label="Tìm chủ đề">
+        <ol id="toc-list"></ol>
+      </aside>
+      <article class="topic" id="topic"></article>
+    </div>
+  </section>
+
+  <!-- ================= PRACTICE ================= -->
+  <section id="view-practice" data-view-panel="practice" hidden>
+    <div class="section-head">
+      <h2>Luyện câu hỏi</h2>
+      <p>Nói thành tiếng câu trả lời trước, rồi mới mở ý chính để đối chiếu. Đánh dấu được lưu trong trình duyệt này.</p>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="practice-top">
+      <span class="counter" id="counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="shuffle-btn" type="button">Xáo thứ tự</button>
+        <button class="btn" id="reset-btn" type="button">Xoá đánh dấu</button>
+      </div>
+    </div>
+    <div class="panel" id="card"></div>
+    <p class="kbd-help"><kbd>Space</kbd> mở ý chính · <kbd>←</kbd> <kbd>→</kbd> câu trước/sau · <kbd>1</kbd> cần ôn lại · <kbd>2</kbd> đã thuộc</p>
+  </section>
+
+  <!-- ================= GLOSSARY ================= -->
+  <section id="view-glossary" data-view-panel="glossary" hidden>
+    <div class="section-head">
+      <h2>Từ điển nhanh</h2>
+      <p>Thuật ngữ gặp trong dự án và trong phỏng vấn.</p>
+    </div>
+    <input class="gloss-search" id="gloss-search" type="search" placeholder="Tìm thuật ngữ…" aria-label="Tìm thuật ngữ">
+    <div class="gloss" id="gloss"></div>
+  </section>
+
+  <!-- ================= SLIDES ================= -->
+  <section id="view-slides" data-view-panel="slides" hidden>
+    <div class="slide-bar">
+      <span class="counter" id="slide-counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="slide-prev" type="button">← Trước</button>
+        <button class="btn primary" id="slide-next" type="button">Sau →</button>
+        <button class="btn" id="slide-notes-btn" type="button" aria-pressed="false">Ghi chú người nói</button>
+        <button class="btn" id="slide-full" type="button">Toàn màn hình</button>
+      </div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="slide-frame">
+        <div class="slide" id="slide"></div>
+      </div>
+    </div>
+    <div class="slide-progress" aria-hidden="true"><i id="slide-progress"></i></div>
+    <div class="panel slide-notes" id="slide-notes" hidden></div>
+    <p class="kbd-help"><kbd>→</kbd> <kbd>Space</kbd> slide sau · <kbd>←</kbd> slide trước · <kbd>F</kbd> toàn màn hình · <kbd>N</kbd> ghi chú · <kbd>Home</kbd> <kbd>End</kbd> đầu/cuối. Nội dung sửa trong <code>documents/SLIDES.md</code>.</p>
+  </section>
+</main>
+<footer class="wrap" id="footer"></footer>
+
+<script id="data" type="application/json">{"generatedAt":"2026-11-16T08:54:02.068Z","topics":[{"n":0,"title":"OOP trong 60 giây","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003cp>\u003cstrong>OOP (Object-Oriented Programming)\u003c/strong> là cách tổ chức chương trình thành các \u003cstrong>object\u003c/strong>: mỗi object gói \u003cstrong>dữ liệu (state)\u003c/strong> cùng \u003cstrong>hành vi (method)\u003c/strong> thao tác trên dữ liệu đó, và các object giao tiếp với nhau bằng cách \u003cstrong>gửi message\u003c/strong> (gọi method).\u003c/p>\n\u003cp>Bốn trụ cột hay được hỏi:\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Trụ cột\u003c/th>\n\u003cth>Một câu\u003c/th>\n\u003cth>Lợi ích chính\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Encapsulation\u003c/td>\n\u003ctd>Giấu state, chỉ cho đổi qua method giữ được quy tắc\u003c/td>\n\u003ctd>Bảo vệ invariant, đổi nội bộ không vỡ code ngoài\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Abstraction\u003c/td>\n\u003ctd>Chỉ lộ &quot;làm gì&quot;, giấu &quot;làm thế nào&quot;\u003c/td>\n\u003ctd>Giảm độ phức tạp người dùng phải nhớ\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Inheritance\u003c/td>\n\u003ctd>Lớp con tái dùng và mở rộng lớp cha\u003c/td>\n\u003ctd>Tái dùng code, mô hình quan hệ &quot;là một&quot;\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Polymorphism\u003c/td>\n\u003ctd>Cùng một lời gọi, hành vi tùy kiểu thật của object\u003c/td>\n\u003ctd>Thêm kiểu mới không sửa code gọi\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Ví dụ đời thường: máy ATM\u003c/h3>\n\u003cp>Bạn bấm &quot;rút 500k&quot;. Bạn không biết (và không cần biết) máy kiểm tra số dư thế nào, đếm tiền ra sao. Đó là \u003cstrong>abstraction\u003c/strong> và \u003cstrong>encapsulation\u003c/strong>: giao diện nhỏ, ruột bị giấu. Máy của ngân hàng A hay B khác nhau bên trong nhưng bạn thao tác giống nhau: đó là \u003cstrong>polymorphism\u003c/strong>.\u003c/p>\n\u003ch3>Ví dụ xuyên suốt: thanh toán đơn hàng\u003c/h3>\n\u003cp>Bài toán: một cửa hàng online nhận đơn, tính tổng tiền, rồi cho khách trả bằng \u003cstrong>thẻ\u003c/strong>, \u003cstrong>ví điện tử\u003c/strong> hoặc \u003cstrong>chuyển khoản\u003c/strong>. Dưới đây là toàn bộ thiết kế hoàn chỉnh; đọc một lần ở đây là đủ, các bài sau chỉ lấy lại từng mảnh và đều có code kèm theo.\u003c/p>\n\u003cp>\u003cstrong>Ai làm gì (mỗi object một trách nhiệm):\u003c/strong>\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Object\u003c/th>\n\u003cth>Vai trò\u003c/th>\n\u003cth>Giữ state gì\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003ccode>Money\u003c/code>\u003c/td>\n\u003ctd>Số tiền kèm đơn vị, bất biến\u003c/td>\n\u003ctd>\u003ccode>amount\u003c/code>, \u003ccode>currency\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>OrderItem\u003c/code>\u003c/td>\n\u003ctd>Một dòng hàng trong đơn\u003c/td>\n\u003ctd>\u003ccode>name\u003c/code>, \u003ccode>price\u003c/code>, \u003ccode>qty\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>Order\u003c/code>\u003c/td>\n\u003ctd>Đơn hàng, tự giữ quy tắc trạng thái NEW → PAID → SHIPPED\u003c/td>\n\u003ctd>danh sách \u003ccode>items\u003c/code>, \u003ccode>status\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>PaymentMethod\u003c/code>\u003c/td>\n\u003ctd>Hợp đồng &quot;biết trả tiền&quot;, chỉ có \u003ccode>pay(amount)\u003c/code>\u003c/td>\n\u003ctd>không có (interface)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>CardPayment\u003c/code>, \u003ccode>EWalletPayment\u003c/code>, \u003ccode>BankTransferPayment\u003c/code>\u003c/td>\n\u003ctd>Ba cách trả cụ thể, cùng cài \u003ccode>PaymentMethod\u003c/code>\u003c/td>\n\u003ctd>mỗi cái giữ thứ riêng (cổng thẻ, số tài khoản...)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>Checkout\u003c/code>\u003c/td>\n\u003ctd>Điều phối: nhận đơn và một cách trả, thực hiện thanh toán\u003c/td>\n\u003ctd>\u003ccode>PaymentMethod\u003c/code> được truyền vào\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Code đầy đủ:\u003c/strong>\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">// 1. Value object: bất biến, so sánh theo giá trị\nclass Money {\n  constructor(readonly amount: number, readonly currency: string) {}\n  add(o: Money): Money {\n    if (o.currency !== this.currency) throw new Error(&#39;Khác đơn vị tiền&#39;);\n    return new Money(this.amount + o.amount, this.currency);\n  }\n}\n\n// 2. Một dòng hàng\nclass OrderItem {\n  constructor(readonly name: string, readonly price: Money, readonly qty: number) {}\n  get subtotal(): Money { return new Money(this.price.amount * this.qty, this.price.currency); }\n}\n\n// 3. Order: đóng gói state và quy tắc trạng thái\ntype OrderStatus = &#39;NEW&#39; | &#39;PAID&#39; | &#39;SHIPPED&#39;;\n\nclass Order {\n  private items: OrderItem[] = [];\n  private status: OrderStatus = &#39;NEW&#39;;\n\n  addItem(item: OrderItem): void {\n    if (this.status !== &#39;NEW&#39;) throw new Error(&#39;Đơn đã khóa, không thêm hàng&#39;);\n    this.items.push(item);\n  }\n  get total(): Money {\n    return this.items.reduce((sum, i) =&gt; sum.add(i.subtotal), new Money(0, &#39;VND&#39;));\n  }\n  markPaid(): void {\n    if (this.items.length === 0) throw new Error(&#39;Đơn rỗng&#39;);\n    this.status = &#39;PAID&#39;;\n  }\n  ship(): void {\n    if (this.status !== &#39;PAID&#39;) throw new Error(&#39;Chưa thanh toán&#39;);\n    this.status = &#39;SHIPPED&#39;;\n  }\n}\n\n// 4. Abstraction: hợp đồng chung cho mọi cách trả tiền\ninterface PaymentResult { ok: boolean; reference?: string }\ninterface PaymentMethod {\n  pay(amount: Money): Promise&lt;PaymentResult&gt;;\n}\n\n// 5. Ba cài đặt cụ thể (cách làm khác nhau, hợp đồng giống nhau)\nclass CardPayment implements PaymentMethod {\n  constructor(private readonly gateway: { charge(m: Money): Promise&lt;string&gt; }) {}\n  async pay(amount: Money) {\n    const ref = await this.gateway.charge(amount);\n    return { ok: true, reference: ref };\n  }\n}\nclass EWalletPayment implements PaymentMethod {\n  constructor(private readonly wallet: { debit(m: Money): Promise&lt;boolean&gt; }) {}\n  async pay(amount: Money) { return { ok: await this.wallet.debit(amount) }; }\n}\nclass BankTransferPayment implements PaymentMethod {\n  constructor(private readonly accountNo: string) {}\n  async pay(amount: Money) {\n    // chỉ sinh nội dung chuyển khoản; tiền về sau thì mới xác nhận\n    return { ok: true, reference: `CK-${this.accountNo}-${amount.amount}` };\n  }\n}\n\n// 6. Checkout chỉ biết hợp đồng PaymentMethod, không biết cách trả cụ thể\nclass Checkout {\n  constructor(private readonly method: PaymentMethod) {}\n  async complete(order: Order): Promise&lt;void&gt; {\n    const result = await this.method.pay(order.total);\n    if (!result.ok) throw new Error(&#39;Thanh toán thất bại&#39;);\n    order.markPaid();\n  }\n}\n\u003c/code>\u003c/pre>\n\u003cp>\u003cstrong>Chạy thử một luồng hoàn chỉnh:\u003c/strong>\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">const order = new Order();\norder.addItem(new OrderItem(&#39;Áo thun&#39;, new Money(150_000, &#39;VND&#39;), 2)); // 300.000\norder.addItem(new OrderItem(&#39;Nón&#39;, new Money(80_000, &#39;VND&#39;), 1));      // 80.000\n// order.total = 380.000 VND\n\nawait new Checkout(new CardPayment(cardGateway)).complete(order);   // khách chọn thẻ\n// hoặc: new Checkout(new EWalletPayment(momoWallet))\n// hoặc: new Checkout(new BankTransferPayment(&#39;0123456789&#39;))\n\norder.ship();   // hợp lệ vì đã PAID; gọi trước khi trả tiền sẽ ném lỗi\n\u003c/code>\u003c/pre>\n\u003cp>\u003cstrong>Ví dụ này minh họa bốn trụ cột như thế nào:\u003c/strong>\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Trụ cột\u003c/th>\n\u003cth>Thấy ở đâu trong ví dụ\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Encapsulation\u003c/td>\n\u003ctd>\u003ccode>Order\u003c/code> giấu \u003ccode>items\u003c/code> và \u003ccode>status\u003c/code>; chỉ đổi qua \u003ccode>addItem\u003c/code>, \u003ccode>markPaid\u003c/code>, \u003ccode>ship\u003c/code>. Không ai gán \u003ccode>order.status = &#39;SHIPPED&#39;\u003c/code> được\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Abstraction\u003c/td>\n\u003ctd>\u003ccode>Checkout\u003c/code> chỉ biết \u003ccode>PaymentMethod.pay()\u003c/code>, không biết gọi cổng thẻ hay ví\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Inheritance / realization\u003c/td>\n\u003ctd>Ba lớp thanh toán cùng \u003ccode>implements PaymentMethod\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Polymorphism\u003c/td>\n\u003ctd>\u003ccode>this.method.pay(...)\u003c/code> chạy cách trả tiền khác nhau tùy object được truyền vào; thêm \u003ccode>CryptoPayment\u003c/code> chỉ cần thêm một class, \u003ccode>Checkout\u003c/code> không đổi\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> trả lời &quot;OOP là có class&quot;. Class chỉ là công cụ; ý chính là \u003cstrong>object tự quản lý state của mình và giao tiếp qua message\u003c/strong>. Một đống class chỉ chứa getter/setter (anemic) vẫn là code thủ tục trá hình.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> giải thích bốn trụ cột cho người chưa học lập trình, mỗi trụ một câu, dùng ví dụ máy ATM.\u003c/p>\n"},{"n":1,"title":"Class, object và vòng đời","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003cp>\u003cstrong>Class\u003c/strong> là bản thiết kế (kiểu): khai báo các field và method. \u003cstrong>Object (instance)\u003c/strong> là một thực thể cụ thể tạo ra từ class, có state riêng.\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">class Money {\n  constructor(\n    public readonly amount: number,   // đơn vị nhỏ nhất, ví dụ đồng\n    public readonly currency: string,\n  ) {}\n\n  add(other: Money): Money {\n    if (other.currency !== this.currency) throw new Error(&#39;Khác đơn vị tiền&#39;);\n    return new Money(this.amount + other.amount, this.currency);\n  }\n}\n\nconst a = new Money(100_000, &#39;VND&#39;); // object 1\nconst b = new Money(50_000, &#39;VND&#39;);  // object 2, state độc lập với a\n\u003c/code>\u003c/pre>\n\u003ch3>Các thành phần của class\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Thành phần\u003c/th>\n\u003cth>Ý nghĩa\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Field (thuộc tính)\u003c/td>\n\u003ctd>Dữ liệu của từng object (instance field)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Method\u003c/td>\n\u003ctd>Hành vi, đọc/ghi state của object\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Constructor\u003c/td>\n\u003ctd>Khởi tạo object ở trạng thái hợp lệ ngay từ đầu\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>static\u003c/code> member\u003c/td>\n\u003ctd>Thuộc về class, không thuộc object nào (dùng dè dặt: khó test, dễ thành global state)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Access modifier\u003c/td>\n\u003ctd>\u003ccode>public\u003c/code>, \u003ccode>protected\u003c/code>, \u003ccode>private\u003c/code> kiểm soát ai được truy cập\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Identity, state, behavior\u003c/h3>\n\u003cul>\n\u003cli>\u003cstrong>Identity:\u003c/strong> object này khác object kia dù state giống nhau (\u003ccode>===\u003c/code> so sánh tham chiếu).\u003c/li>\n\u003cli>\u003cstrong>State:\u003c/strong> giá trị các field tại một thời điểm.\u003c/li>\n\u003cli>\u003cstrong>Behavior:\u003c/strong> những gì object làm được.\u003c/li>\n\u003c/ul>\n\u003ch3>Value object và entity\u003c/h3>\n\u003cul>\n\u003cli>\u003cstrong>Value object:\u003c/strong> định nghĩa bằng giá trị, thường \u003cstrong>bất biến\u003c/strong> (\u003ccode>Money\u003c/code>, \u003ccode>Email\u003c/code>, \u003ccode>DateRange\u003c/code>). Hai \u003ccode>Money(100, &#39;VND&#39;)\u003c/code> coi là bằng nhau.\u003c/li>\n\u003cli>\u003cstrong>Entity:\u003c/strong> định nghĩa bằng danh tính (\u003ccode>User\u003c/code> có id). Đổi tên vẫn là cùng một user.\u003c/li>\n\u003c/ul>\n\u003ch3>Constructor phải tạo object hợp lệ\u003c/h3>\n\u003cp>Object không nên tồn tại ở trạng thái &quot;nửa vời&quot;. Kiểm tra invariant trong constructor hoặc factory method, đừng để người dùng gọi \u003ccode>new Order()\u003c/code> rồi mới set từng field.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nhầm class với object, hoặc nói &quot;object là instance của class&quot; rồi không giải thích được vì sao hai object cùng class lại có state khác nhau. Ngoài ra: nhầm \u003ccode>static\u003c/code> là &quot;toàn cục tiện lợi&quot;. \u003ccode>static\u003c/code> mutable state là biến toàn cục trá hình.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> khác nhau giữa value object và entity là gì? Cho một ví dụ mỗi loại.\u003c/p>\n"},{"n":2,"title":"Encapsulation (đóng gói)","status":"theory","statusNote":"","step":"Bốn trụ cột","html":"\u003cp>\u003cstrong>Encapsulation\u003c/strong> gồm hai ý thường bị lẫn: (1) \u003cstrong>gom\u003c/strong> dữ liệu và hành vi vào một đơn vị, (2) \u003cstrong>giấu\u003c/strong> state nội bộ, chỉ cho thay đổi qua method bảo vệ được quy tắc (\u003cstrong>invariant\u003c/strong>).\u003c/p>\n\u003ch3>Không đóng gói: ai cũng sửa được\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">class Order {\n  items: OrderItem[] = [];\n  status = &#39;NEW&#39;;\n  total = 0;\n}\n\nconst order = new Order();\norder.status = &#39;SHIPPED&#39;;   // nhảy cóc, chưa thanh toán\norder.total = -5;           // giá trị vô lý\n\u003c/code>\u003c/pre>\n\u003ch3>Đóng gói: object tự giữ quy tắc\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">type OrderStatus = &#39;NEW&#39; | &#39;PAID&#39; | &#39;SHIPPED&#39;;\n\nclass Order {\n  private items: OrderItem[] = [];\n  private status: OrderStatus = &#39;NEW&#39;;\n\n  addItem(item: OrderItem): void {\n    if (this.status !== &#39;NEW&#39;) throw new Error(&#39;Đơn đã khóa, không thêm hàng&#39;);\n    this.items.push(item);\n  }\n\n  pay(): void {\n    if (this.items.length === 0) throw new Error(&#39;Đơn rỗng&#39;);\n    this.status = &#39;PAID&#39;;\n  }\n\n  ship(): void {\n    if (this.status !== &#39;PAID&#39;) throw new Error(&#39;Chưa thanh toán&#39;);\n    this.status = &#39;SHIPPED&#39;;\n  }\n\n  get total(): Money {\n    return this.items.reduce((sum, i) =&gt; sum.add(i.subtotal), new Money(0, &#39;VND&#39;));\n  }\n}\n\u003c/code>\u003c/pre>\n\u003cp>\u003ccode>total\u003c/code> được \u003cstrong>tính\u003c/strong> từ \u003ccode>items\u003c/code>, không lưu rời để tránh hai nguồn sự thật lệch nhau.\u003c/p>\n\u003ch3>Access modifier\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Modifier\u003c/th>\n\u003cth>Ai truy cập được\u003c/th>\n\u003cth>Ghi chú\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003ccode>public\u003c/code>\u003c/td>\n\u003ctd>Mọi nơi\u003c/td>\n\u003ctd>Đây là hợp đồng với bên ngoài, đổi sẽ vỡ người dùng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>protected\u003c/code>\u003c/td>\n\u003ctd>Chính lớp và lớp con\u003c/td>\n\u003ctd>Lớp con bị gắn với ruột lớp cha, dùng dè dặt\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>private\u003c/code>\u003c/td>\n\u003ctd>Chỉ chính lớp\u003c/td>\n\u003ctd>Mặc định nên chọn\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Getter/setter không tự động là đóng gói\u003c/h3>\n\u003cp>Một class có \u003ccode>private\u003c/code> field cộng với getter và setter cho \u003cstrong>mọi\u003c/strong> field vẫn lộ hết state, chỉ thêm một lớp vỏ. Đóng gói thật là \u003cstrong>method theo nghiệp vụ\u003c/strong> (\u003ccode>pay()\u003c/code>, \u003ccode>ship()\u003c/code>) thay vì \u003ccode>setStatus()\u003c/code>.\u003c/p>\n\u003ch3>Tell, Don&#39;t Ask\u003c/h3>\n\u003cp>Đừng hỏi object lấy dữ liệu ra rồi quyết định hộ nó. Hãy bảo nó làm.\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">// Ask: logic nằm ở ngoài, lặp lại khắp nơi\nif (order.getStatus() === &#39;PAID&#39; &amp;&amp; order.getItems().length &gt; 0) order.setStatus(&#39;SHIPPED&#39;);\n\n// Tell: object tự quyết định\norder.ship();\n\u003c/code>\u003c/pre>\n\u003ch3>Lợi ích\u003c/h3>\n\u003cul>\n\u003cli>Giữ \u003cstrong>invariant\u003c/strong> ở một chỗ duy nhất.\u003c/li>\n\u003cli>Đổi cấu trúc nội bộ (mảng thành Map) không vỡ code ngoài.\u003c/li>\n\u003cli>Dễ test: hành vi qua method công khai.\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nói &quot;encapsulation là dùng private&quot;. Private là \u003cstrong>cơ chế\u003c/strong>, mục đích là \u003cstrong>bảo vệ invariant và ẩn quyết định thiết kế\u003c/strong>. Bẫy thứ hai: getter trả về mảng nội bộ cho phép người ngoài \u003ccode>push\u003c/code> thẳng vào; phải trả bản sao hoặc \u003ccode>readonly\u003c/code>.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> vì sao \u003ccode>setStatus(&#39;SHIPPED&#39;)\u003c/code> tệ hơn \u003ccode>ship()\u003c/code>? Nêu hai lý do.\u003c/p>\n"},{"n":3,"title":"Abstraction (trừu tượng)","status":"theory","statusNote":"","step":"Bốn trụ cột","html":"\u003cp>\u003cstrong>Abstraction\u003c/strong> là chọn ra những gì quan trọng với người dùng và \u003cstrong>giấu phần còn lại\u003c/strong>. Người dùng làm việc với \u003cstrong>hợp đồng\u003c/strong> (what), không biết \u003cstrong>cách làm\u003c/strong> (how).\u003c/p>\n\u003ch3>Encapsulation và abstraction khác nhau thế nào?\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Tiêu chí\u003c/th>\n\u003cth>Abstraction\u003c/th>\n\u003cth>Encapsulation\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Trả lời câu hỏi\u003c/td>\n\u003ctd>Lộ ra cái gì?\u003c/td>\n\u003ctd>Giấu và bảo vệ cái gì?\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Mức\u003c/td>\n\u003ctd>Thiết kế (khái niệm, giao diện)\u003c/td>\n\u003ctd>Cài đặt (field, modifier)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Công cụ\u003c/td>\n\u003ctd>interface, abstract class, đặt tên\u003c/td>\n\u003ctd>private, method nghiệp vụ\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Hai thứ đi cùng nhau: abstraction chọn giao diện, encapsulation giữ ruột phía sau giao diện đó.\u003c/p>\n\u003ch3>Interface\u003c/h3>\n\u003cp>Interface là hợp đồng thuần: chỉ khai báo chữ ký, không có state.\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">interface PaymentMethod {\n  pay(amount: Money): Promise&lt;PaymentResult&gt;;\n}\n\nclass CardPayment implements PaymentMethod {\n  constructor(private readonly gateway: CardGateway) {}\n  async pay(amount: Money) { return this.gateway.charge(amount); }\n}\n\nclass EWalletPayment implements PaymentMethod {\n  async pay(amount: Money) { /* gọi API ví */ return { ok: true }; }\n}\n\u003c/code>\u003c/pre>\n\u003ch3>Abstract class\u003c/h3>\n\u003cp>Abstract class không tạo trực tiếp được, có thể chứa \u003cstrong>cả\u003c/strong> phần đã cài sẵn \u003cstrong>và\u003c/strong> phần để lớp con điền (template method).\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">abstract class Report {\n  // template method: khung cố định\n  generate(): string {\n    return [this.header(), this.body(), this.footer()].join(&#39;\\n&#39;);\n  }\n  protected header(): string { return &#39;=== BÁO CÁO ===&#39;; }\n  protected abstract body(): string;     // lớp con bắt buộc cài\n  protected footer(): string { return &#39;=== HẾT ===&#39;; }\n}\n\u003c/code>\u003c/pre>\n\u003ch3>Interface so với abstract class\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Tiêu chí\u003c/th>\n\u003cth>Interface\u003c/th>\n\u003cth>Abstract class\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>State (field)\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003ctd>Có\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Code cài sẵn\u003c/td>\n\u003ctd>Không (TypeScript)\u003c/td>\n\u003ctd>Có\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Một lớp dùng được\u003c/td>\n\u003ctd>Nhiều interface\u003c/td>\n\u003ctd>Chỉ kế thừa một lớp\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Dùng khi\u003c/td>\n\u003ctd>Định nghĩa \u003cstrong>khả năng / hợp đồng\u003c/strong>, nhiều cài đặt không liên quan nhau\u003c/td>\n\u003ctd>Các lớp con \u003cstrong>chia sẻ code và state\u003c/strong>, có khung thuật toán chung\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Quan hệ\u003c/td>\n\u003ctd>&quot;có thể làm&quot; (can-do)\u003c/td>\n\u003ctd>&quot;là một&quot; (is-a)\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Quy tắc chọn nhanh: mặc định dùng \u003cstrong>interface\u003c/strong>; chỉ dùng abstract class khi thật sự cần chia sẻ state hoặc code.\u003c/p>\n\u003ch3>Leaky abstraction\u003c/h3>\n\u003cp>Abstraction &quot;rò&quot; khi người dùng buộc phải biết chi tiết bên dưới để dùng đúng. Ví dụ \u003ccode>Repository\u003c/code> che SQL nhưng hiệu năng phụ thuộc N+1 query; \u003ccode>ORM\u003c/code> che DB nhưng bạn vẫn phải hiểu transaction. Không có abstraction nào kín hoàn toàn: mục tiêu là rò \u003cstrong>ít và có chủ đích\u003c/strong>.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> trả lời &quot;abstraction là dùng abstract class/interface&quot;. Đó là công cụ; bản chất là \u003cstrong>che độ phức tạp bằng giao diện đơn giản\u003c/strong>. Hỏi tiếp thường là &quot;interface khác abstract class chỗ nào&quot; (bảng trên).\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> cho ví dụ một abstraction tốt và một abstraction rò rỉ bạn từng gặp.\u003c/p>\n"},{"n":4,"title":"Inheritance (kế thừa)","status":"theory","statusNote":"","step":"Bốn trụ cột","html":"\u003cp>\u003cstrong>Inheritance\u003c/strong> cho phép lớp con (subclass) nhận field và method của lớp cha (superclass), thêm hoặc \u003cstrong>ghi đè (override)\u003c/strong> hành vi. Mô hình quan hệ \u003cstrong>is-a\u003c/strong>.\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">class Account {\n  constructor(protected balance: Money) {}\n  deposit(m: Money) { this.balance = this.balance.add(m); }\n}\n\nclass SavingsAccount extends Account {\n  addInterest(rate: number) {\n    this.deposit(new Money(Math.round(this.balance.amount * rate), &#39;VND&#39;));\n  }\n}\n\u003c/code>\u003c/pre>\n\u003ch3>Các kiểu kế thừa\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Kiểu\u003c/th>\n\u003cth>Ý nghĩa\u003c/th>\n\u003cth>Hỗ trợ\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Đơn (single)\u003c/td>\n\u003ctd>Một lớp cha\u003c/td>\n\u003ctd>Java, C#, TS/JS\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Đa (multiple)\u003c/td>\n\u003ctd>Nhiều lớp cha\u003c/td>\n\u003ctd>C++, Python. Java/TS/JS không cho kế thừa nhiều \u003cstrong>class\u003c/strong>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Nhiều tầng (multilevel)\u003c/td>\n\u003ctd>A → B → C\u003c/td>\n\u003ctd>Phổ biến, nhưng cây sâu là mùi xấu\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Vấn đề kim cương (diamond problem)\u003c/h3>\n\u003cp>Lớp D kế thừa B và C, cả hai kế thừa A. Nếu B và C cùng override \u003ccode>foo()\u003c/code>, D gọi \u003ccode>foo()\u003c/code> của ai? Ngôn ngữ giải quyết bằng quy tắc thứ tự (MRO của Python) hoặc \u003cstrong>cấm\u003c/strong> kế thừa nhiều class và cho cài \u003cstrong>nhiều interface\u003c/strong> (Java, C#, TS).\u003c/p>\n\u003ch3>\u003ccode>super\u003c/code>, ghi đè, ẩn\u003c/h3>\n\u003cul>\n\u003cli>\u003ccode>super(...)\u003c/code> trong constructor gọi constructor lớp cha, phải gọi trước khi dùng \u003ccode>this\u003c/code>.\u003c/li>\n\u003cli>\u003cstrong>Override\u003c/strong> thay đổi hành vi method cha cùng chữ ký.\u003c/li>\n\u003cli>Gọi method có thể bị override ngay trong constructor là bẫy: lớp con chưa khởi tạo xong mà đã bị gọi.\u003c/li>\n\u003c/ul>\n\u003ch3>Khi nào kế thừa đúng?\u003c/h3>\n\u003cp>Chỉ khi lớp con \u003cstrong>thật sự thay thế được\u003c/strong> lớp cha ở mọi nơi dùng lớp cha (Liskov, bài 8). Nếu chỉ muốn \u003cstrong>tái dùng code\u003c/strong>, hãy dùng composition (bài 6).\u003c/p>\n\u003ch3>Ví dụ kinh điển: Hình chữ nhật và hình vuông\u003c/h3>\n\u003cp>Về toán, hình vuông &quot;là&quot; hình chữ nhật. Nhưng nếu \u003ccode>Rectangle\u003c/code> có \u003ccode>setWidth\u003c/code> và \u003ccode>setHeight\u003c/code> độc lập, \u003ccode>Square extends Rectangle\u003c/code> buộc đổi cả hai cùng lúc, làm hỏng giả định của code dùng \u003ccode>Rectangle\u003c/code> (đặt width 5, height 4, mong diện tích 20). Đây là vi phạm Liskov: \u003cstrong>is-a về ngôn ngữ đời thường chưa chắc là is-a về hành vi\u003c/strong>.\u003c/p>\n\u003ch3>Fragile base class\u003c/h3>\n\u003cp>Sửa lớp cha có thể vô tình làm hỏng lớp con vì lớp con phụ thuộc vào chi tiết cài đặt của cha. Càng nhiều \u003ccode>protected\u003c/code> và cây càng sâu, càng mong manh.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nói &quot;kế thừa để tái dùng code&quot;. Đó là lý do \u003cstrong>tệ\u003c/strong> nhất để kế thừa. Bẫy khác: nói Java &quot;không có đa kế thừa&quot; mà không nhắc \u003cstrong>interface\u003c/strong> (và \u003ccode>default\u003c/code> method) vẫn cho đa kế thừa kiểu/hợp đồng.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> \u003ccode>Square extends Rectangle\u003c/code> sai ở đâu? Giải thích bằng một đoạn code ngắn.\u003c/p>\n"},{"n":5,"title":"Polymorphism (đa hình)","status":"theory","statusNote":"","step":"Bốn trụ cột","html":"\u003cp>\u003cstrong>Polymorphism\u003c/strong> là cùng một lời gọi nhưng hành vi phụ thuộc kiểu thật của object. Nhờ đó code gọi \u003cstrong>không cần biết\u003c/strong> có bao nhiêu kiểu cụ thể và \u003cstrong>không phải sửa\u003c/strong> khi thêm kiểu mới.\u003c/p>\n\u003ch3>Hai loại chính\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Loại\u003c/th>\n\u003cth>Còn gọi\u003c/th>\n\u003cth>Quyết định lúc\u003c/th>\n\u003cth>Cơ chế\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Subtype polymorphism\u003c/td>\n\u003ctd>Runtime, dynamic dispatch\u003c/td>\n\u003ctd>Chạy\u003c/td>\n\u003ctd>Override, interface\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Overloading\u003c/td>\n\u003ctd>Compile-time, static\u003c/td>\n\u003ctd>Biên dịch\u003c/td>\n\u003ctd>Cùng tên khác tham số (Java/C#; TS chỉ có overload chữ ký)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Parametric\u003c/td>\n\u003ctd>Generics\u003c/td>\n\u003ctd>Biên dịch\u003c/td>\n\u003ctd>\u003ccode>Array&lt;T&gt;\u003c/code>, \u003ccode>identity&lt;T&gt;\u003c/code>\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Khi phỏng vấn, &quot;đa hình&quot; thường nghĩa là \u003cstrong>subtype polymorphism\u003c/strong>.\u003c/p>\n\u003ch3>Ví dụ: bỏ \u003ccode>if/switch\u003c/code> theo kiểu\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">// Không đa hình: thêm phương thức thanh toán phải sửa hàm này\nfunction pay(method: string, amount: Money) {\n  if (method === &#39;card&#39;) { /* ... */ }\n  else if (method === &#39;ewallet&#39;) { /* ... */ }\n  else if (method === &#39;bank&#39;) { /* ... */ }\n}\n\n// Đa hình: thêm kiểu mới chỉ thêm class, code gọi không đổi\nclass Checkout {\n  constructor(private readonly method: PaymentMethod) {}\n  complete(amount: Money) { return this.method.pay(amount); }\n}\n\u003c/code>\u003c/pre>\n\u003cp>Đây chính là \u003cstrong>Open/Closed\u003c/strong> (bài 8): mở để mở rộng, đóng để sửa.\u003c/p>\n\u003ch3>Dynamic dispatch hoạt động thế nào\u003c/h3>\n\u003cp>Biến có \u003cstrong>kiểu khai báo\u003c/strong> (\u003ccode>PaymentMethod\u003c/code>) và đối tượng thật có \u003cstrong>kiểu thực\u003c/strong> (\u003ccode>CardPayment\u003c/code>). Lúc chạy, lời gọi \u003ccode>method.pay()\u003c/code> được tra theo kiểu thực (qua bảng hàm ảo vtable ở C++/Java, qua prototype chain ở JS).\u003c/p>\n\u003ch3>Override so với overload\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>\u003c/th>\n\u003cth>Override\u003c/th>\n\u003cth>Overload\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Ở đâu\u003c/td>\n\u003ctd>Lớp con thay method của lớp cha\u003c/td>\n\u003ctd>Cùng lớp, nhiều method cùng tên\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Chữ ký\u003c/td>\n\u003ctd>Giống hệt\u003c/td>\n\u003ctd>Khác tham số\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Quyết định\u003c/td>\n\u003ctd>Lúc chạy\u003c/td>\n\u003ctd>Lúc biên dịch\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Upcasting và downcasting\u003c/h3>\n\u003cul>\n\u003cli>\u003cstrong>Upcast:\u003c/strong> coi object con là kiểu cha. An toàn, ngầm định.\u003c/li>\n\u003cli>\u003cstrong>Downcast:\u003c/strong> ép từ kiểu cha về kiểu con. Có thể lỗi lúc chạy, và thường là dấu hiệu thiết kế kém (phải hỏi &quot;mày là kiểu gì&quot; thay vì để đa hình lo).\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nhầm override với overload; hoặc không giải thích được \u003cstrong>vì sao\u003c/strong> đa hình có ích. Câu trả lời tốt: nó loại bỏ chuỗi \u003ccode>if/switch\u003c/code> theo kiểu và cho phép thêm hành vi mới mà không sửa code cũ.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> viết một ví dụ đa hình thay cho \u003ccode>switch (shape.type)\u003c/code> tính diện tích hình.\u003c/p>\n"},{"n":6,"title":"Composition so với Inheritance","status":"theory","statusNote":"","step":"Thiết kế","html":"\u003cp>\u003cstrong>Composition (hợp thành):\u003c/strong> một object \u003cstrong>chứa\u003c/strong> object khác và \u003cstrong>ủy quyền\u003c/strong> công việc cho nó (quan hệ \u003cstrong>has-a\u003c/strong>). Nguyên tắc nổi tiếng của GoF: \u003cstrong>&quot;ưu tiên composition hơn inheritance&quot;\u003c/strong>.\u003c/p>\n\u003ch3>Vì sao kế thừa dễ đau\u003c/h3>\n\u003cul>\n\u003cli>\u003cstrong>Gắn chặt (tight coupling):\u003c/strong> lớp con phụ thuộc chi tiết lớp cha.\u003c/li>\n\u003cli>\u003cstrong>Cây nổ tung:\u003c/strong> \u003ccode>Bird\u003c/code>, \u003ccode>FlyingBird\u003c/code>, \u003ccode>SwimmingBird\u003c/code>, \u003ccode>FlyingSwimmingBird\u003c/code>... mỗi tổ hợp một lớp.\u003c/li>\n\u003cli>\u003cstrong>Khó đổi lúc chạy:\u003c/strong> kế thừa chốt hành vi lúc biên dịch; composition thay được lúc chạy.\u003c/li>\n\u003cli>Lộ nhiều hơn mức cần: lớp con thừa hưởng \u003cstrong>tất cả\u003c/strong> method public của cha.\u003c/li>\n\u003c/ul>\n\u003ch3>Cùng bài toán, hai cách\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">// Kế thừa: bùng nổ tổ hợp\nclass Duck { fly() {} swim() {} }\nclass RubberDuck extends Duck { /* không bay được, phải override ném lỗi? */ }\n\n// Composition: ghép hành vi\ninterface FlyBehavior { fly(): void }\nclass CanFly implements FlyBehavior { fly() { /* bay */ } }\nclass CannotFly implements FlyBehavior { fly() { /* đứng yên */ } }\n\nclass Duck {\n  constructor(private readonly flyBehavior: FlyBehavior) {}\n  performFly() { this.flyBehavior.fly(); }\n}\n\nconst mallard = new Duck(new CanFly());\nconst rubber = new Duck(new CannotFly());\n\u003c/code>\u003c/pre>\n\u003cp>Muốn \u003ccode>Duck\u003c/code> đổi hành vi giữa chừng (bị thương thì không bay được): thay \u003ccode>flyBehavior\u003c/code>, không cần lớp mới. Đây là \u003cstrong>Strategy pattern\u003c/strong> (bài 10).\u003c/p>\n\u003ch3>So sánh\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Tiêu chí\u003c/th>\n\u003cth>Inheritance\u003c/th>\n\u003cth>Composition\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Quan hệ\u003c/td>\n\u003ctd>is-a\u003c/td>\n\u003ctd>has-a\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Gắn kết\u003c/td>\n\u003ctd>Chặt (compile-time)\u003c/td>\n\u003ctd>Lỏng (đổi lúc chạy được)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Tái dùng\u003c/td>\n\u003ctd>Thừa hưởng cả khối\u003c/td>\n\u003ctd>Chọn đúng phần cần\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Test\u003c/td>\n\u003ctd>Phải dựng cả cây\u003c/td>\n\u003ctd>Thay phần phụ thuộc bằng mock\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Phù hợp\u003c/td>\n\u003ctd>Phân cấp ổn định, đúng Liskov\u003c/td>\n\u003ctd>Hầu hết trường hợp khác\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Khi nào vẫn nên kế thừa?\u003c/h3>\n\u003cul>\n\u003cli>Quan hệ is-a \u003cstrong>thật\u003c/strong>, lớp con thay thế được cha ở mọi nơi.\u003c/li>\n\u003cli>Framework yêu cầu (kế thừa \u003ccode>Error\u003c/code>, component base class).\u003c/li>\n\u003cli>Template method với khung thuật toán ổn định.\u003c/li>\n\u003c/ul>\n\u003ch3>Dependency Injection là composition\u003c/h3>\n\u003cp>Truyền phụ thuộc qua constructor (như \u003ccode>Checkout\u003c/code> nhận \u003ccode>PaymentMethod\u003c/code>) là composition + \u003cstrong>hướng tới interface\u003c/strong>. Đây là nền của Dependency Inversion (bài 8).\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nói &quot;composition luôn tốt hơn&quot;. Chính xác hơn: \u003cstrong>ưu tiên\u003c/strong> composition, nhưng kế thừa vẫn đúng khi is-a thật sự. Bẫy khác: nhầm composition (object chứa) với \u003cstrong>composition trong UML\u003c/strong> (quan hệ sở hữu chặt, xem bài 7).\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> thiết kế lại hệ \u003ccode>Bird → FlyingBird → SwimmingBird\u003c/code> bằng composition.\u003c/p>\n"},{"n":7,"title":"Quan hệ giữa các lớp","status":"theory","statusNote":"","step":"Thiết kế","html":"\u003cp>Bốn quan hệ hay gặp, từ lỏng đến chặt: \u003cstrong>dependency → association → aggregation → composition\u003c/strong>; cộng thêm \u003cstrong>inheritance\u003c/strong> và \u003cstrong>realization\u003c/strong>.\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Quan hệ\u003c/th>\n\u003cth>Ý nghĩa\u003c/th>\n\u003cth>Vòng đời\u003c/th>\n\u003cth>Ví dụ\u003c/th>\n\u003cth>Ký hiệu UML\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Dependency\u003c/td>\n\u003ctd>Dùng tạm (tham số, biến cục bộ)\u003c/td>\n\u003ctd>Không ràng buộc\u003c/td>\n\u003ctd>\u003ccode>Checkout\u003c/code> dùng \u003ccode>Logger\u003c/code>\u003c/td>\n\u003ctd>Mũi tên nét đứt\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Association\u003c/td>\n\u003ctd>Biết và giữ tham chiếu\u003c/td>\n\u003ctd>Độc lập\u003c/td>\n\u003ctd>\u003ccode>Order\u003c/code> có \u003ccode>Customer\u003c/code>\u003c/td>\n\u003ctd>Đường thẳng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Aggregation\u003c/td>\n\u003ctd>&quot;Có&quot; kiểu tập hợp, phần tồn tại độc lập\u003c/td>\n\u003ctd>Phần sống tiếp khi cha mất\u003c/td>\n\u003ctd>\u003ccode>Team\u003c/code> có \u003ccode>Player\u003c/code>\u003c/td>\n\u003ctd>Thoi rỗng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Composition\u003c/td>\n\u003ctd>&quot;Sở hữu&quot; chặt, phần chết theo\u003c/td>\n\u003ctd>Phần chết khi cha mất\u003c/td>\n\u003ctd>\u003ccode>Order\u003c/code> có \u003ccode>OrderItem\u003c/code>\u003c/td>\n\u003ctd>Thoi đặc\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Inheritance\u003c/td>\n\u003ctd>is-a\u003c/td>\n\u003ctd>Gắn kiểu\u003c/td>\n\u003ctd>\u003ccode>SavingsAccount\u003c/code> là \u003ccode>Account\u003c/code>\u003c/td>\n\u003ctd>Mũi tên rỗng nét liền\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Realization\u003c/td>\n\u003ctd>Cài đặt interface\u003c/td>\n\u003ctd>Gắn hợp đồng\u003c/td>\n\u003ctd>\u003ccode>CardPayment\u003c/code> cài \u003ccode>PaymentMethod\u003c/code>\u003c/td>\n\u003ctd>Mũi tên rỗng nét đứt\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Phân biệt aggregation và composition\u003c/h3>\n\u003cp>Câu hỏi quyết định: \u003cstrong>phần có tồn tại một mình khi cha bị xóa không?\u003c/strong>\u003c/p>\n\u003cul>\n\u003cli>Xóa \u003ccode>Team\u003c/code>, các \u003ccode>Player\u003c/code> vẫn còn trong hệ thống → aggregation.\u003c/li>\n\u003cli>Xóa \u003ccode>Order\u003c/code>, các \u003ccode>OrderItem\u003c/code> vô nghĩa → composition.\u003c/li>\n\u003c/ul>\n\u003cpre>\u003ccode class=\"language-ts\">class Order {                       // composition: Order tạo và sở hữu items\n  private items: OrderItem[] = [];\n  addItem(productId: string, qty: number) {\n    this.items.push(new OrderItem(productId, qty));\n  }\n}\n\nclass Team {                        // aggregation: players được truyền từ ngoài\n  constructor(private players: Player[]) {}\n}\n\u003c/code>\u003c/pre>\n\u003cp>Trong thực tế phỏng vấn, đừng sa đà vào phân biệt thoi rỗng/đặc; nêu được \u003cstrong>câu hỏi về vòng đời\u003c/strong> là đủ.\u003c/p>\n\u003ch3>Multiplicity\u003c/h3>\n\u003cp>\u003ccode>1..1\u003c/code>, \u003ccode>0..*\u003c/code>, \u003ccode>1..*\u003c/code>: một \u003ccode>Customer\u003c/code> có \u003ccode>0..*\u003c/code> \u003ccode>Order\u003c/code>, một \u003ccode>Order\u003c/code> thuộc \u003ccode>1..1\u003c/code> \u003ccode>Customer\u003c/code>. Quan hệ nhiều-nhiều thường tách bằng lớp trung gian (\u003ccode>Enrollment\u003c/code> giữa \u003ccode>Student\u003c/code> và \u003ccode>Course\u003c/code>).\u003c/p>\n\u003ch3>Dependency hướng nào?\u003c/h3>\n\u003cp>Giảm số mũi tên và \u003cstrong>chỉ hướng phụ thuộc về phía ổn định\u003c/strong> (interface, domain), không về phía hay đổi (chi tiết hạ tầng). Xem Dependency Inversion ở bài 8.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nhầm aggregation với composition, hoặc dùng association cho mọi thứ. Mẹo trả lời: nêu \u003cstrong>vòng đời\u003c/strong> của phần được chứa.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> \u003ccode>Library\u003c/code> và \u003ccode>Book\u003c/code>, \u003ccode>Car\u003c/code> và \u003ccode>Engine\u003c/code>, \u003ccode>Order\u003c/code> và \u003ccode>OrderItem\u003c/code>: mỗi cặp là quan hệ gì và vì sao?\u003c/p>\n"},{"n":8,"title":"SOLID","status":"theory","statusNote":"","step":"Thiết kế","html":"\u003cp>SOLID đã được tách thành \u003cstrong>sổ tay riêng\u003c/strong> (\u003ccode>#solid\u003c/code>) với ví dụ vi phạm và cách sửa cho từng nguyên tắc, bài refactor xuyên suốt, liên hệ với pattern và kiến trúc, NestJS và lúc không nên áp dụng. Ở đây chỉ giữ bản tóm tắt để đặt SOLID vào bức tranh OOP.\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Chữ\u003c/th>\n\u003cth>Nguyên tắc\u003c/th>\n\u003cth>Một câu\u003c/th>\n\u003cth>Dấu hiệu vi phạm\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>S\u003c/td>\n\u003ctd>Single Responsibility\u003c/td>\n\u003ctd>Một class chỉ có một lý do để thay đổi\u003c/td>\n\u003ctd>Class dài, sửa vì nhiều yêu cầu khác nhau\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>O\u003c/td>\n\u003ctd>Open/Closed\u003c/td>\n\u003ctd>Mở để mở rộng, đóng để sửa đổi\u003c/td>\n\u003ctd>Chuỗi \u003ccode>if/switch\u003c/code> theo kiểu\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>L\u003c/td>\n\u003ctd>Liskov Substitution\u003c/td>\n\u003ctd>Lớp con thay được lớp cha mà chương trình vẫn đúng\u003c/td>\n\u003ctd>Override ném lỗi, kiểm tra kiểu trước khi gọi\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>I\u003c/td>\n\u003ctd>Interface Segregation\u003c/td>\n\u003ctd>Đừng ép client phụ thuộc method nó không dùng\u003c/td>\n\u003ctd>\u003ccode>throw new Error(&#39;not supported&#39;)\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>D\u003c/td>\n\u003ctd>Dependency Inversion\u003c/td>\n\u003ctd>Phụ thuộc abstraction, không phụ thuộc chi tiết\u003c/td>\n\u003ctd>\u003ccode>new\u003c/code> thẳng DB/SDK trong lớp nghiệp vụ\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>SOLID liên hệ trực tiếp với các bài khác: đa hình (bài 5) là cơ chế của OCP, kế thừa (bài 4) bị LSP kiểm tra, composition (bài 6) là nền của DIP.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> liệt kê đủ năm chữ nhưng không cho được ví dụ vi phạm. Phần đào sâu nằm ở sổ tay SOLID.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> nêu mỗi chữ của SOLID một dấu hiệu vi phạm, rồi mở sổ tay SOLID đối chiếu.\u003c/p>\n"},{"n":9,"title":"Coupling, cohesion và các nguyên tắc nhỏ","status":"theory","statusNote":"","step":"Thiết kế","html":"\u003ch3>Coupling (độ gắn kết giữa các module)\u003c/h3>\n\u003cp>Mức module này \u003cstrong>biết\u003c/strong> về module kia. Muốn \u003cstrong>thấp\u003c/strong>.\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Mức (tệ → tốt)\u003c/th>\n\u003cth>Mô tả\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Content coupling\u003c/td>\n\u003ctd>Sửa trực tiếp ruột module khác\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Common coupling\u003c/td>\n\u003ctd>Cùng dùng biến toàn cục\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Control coupling\u003c/td>\n\u003ctd>Truyền cờ điều khiển hành vi của module kia\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Data coupling\u003c/td>\n\u003ctd>Chỉ truyền dữ liệu cần thiết qua tham số\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Message coupling\u003c/td>\n\u003ctd>Chỉ giao tiếp qua interface/event\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Cohesion (độ kết dính trong một module)\u003c/h3>\n\u003cp>Mức các thành phần trong module \u003cstrong>thuộc về nhau\u003c/strong>. Muốn \u003cstrong>cao\u003c/strong>: mọi method cùng làm việc với cùng một tập dữ liệu và phục vụ một mục đích. Dấu hiệu thấp: class tên \u003ccode>Utils\u003c/code>, \u003ccode>Manager\u003c/code>, \u003ccode>Helper\u003c/code> chứa đủ thứ.\u003c/p>\n\u003cp>Câu thần chú: \u003cstrong>low coupling, high cohesion\u003c/strong>.\u003c/p>\n\u003ch3>Các nguyên tắc nhỏ hay hỏi\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Nguyên tắc\u003c/th>\n\u003cth>Nội dung\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>DRY\u003c/td>\n\u003ctd>Mỗi tri thức có một nơi duy nhất. Đừng trộn lẫn &quot;trùng code&quot; với &quot;trùng ý nghĩa&quot;: hai đoạn code giống nhau tình cờ nhưng thay đổi vì lý do khác nhau thì \u003cstrong>không\u003c/strong> gộp\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>KISS\u003c/td>\n\u003ctd>Giữ đơn giản\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>YAGNI\u003c/td>\n\u003ctd>Đừng cài thứ chưa cần\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Law of Demeter\u003c/td>\n\u003ctd>Chỉ nói chuyện với &quot;bạn bè gần&quot;: đừng viết \u003ccode>a.getB().getC().doX()\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Tell, Don&#39;t Ask\u003c/td>\n\u003ctd>Bảo object làm, đừng lấy dữ liệu ra tự quyết (bài 2)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Favor immutability\u003c/td>\n\u003ctd>Object bất biến an toàn khi chia sẻ, dễ suy luận, thread-safe\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Program to an interface\u003c/td>\n\u003ctd>Phụ thuộc interface, không phụ thuộc lớp cụ thể\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Law of Demeter minh họa\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">// Vi phạm: biết cấu trúc nội bộ của hai object\nconst city = order.getCustomer().getAddress().getCity();\n\n// Tốt hơn: hỏi thẳng đối tượng gần nhất\nconst city = order.shippingCity();\n\u003c/code>\u003c/pre>\n\u003ch3>Bất biến (immutability)\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">class DateRange {\n  constructor(readonly from: Date, readonly to: Date) {\n    if (to &lt; from) throw new Error(&#39;to phải sau from&#39;);\n    Object.freeze(this);\n  }\n  withTo(to: Date) { return new DateRange(this.from, to); } // trả object mới\n}\n\u003c/code>\u003c/pre>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nhầm chiều: &quot;coupling cao là tốt vì code liên kết chặt&quot;. Ngược lại: coupling \u003cstrong>thấp\u003c/strong>, cohesion \u003cstrong>cao\u003c/strong>. Và khi nói DRY, nêu được phản ví dụ gộp nhầm.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> \u003ccode>UserManager\u003c/code> có \u003ccode>login\u003c/code>, \u003ccode>sendEmail\u003c/code>, \u003ccode>exportCsv\u003c/code>, \u003ccode>calculateTax\u003c/code>: đánh giá cohesion và đề xuất cách tách.\u003c/p>\n"},{"n":10,"title":"Design pattern hay gặp","status":"theory","statusNote":"","step":"Thực hành","html":"\u003cp>\u003cstrong>Design pattern\u003c/strong> là lời giải đã được kiểm chứng cho một bài toán thiết kế lặp lại (bộ \u003cstrong>GoF\u003c/strong> 23 pattern chia ba nhóm: Creational, Structural, Behavioral). Học để có \u003cstrong>từ vựng chung\u003c/strong> và gợi ý giải pháp, không phải để áp dụng mọi nơi.\u003c/p>\n\u003ch3>Creational: tạo object\u003c/h3>\n\u003cp>\u003cstrong>Singleton\u003c/strong> — chỉ một instance toàn ứng dụng.\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">class Config {\n  private static instance?: Config;\n  private constructor(readonly values: Record&lt;string, string&gt;) {}\n  static get(): Config { return (Config.instance ??= new Config(loadEnv())); }\n}\n\u003c/code>\u003c/pre>\n\u003cp>Hay bị xem là \u003cstrong>anti-pattern\u003c/strong>: là biến toàn cục trá hình, khó test, ẩn phụ thuộc. Thay bằng một instance do DI container quản lý.\u003c/p>\n\u003cp>\u003cstrong>Factory Method / Abstract Factory\u003c/strong> — giao việc tạo object cho một hàm/lớp để code gọi không \u003ccode>new\u003c/code> thẳng lớp cụ thể.\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">class PaymentFactory {\n  create(kind: &#39;card&#39; | &#39;ewallet&#39;): PaymentMethod {\n    return kind === &#39;card&#39; ? new CardPayment(gateway) : new EWalletPayment();\n  }\n}\n\u003c/code>\u003c/pre>\n\u003cp>\u003cstrong>Builder\u003c/strong> — dựng object phức tạp từng bước (nhiều tham số tùy chọn).\u003c/p>\n\u003ch3>Structural: ghép object\u003c/h3>\n\u003cp>\u003cstrong>Adapter\u003c/strong> — bọc một interface không khớp thành interface bạn cần (bọc SDK bên thứ ba).\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">class StripeAdapter implements PaymentMethod {\n  constructor(private readonly stripe: StripeClient) {}\n  async pay(m: Money) {\n    const r = await this.stripe.charges.create({ amount: m.amount, currency: m.currency });\n    return { ok: r.status === &#39;succeeded&#39; };\n  }\n}\n\u003c/code>\u003c/pre>\n\u003cp>\u003cstrong>Decorator\u003c/strong> — thêm hành vi bằng cách bọc object cùng interface, thay cho kế thừa.\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">class LoggingPayment implements PaymentMethod {\n  constructor(private readonly inner: PaymentMethod) {}\n  async pay(m: Money) {\n    console.log(&#39;pay&#39;, m.amount);\n    return this.inner.pay(m);\n  }\n}\nconst method = new LoggingPayment(new CardPayment(gateway));\n\u003c/code>\u003c/pre>\n\u003cp>\u003cstrong>Facade\u003c/strong> — một cửa vào đơn giản che cả hệ thống con phức tạp.\u003c/p>\n\u003cp>\u003cstrong>Proxy\u003c/strong> — người đại diện kiểm soát truy cập (lazy loading, cache, kiểm quyền).\u003c/p>\n\u003ch3>Behavioral: hành vi và giao tiếp\u003c/h3>\n\u003cp>\u003cstrong>Strategy\u003c/strong> — đóng gói các thuật toán có thể hoán đổi sau cùng một interface (xem \u003ccode>FlyBehavior\u003c/code>, \u003ccode>PaymentMethod\u003c/code>). Thay \u003ccode>switch\u003c/code> theo kiểu.\u003c/p>\n\u003cp>\u003cstrong>Observer\u003c/strong> — một object phát sự kiện, nhiều object đăng ký nhận (event emitter, pub/sub).\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">class EventBus {\n  private handlers = new Map&lt;string, Array&lt;(e: unknown) =&gt; void&gt;&gt;();\n  on(type: string, h: (e: unknown) =&gt; void) {\n    this.handlers.set(type, [...(this.handlers.get(type) ?? []), h]);\n  }\n  emit(type: string, e: unknown) { this.handlers.get(type)?.forEach((h) =&gt; h(e)); }\n}\n\u003c/code>\u003c/pre>\n\u003cp>\u003cstrong>Template Method\u003c/strong> — khung thuật toán ở lớp cha, bước thay đổi ở lớp con (\u003ccode>Report\u003c/code> ở bài 3).\u003c/p>\n\u003cp>\u003cstrong>Command\u003c/strong> — đóng gói một yêu cầu thành object (hàng đợi, undo/redo).\u003c/p>\n\u003cp>\u003cstrong>State\u003c/strong> — hành vi đổi theo trạng thái, mỗi trạng thái là một lớp (thay chuỗi \u003ccode>if (status === ...)\u003c/code>).\u003c/p>\n\u003cp>\u003cstrong>Repository\u003c/strong> (không thuộc GoF, rất phổ biến) — giao diện giống &quot;bộ sưu tập&quot; che việc truy cập dữ liệu.\u003c/p>\n\u003ch3>Chọn pattern bằng bài toán\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Bài toán\u003c/th>\n\u003cth>Pattern gợi ý\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Nhiều thuật toán thay thế nhau\u003c/td>\n\u003ctd>Strategy\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Thêm hành vi mà không sửa/kế thừa\u003c/td>\n\u003ctd>Decorator\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Tích hợp API không khớp\u003c/td>\n\u003ctd>Adapter\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Tạo object phức tạp, nhiều tùy chọn\u003c/td>\n\u003ctd>Builder\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Nhiều bên cần biết khi có thay đổi\u003c/td>\n\u003ctd>Observer\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Hành vi đổi theo trạng thái\u003c/td>\n\u003ctd>State\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Cần đúng một instance\u003c/td>\n\u003ctd>DI container (hạn chế Singleton thủ công)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Giấu độ phức tạp của hệ con\u003c/td>\n\u003ctd>Facade\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> liệt kê tên pattern mà không nói \u003cstrong>vấn đề nó giải\u003c/strong> và \u003cstrong>đánh đổi\u003c/strong>. Mỗi pattern thêm lớp gián tiếp; dùng khi có bài toán thật. Pattern bị lạm dụng (Singleton, quá nhiều Factory) là một dạng over-engineering.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> chọn ba pattern và giải thích bằng một câu &quot;vấn đề → giải pháp → đánh đổi&quot;.\u003c/p>\n"},{"n":11,"title":"OOP trong TypeScript và JavaScript","status":"theory","statusNote":"","step":"Thực hành","html":"\u003cp>JavaScript là OOP \u003cstrong>dựa trên prototype\u003c/strong>; từ khóa \u003ccode>class\u003c/code> (ES2015) là cú pháp tiện lợi phủ lên cơ chế prototype.\u003c/p>\n\u003ch3>Prototype chain\u003c/h3>\n\u003cp>Mỗi object có liên kết nội bộ \u003ccode>[[Prototype]]\u003c/code> trỏ tới object khác. Truy cập thuộc tính không có sẽ tra ngược theo chuỗi này cho đến \u003ccode>Object.prototype\u003c/code>.\u003c/p>\n\u003cpre>\u003ccode class=\"language-js\">class Animal { speak() { return &#39;noise&#39;; } }\nclass Dog extends Animal { speak() { return &#39;woof&#39;; } }\nconst d = new Dog();\nObject.getPrototypeOf(d) === Dog.prototype;           // true\nObject.getPrototypeOf(Dog.prototype) === Animal.prototype; // true\n\u003c/code>\u003c/pre>\n\u003cp>\u003ccode>extends\u003c/code> thiết lập chuỗi prototype; method nằm trên \u003ccode>prototype\u003c/code>, \u003cstrong>dùng chung\u003c/strong> cho mọi instance (tiết kiệm bộ nhớ), khác với arrow function gán vào field (mỗi instance một bản).\u003c/p>\n\u003ch3>\u003ccode>this\u003c/code> và các bẫy\u003c/h3>\n\u003cp>\u003ccode>this\u003c/code> phụ thuộc \u003cstrong>cách gọi\u003c/strong>, không phụ thuộc nơi định nghĩa (trừ arrow function lấy \u003ccode>this\u003c/code> từ phạm vi bao quanh).\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">class Counter {\n  count = 0;\n  inc() { this.count++; }\n  incArrow = () =&gt; { this.count++; };   // this gắn cố định\n}\nconst c = new Counter();\nconst f = c.inc;\nf();                 // lỗi/undefined: mất this\nconst g = c.incArrow;\ng();                 // chạy đúng\n\u003c/code>\u003c/pre>\n\u003cp>Cách khắc phục khác: \u003ccode>.bind(c)\u003c/code> hoặc truyền \u003ccode>() =&gt; c.inc()\u003c/code>.\u003c/p>\n\u003ch3>Truy cập: \u003ccode>private\u003c/code> của TypeScript và \u003ccode>#\u003c/code> của JavaScript\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>\u003c/th>\n\u003cth>\u003ccode>private\u003c/code> (TS)\u003c/th>\n\u003cth>\u003ccode>#field\u003c/code> (ES2022)\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Bảo vệ\u003c/td>\n\u003ctd>Chỉ lúc \u003cstrong>biên dịch\u003c/strong>\u003c/td>\n\u003ctd>Thật sự riêng tư lúc \u003cstrong>chạy\u003c/strong>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Truy cập bằng \u003ccode>obj[&#39;x&#39;]\u003c/code>\u003c/td>\n\u003ctd>Vẫn được\u003c/td>\n\u003ctd>Không được\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Xuất hiện trong JS sinh ra\u003c/td>\n\u003ctd>Có, như field thường\u003c/td>\n\u003ctd>Là cú pháp riêng của JS\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>TypeScript: structural typing\u003c/h3>\n\u003cp>TS so khớp kiểu theo \u003cstrong>cấu trúc\u003c/strong>, không theo tên. Object có đủ method của interface thì được coi là cài interface đó, dù không khai báo \u003ccode>implements\u003c/code>.\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">interface Logger { log(msg: string): void }\nconst consoleLogger = { log: (m: string) =&gt; console.log(m) };\nfunction run(l: Logger) { l.log(&#39;hi&#39;); }\nrun(consoleLogger);  // hợp lệ, không cần `implements`\n\u003c/code>\u003c/pre>\n\u003cp>Hệ quả: đa hình của TS linh hoạt, nhưng hai kiểu khác nghĩa mà cùng cấu trúc bị coi là một (dùng &quot;branded type&quot; khi cần).\u003c/p>\n\u003ch3>Một số tính năng thường hỏi\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Tính năng\u003c/th>\n\u003cth>Ghi chú\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003ccode>abstract class\u003c/code>\u003c/td>\n\u003ctd>Chỉ có ở TS, bị xóa khi biên dịch, không tồn tại lúc chạy\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>interface\u003c/code>\u003c/td>\n\u003ctd>Chỉ có lúc biên dịch, \u003cstrong>không\u003c/strong> tồn tại lúc chạy (khác Java). Cần kiểm tra lúc chạy thì dùng type guard hoặc class\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>readonly\u003c/code>\u003c/td>\n\u003ctd>Chỉ lúc biên dịch\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003ccode>static\u003c/code>\u003c/td>\n\u003ctd>Thuộc class (constructor function)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Getter/setter\u003c/td>\n\u003ctd>\u003ccode>get x()\u003c/code>/\u003ccode>set x(v)\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Mixin\u003c/td>\n\u003ctd>Ghép nhiều khả năng khi JS không có đa kế thừa: \u003ccode>const Serializable = (Base) =&gt; class extends Base { ... }\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Parameter property\u003c/td>\n\u003ctd>\u003ccode>constructor(private readonly x: T)\u003c/code> khai báo và gán field gọn\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Java so với TS/JS (hay bị hỏi lẫn)\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Tiêu chí\u003c/th>\n\u003cth>Java\u003c/th>\n\u003cth>TypeScript/JavaScript\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Mô hình\u003c/td>\n\u003ctd>Class-based\u003c/td>\n\u003ctd>Prototype-based (class là đường tắt)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Kiểu\u003c/td>\n\u003ctd>Nominal, kiểm tra lúc chạy\u003c/td>\n\u003ctd>Structural, bị xóa lúc chạy\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Interface lúc chạy\u003c/td>\n\u003ctd>Có\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Overload thật\u003c/td>\n\u003ctd>Có\u003c/td>\n\u003ctd>Không (chỉ khai báo chữ ký)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Đa kế thừa class\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003ctd>Không (dùng mixin)\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nói &quot;JS không có OOP&quot; hoặc &quot;class trong JS giống Java&quot;. Chính xác: class là \u003cstrong>cú pháp\u003c/strong> trên prototype. Bẫy \u003ccode>this\u003c/code> bị mất khi truyền method làm callback là câu hỏi rất hay gặp.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> vì sao \u003ccode>setTimeout(obj.method, 100)\u003c/code> có thể lỗi \u003ccode>this\u003c/code> là \u003ccode>undefined\u003c/code>? Nêu hai cách sửa.\u003c/p>\n"},{"n":12,"title":"Anti-pattern và OOP so với FP","status":"theory","statusNote":"","step":"Thực hành","html":"\u003ch3>Anti-pattern hay gặp\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Anti-pattern\u003c/th>\n\u003cth>Dấu hiệu\u003c/th>\n\u003cth>Hướng sửa\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>God class\u003c/td>\n\u003ctd>Một class làm mọi thứ, hàng nghìn dòng\u003c/td>\n\u003ctd>Tách theo trách nhiệm (SRP)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Anemic domain model\u003c/td>\n\u003ctd>Class chỉ có field + getter/setter, logic nằm hết ở \u003ccode>Service\u003c/code>\u003c/td>\n\u003ctd>Đưa hành vi vào object mang dữ liệu (bài 2)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Primitive obsession\u003c/td>\n\u003ctd>Dùng \u003ccode>string\u003c/code>, \u003ccode>number\u003c/code> cho khái niệm nghiệp vụ (email, tiền)\u003c/td>\n\u003ctd>Tạo value object\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Feature envy\u003c/td>\n\u003ctd>Method dùng dữ liệu của class khác nhiều hơn của chính nó\u003c/td>\n\u003ctd>Chuyển method sang class đó\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Shotgun surgery\u003c/td>\n\u003ctd>Một thay đổi nhỏ phải sửa nhiều class\u003c/td>\n\u003ctd>Gom logic liên quan lại\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Fragile base class\u003c/td>\n\u003ctd>Sửa cha làm vỡ con\u003c/td>\n\u003ctd>Composition, giảm \u003ccode>protected\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Deep inheritance\u003c/td>\n\u003ctd>Cây kế thừa năm tầng\u003c/td>\n\u003ctd>Làm phẳng, composition\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Singleton lạm dụng\u003c/td>\n\u003ctd>Trạng thái toàn cục\u003c/td>\n\u003ctd>DI\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Yo-yo problem\u003c/td>\n\u003ctd>Phải nhảy lên xuống cây kế thừa mới hiểu một lời gọi\u003c/td>\n\u003ctd>Giảm tầng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Circular dependency\u003c/td>\n\u003ctd>A cần B, B cần A\u003c/td>\n\u003ctd>Đảo phụ thuộc qua interface, tách module thứ ba\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Anemic model chi tiết\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">// Anemic: Order chỉ chứa dữ liệu, mọi quy tắc nằm ở service\nclass Order { id = &#39;&#39;; status = &#39;NEW&#39;; items: OrderItem[] = []; }\nclass OrderService {\n  ship(o: Order) { if (o.status !== &#39;PAID&#39;) throw new Error(&#39;...&#39;); o.status = &#39;SHIPPED&#39;; }\n}\n\u003c/code>\u003c/pre>\n\u003cp>Quy tắc &quot;đã trả tiền mới giao&quot; có thể bị bỏ qua bởi bất kỳ ai sửa \u003ccode>status\u003c/code> trực tiếp. Bản đóng gói ở bài 2 giữ quy tắc trong \u003ccode>Order.ship()\u003c/code>.\u003c/p>\n\u003ch3>OOP và lập trình hàm (FP)\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Tiêu chí\u003c/th>\n\u003cth>OOP\u003c/th>\n\u003cth>FP\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Đơn vị chính\u003c/td>\n\u003ctd>Object (state + hành vi)\u003c/td>\n\u003ctd>Hàm thuần túy, dữ liệu bất biến\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>State\u003c/td>\n\u003ctd>Thay đổi trong object\u003c/td>\n\u003ctd>Tránh thay đổi, tạo giá trị mới\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Tái dùng\u003c/td>\n\u003ctd>Kế thừa, composition\u003c/td>\n\u003ctd>Hợp hàm, hàm bậc cao\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Đa hình\u003c/td>\n\u003ctd>Interface, override\u003c/td>\n\u003ctd>Hàm bậc cao, kiểu tổng (union)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Mạnh ở\u003c/td>\n\u003ctd>Mô hình hóa thực thể có vòng đời, framework plugin\u003c/td>\n\u003ctd>Biến đổi dữ liệu, đồng thời, dễ test\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Hai trường phái không loại trừ nhau: hầu hết code thực tế trộn cả hai (object cho thực thể và ranh giới, hàm thuần cho tính toán, dữ liệu bất biến cho value object).\u003c/p>\n\u003ch3>Khi OOP không phải lựa chọn tốt nhất\u003c/h3>\n\u003cul>\n\u003cli>Pipeline biến đổi dữ liệu (ETL), tính toán thuần túy.\u003c/li>\n\u003cli>Script ngắn, glue code.\u003c/li>\n\u003cli>Mô hình dữ liệu chỉ là bản ghi không có hành vi (dùng type/record).\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> bênh vực OOP một chiều, hoặc chê OOP là &quot;lỗi thời&quot;. Câu trả lời trưởng thành: mỗi mô hình có chỗ mạnh; chọn theo bài toán, và kết hợp.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> nhận diện hai anti-pattern trong code bạn từng đọc và nêu cách sửa.\u003c/p>\n"},{"n":13,"title":"Cách nói khi phỏng vấn","status":"theory","statusNote":"","step":"Thực hành","html":"\u003ch3>Khung trả lời 90 giây\u003c/h3>\n\u003col>\n\u003cli>\u003cstrong>Định nghĩa\u003c/strong> một câu.\u003c/li>\n\u003cli>\u003cstrong>Vì sao / đánh đổi\u003c/strong>: nó giải quyết gì, giá phải trả là gì.\u003c/li>\n\u003cli>\u003cstrong>Ví dụ\u003c/strong> ngắn, cụ thể (dùng \u003ccode>Order\u003c/code> / \u003ccode>PaymentMethod\u003c/code> của sổ tay này).\u003c/li>\n\u003cli>\u003cstrong>Cảnh báo\u003c/strong> một bẫy hoặc khi nào không nên dùng.\u003c/li>\n\u003c/ol>\n\u003ch3>Mẫu trả lời\u003c/h3>\n\u003cp>\u003cstrong>Mẫu trả lời: &quot;Giải thích bốn tính chất của OOP.&quot;\u003c/strong>\u003c/p>\n\u003cblockquote>\n\u003cp>Encapsulation là gói state với hành vi và giấu state, chỉ cho đổi qua method giữ được quy tắc; ví dụ \u003ccode>Order.ship()\u003c/code> kiểm tra đã thanh toán thay vì để ai cũng sửa \u003ccode>status\u003c/code>. Abstraction là chỉ lộ hợp đồng, giấu cách làm; \u003ccode>PaymentMethod\u003c/code> chỉ nói &quot;pay&quot;. Inheritance cho lớp con tái dùng lớp cha theo quan hệ is-a, nhưng tôi dùng dè dặt vì gắn chặt. Polymorphism cho cùng lời gọi nhưng hành vi tùy kiểu thật, nên thêm phương thức thanh toán mới không phải sửa \u003ccode>Checkout\u003c/code>.\u003c/p>\n\u003c/blockquote>\n\u003cp>\u003cstrong>Mẫu trả lời: &quot;Khi nào chọn composition thay vì inheritance?&quot;\u003c/strong>\u003c/p>\n\u003cblockquote>\n\u003cp>Mặc định tôi chọn composition vì kế thừa gắn chặt lớp con vào ruột lớp cha và chốt hành vi lúc biên dịch. Tôi chỉ kế thừa khi is-a đúng về hành vi, tức lớp con thay được cha ở mọi nơi theo Liskov. Ví dụ \u003ccode>Penguin extends Bird\u003c/code> có \u003ccode>fly()\u003c/code> là sai; tôi tách khả năng bay thành một interface và ghép vào.\u003c/p>\n\u003c/blockquote>\n\u003cp>\u003cstrong>Mẫu trả lời: &quot;SOLID là gì?&quot;\u003c/strong>\u003c/p>\n\u003cblockquote>\n\u003cp>Năm nguyên tắc để code dễ đổi: mỗi class một lý do thay đổi, mở để mở rộng đóng để sửa, lớp con thay được lớp cha, interface nhỏ theo client, và phụ thuộc vào abstraction thay vì chi tiết. Tôi dùng chúng như câu hỏi kiểm tra: có chuỗi \u003ccode>if/switch\u003c/code> theo kiểu không, có \u003ccode>new\u003c/code> thẳng hạ tầng trong nghiệp vụ không.\u003c/p>\n\u003c/blockquote>\n\u003ch3>Câu hỏi quay ngược nên chuẩn bị\u003c/h3>\n\u003cul>\n\u003cli>&quot;Cho ví dụ bạn \u003cstrong>vi phạm\u003c/strong> nguyên tắc đó và hậu quả?&quot;\u003c/li>\n\u003cli>&quot;Interface và abstract class khác nhau và bạn chọn cái nào?&quot;\u003c/li>\n\u003cli>&quot;Vì sao getter/setter không phải đóng gói?&quot;\u003c/li>\n\u003cli>&quot;Đa hình có chi phí gì?&quot; (gián tiếp, khó theo dõi luồng, đoán kiểu thật)\u003c/li>\n\u003cli>&quot;Anemic model có thật sự tệ không?&quot; (có chỗ dùng: DTO, dữ liệu chuyển tầng; tệ khi nghiệp vụ phức tạp bị rải rác)\u003c/li>\n\u003c/ul>\n\u003ch3>Danh sách rà nhanh trước phỏng vấn\u003c/h3>\n\u003cul>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Nêu được bốn trụ cột bằng ví dụ riêng, không đọc thuộc lòng.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Phân biệt abstraction với encapsulation.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Phân biệt interface với abstract class, override với overload.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Giải thích được vì sao \u003ccode>Square extends Rectangle\u003c/code> sai.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Phân biệt aggregation với composition bằng vòng đời.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Cho ví dụ vi phạm và cách sửa cho từng chữ của SOLID.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Giải thích DIP, DI và IoC khác nhau.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Kể ba design pattern kèm &quot;vấn đề → giải pháp → đánh đổi&quot;.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Giải thích prototype chain và bẫy \u003ccode>this\u003c/code> trong JS.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Nêu được hai anti-pattern và cách sửa.\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> hãy tự trả lời trước gương câu &quot;OOP là gì và vì sao nó hữu ích?&quot; trong 60 giây, không dùng từ &quot;class&quot;.\u003c/p>\n"}],"glossary":[{"term":"Class","def":"Bản thiết kế khai báo field và method"},{"term":"Object / Instance","def":"Thực thể cụ thể tạo từ class, có state riêng"},{"term":"Encapsulation","def":"Gói dữ liệu với hành vi và giấu state để bảo vệ invariant"},{"term":"Abstraction","def":"Lộ hợp đồng, giấu cách làm"},{"term":"Inheritance","def":"Lớp con thừa hưởng lớp cha (is-a)"},{"term":"Polymorphism","def":"Cùng lời gọi, hành vi tùy kiểu thật"},{"term":"Invariant","def":"Điều kiện luôn phải đúng với một object hợp lệ"},{"term":"Interface","def":"Hợp đồng chỉ gồm chữ ký, không có state"},{"term":"Abstract class","def":"Lớp không tạo trực tiếp được, có thể có code và state dùng chung"},{"term":"Override","def":"Lớp con thay hành vi method của lớp cha (cùng chữ ký)"},{"term":"Overload","def":"Nhiều method cùng tên khác tham số, chọn lúc biên dịch"},{"term":"Dynamic dispatch","def":"Chọn method theo kiểu thật của object lúc chạy"},{"term":"Composition","def":"Object chứa và ủy quyền cho object khác (has-a)"},{"term":"Aggregation","def":"&quot;Có&quot; kiểu tập hợp, phần tồn tại độc lập với cha"},{"term":"Dependency","def":"Dùng tạm một class khác (tham số, biến cục bộ)"},{"term":"Value object","def":"Object bất biến, so sánh bằng giá trị"},{"term":"Entity","def":"Object có danh tính, đổi state vẫn là cùng một object"},{"term":"SRP","def":"Một class có một lý do để thay đổi"},{"term":"OCP","def":"Mở để mở rộng, đóng để sửa"},{"term":"LSP","def":"Lớp con thay được lớp cha mà chương trình vẫn đúng"},{"term":"ISP","def":"Đừng ép client phụ thuộc method nó không dùng"},{"term":"DIP","def":"Phụ thuộc abstraction, không phụ thuộc chi tiết"},{"term":"Dependency Injection","def":"Truyền phụ thuộc từ ngoài vào (thường qua constructor)"},{"term":"IoC container","def":"Công cụ tự tạo và lắp các object (NestJS, Spring)"},{"term":"Coupling","def":"Mức module biết về module khác (muốn thấp)"},{"term":"Cohesion","def":"Mức thành phần trong module thuộc về nhau (muốn cao)"},{"term":"Law of Demeter","def":"Chỉ nói chuyện với bạn gần, tránh chuỗi \u003ccode>a.b().c().d()\u003c/code>"},{"term":"Tell, Don&#39;t Ask","def":"Bảo object làm, đừng lấy dữ liệu ra tự quyết"},{"term":"Anemic domain model","def":"Class chỉ có dữ liệu, logic rải ở service"},{"term":"God class","def":"Class làm quá nhiều việc"},{"term":"Diamond problem","def":"Mơ hồ khi kế thừa nhiều lớp có chung tổ tiên"},{"term":"Prototype chain","def":"Chuỗi object JS tra thuộc tính ngược lên"},{"term":"Structural typing","def":"So khớp kiểu theo cấu trúc, không theo tên"},{"term":"Strategy","def":"Pattern đóng gói thuật toán có thể hoán đổi"},{"term":"Decorator","def":"Pattern thêm hành vi bằng cách bọc cùng interface"},{"term":"Observer","def":"Pattern phát sự kiện cho nhiều người nghe"}],"intro":"\u003cp>Sổ tay ôn OOP cho phỏng vấn: bốn trụ cột (đóng gói, trừu tượng, kế thừa, đa hình), composition so với inheritance, quan hệ giữa các lớp, SOLID (tóm tắt, bản đầy đủ ở sổ tay riêng), coupling/cohesion, các design pattern hay gặp, OOP trong TypeScript/JavaScript, và những anti-pattern. Code minh họa bằng TypeScript, \u003cstrong>chưa chạy thử\u003c/strong> trong dự án này; đây là tài liệu lý thuyết tổng quát, không mô tả code của dự án.\u003c/p>\n\u003cp>Học theo thứ tự 0–13. Mỗi ngày đọc hai chủ đề, tự nói câu trả lời trong 60–90 giây theo khung: định nghĩa → vì sao / đánh đổi → ví dụ. Trạng thái 📖 là tài liệu lý thuyết, không khẳng định bạn đã học thuộc.\u003c/p>\n","questions":[{"id":"bae54f97dd","part":"A","partTitle":"Nền tảng và bốn trụ cột","group":"Class và object","level":"basic","text":"OOP là gì? Khác lập trình thủ tục thế nào?","hintLabel":"Ý chính","hint":"Tổ chức chương trình thành object gói state và hành vi, giao tiếp bằng message. Thủ tục tách dữ liệu và hàm. \u003cstrong>Bẫy cần tránh:\u003c/strong> nói &quot;OOP là có class&quot;; class anemic chỉ có getter/setter vẫn là code thủ tục.","refs":[0]},{"id":"4cafc1a303","part":"A","partTitle":"Nền tảng và bốn trụ cột","group":"Class và object","level":"basic","text":"Class và object khác nhau thế nào?","hintLabel":"Ý chính","hint":"Class là bản thiết kế, object là thực thể cụ thể có state riêng và identity riêng.","refs":[1]},{"id":"b4bf9a4476","part":"A","partTitle":"Nền tảng và bốn trụ cột","group":"Class và object","level":"mid","text":"Value object và entity khác nhau thế nào?","hintLabel":"Ý chính","hint":"Value object định nghĩa bằng giá trị, thường bất biến (\u003ccode>Money\u003c/code>, \u003ccode>Email\u003c/code>). Entity định nghĩa bằng danh tính (\u003ccode>User\u003c/code> có id), đổi state vẫn là cùng một đối tượng.","refs":[1]},{"id":"2b00442690","part":"A","partTitle":"Nền tảng và bốn trụ cột","group":"Class và object","level":"mid","text":"Vì sao constructor phải tạo object ở trạng thái hợp lệ?","hintLabel":"Ý chính","hint":"Object nửa vời (chưa set field) làm mọi method phải tự phòng thủ. Kiểm tra invariant trong constructor hoặc factory để object không bao giờ vào trạng thái sai.","refs":[1]},{"id":"69285cdb06","part":"A","partTitle":"Nền tảng và bốn trụ cột","group":"Bốn trụ cột","level":"basic","text":"Nêu bốn tính chất của OOP.","hintLabel":"Ý chính","hint":"Encapsulation, abstraction, inheritance, polymorphism; mỗi cái một câu và một ví dụ riêng (\u003ccode>Order.ship()\u003c/code>, \u003ccode>PaymentMethod\u003c/code>).","refs":[0]},{"id":"3c3225aa04","part":"A","partTitle":"Nền tảng và bốn trụ cột","group":"Bốn trụ cột","level":"basic","text":"Encapsulation là gì?","hintLabel":"Ý chính","hint":"Gom dữ liệu và hành vi, giấu state, chỉ cho đổi qua method bảo vệ invariant. Lợi ích: một chỗ giữ quy tắc, đổi ruột không vỡ code ngoài.","refs":[2]},{"id":"d452afddb9","part":"A","partTitle":"Nền tảng và bốn trụ cột","group":"Bốn trụ cột","level":"mid","text":"Abstraction khác encapsulation thế nào?","hintLabel":"Ý chính","hint":"Abstraction trả lời &quot;lộ ra cái gì&quot; (thiết kế giao diện); encapsulation trả lời &quot;giấu và bảo vệ cái gì&quot; (cài đặt). Đi cùng nhau.","refs":[2,3]},{"id":"4979caf0f4","part":"A","partTitle":"Nền tảng và bốn trụ cột","group":"Bốn trụ cột","level":"mid","text":"Vì sao private field + getter/setter cho mọi field không phải đóng gói tốt?","hintLabel":"Ý chính","hint":"Vẫn lộ toàn bộ state và quy tắc nằm ở người gọi. Đóng gói thật là method theo nghiệp vụ (\u003ccode>pay()\u003c/code>, \u003ccode>ship()\u003c/code>), kèm Tell, Don&#39;t Ask.","refs":[2]},{"id":"69e3df540b","part":"A","partTitle":"Nền tảng và bốn trụ cột","group":"Bốn trụ cột","level":"mid","text":"Polymorphism là gì và có ích gì?","hintLabel":"Ý chính","hint":"Cùng lời gọi, hành vi tùy kiểu thật. Loại bỏ chuỗi \u003ccode>if/switch\u003c/code> theo kiểu, thêm kiểu mới không sửa code gọi (Open/Closed).","refs":[5]},{"id":"4af0f46930","part":"B","partTitle":"Interface, kế thừa và đa hình","group":"Interface và abstract class","level":"basic","text":"Interface khác abstract class thế nào?","hintLabel":"Ý chính","hint":"Interface chỉ là hợp đồng, không state, cài được nhiều. Abstract class có thể có state và code chung, chỉ kế thừa một. Mặc định chọn interface; abstract class khi cần chia sẻ code/state hoặc template method.","refs":[3]},{"id":"32471edfb7","part":"B","partTitle":"Interface, kế thừa và đa hình","group":"Interface và abstract class","level":"mid","text":"Template method là gì? Khi nào dùng?","hintLabel":"Ý chính","hint":"Lớp cha định nghĩa khung thuật toán cố định, lớp con điền các bước thay đổi. Dùng khi khung ổn định, bước biến thiên.","refs":[3]},{"id":"4b13e173f7","part":"B","partTitle":"Interface, kế thừa và đa hình","group":"Interface và abstract class","level":"hard","text":"Leaky abstraction là gì? Cho ví dụ.","hintLabel":"Ý chính","hint":"Người dùng buộc phải biết chi tiết bên dưới để dùng đúng, ví dụ ORM che SQL nhưng vẫn gặp N+1 và transaction. Mục tiêu là rò ít và có chủ đích.","refs":[3]},{"id":"3c4eb40011","part":"B","partTitle":"Interface, kế thừa và đa hình","group":"Kế thừa","level":"basic","text":"Inheritance là gì? Khi nào nên dùng?","hintLabel":"Ý chính","hint":"Lớp con thừa hưởng và mở rộng lớp cha, quan hệ is-a. Chỉ dùng khi lớp con thay thế được cha ở mọi nơi (Liskov); không dùng chỉ để tái dùng code.","refs":[4]},{"id":"5df3ad2312","part":"B","partTitle":"Interface, kế thừa và đa hình","group":"Kế thừa","level":"mid","text":"Vấn đề kim cương (diamond problem) là gì? Ngôn ngữ xử lý ra sao?","hintLabel":"Ý chính","hint":"D kế thừa B và C cùng kế thừa A, cùng override một method thì mơ hồ. Python dùng MRO; Java/C#/TS cấm đa kế thừa class và cho cài nhiều interface.","refs":[4]},{"id":"4cef64d8e5","part":"B","partTitle":"Interface, kế thừa và đa hình","group":"Kế thừa","level":"mid","text":"Fragile base class là gì?","hintLabel":"Ý chính","hint":"Sửa lớp cha làm vỡ lớp con vì con phụ thuộc chi tiết cài đặt của cha. Giảm bằng ít \u003ccode>protected\u003c/code>, cây nông, hoặc composition.","refs":[4,6]},{"id":"0c488409e6","part":"B","partTitle":"Interface, kế thừa và đa hình","group":"Kế thừa","level":"hard","text":"Vì sao \u003ccode>Square extends Rectangle\u003c/code> là thiết kế sai?","hintLabel":"Ý chính","hint":"Rectangle cho đổi width/height độc lập; Square buộc đổi cả hai, phá giả định (đặt 5×4 mong diện tích 20). Is-a đời thường không bằng is-a về hành vi: vi phạm Liskov.","refs":[4,8]},{"id":"c9ad0d8b25","part":"B","partTitle":"Interface, kế thừa và đa hình","group":"Đa hình","level":"basic","text":"Override và overload khác nhau thế nào?","hintLabel":"Ý chính","hint":"Override: lớp con thay method cha cùng chữ ký, chọn lúc chạy. Overload: cùng tên khác tham số, chọn lúc biên dịch.","refs":[5]},{"id":"d70a757022","part":"B","partTitle":"Interface, kế thừa và đa hình","group":"Đa hình","level":"mid","text":"Dynamic dispatch hoạt động thế nào?","hintLabel":"Ý chính","hint":"Lời gọi tra theo kiểu thực của object lúc chạy (vtable ở Java/C++, prototype chain ở JS), không theo kiểu khai báo của biến.","refs":[5]},{"id":"40f2ffd58d","part":"B","partTitle":"Interface, kế thừa và đa hình","group":"Đa hình","level":"mid","text":"Upcast và downcast khác nhau? Vì sao downcast là mùi xấu?","hintLabel":"Ý chính","hint":"Upcast an toàn, ngầm định. Downcast có thể lỗi lúc chạy và thường nghĩa là bạn đang hỏi kiểu thay vì để đa hình lo.","refs":[5]},{"id":"71120af45e","part":"B","partTitle":"Interface, kế thừa và đa hình","group":"Đa hình","level":"hard","text":"Làm sao thay chuỗi \u003ccode>switch (type)\u003c/code> bằng đa hình? Nhược điểm?","hintLabel":"Ý chính","hint":"Mỗi case thành một lớp cài chung interface (Strategy/State), code gọi chỉ biết interface. Nhược điểm: thêm lớp gián tiếp, khó theo dõi luồng; không đáng với 2–3 case ổn định.","refs":[5,8]},{"id":"ce0cd7b9a6","part":"C","partTitle":"Thiết kế: composition, quan hệ lớp, SOLID","group":"Composition và quan hệ","level":"basic","text":"Composition và inheritance khác nhau thế nào? Vì sao ưu tiên composition?","hintLabel":"Ý chính","hint":"Has-a và ủy quyền so với is-a. Composition gắn lỏng, đổi được lúc chạy, dễ test; kế thừa gắn chặt và chốt lúc biên dịch.","refs":[6]},{"id":"a411b55728","part":"C","partTitle":"Thiết kế: composition, quan hệ lớp, SOLID","group":"Composition và quan hệ","level":"mid","text":"Khi nào kế thừa vẫn là lựa chọn đúng?","hintLabel":"Ý chính","hint":"Is-a thật và đúng Liskov, framework yêu cầu, template method với khung ổn định.","refs":[6]},{"id":"3fbf7e8043","part":"C","partTitle":"Thiết kế: composition, quan hệ lớp, SOLID","group":"Composition và quan hệ","level":"mid","text":"Phân biệt association, aggregation, composition.","hintLabel":"Ý chính","hint":"Association: biết nhau. Aggregation: &quot;có&quot;, phần sống độc lập. Composition: sở hữu chặt, phần chết theo. Hỏi một câu: xóa cha thì phần còn tồn tại không?","refs":[7]},{"id":"ae0e426daf","part":"C","partTitle":"Thiết kế: composition, quan hệ lớp, SOLID","group":"Composition và quan hệ","level":"mid","text":"\u003ccode>Order\u003c/code> và \u003ccode>OrderItem\u003c/code>, \u003ccode>Team\u003c/code> và \u003ccode>Player\u003c/code>: quan hệ gì?","hintLabel":"Ý chính","hint":"\u003ccode>Order\u003c/code>–\u003ccode>OrderItem\u003c/code> là composition (item vô nghĩa khi mất đơn). \u003ccode>Team\u003c/code>–\u003ccode>Player\u003c/code> là aggregation (cầu thủ tồn tại độc lập).","refs":[7]},{"id":"6cce9a5f97","part":"C","partTitle":"Thiết kế: composition, quan hệ lớp, SOLID","group":"SOLID","level":"basic","text":"Kể năm nguyên tắc SOLID và một dấu hiệu vi phạm mỗi chữ.","hintLabel":"Ý chính","hint":"SRP, OCP, LSP, ISP, DIP. Phần đào sâu (ví dụ code, refactor, DIP/DI/IoC) nằm ở sổ tay SOLID riêng.","refs":[8]},{"id":"5ddc00a27d","part":"C","partTitle":"Thiết kế: composition, quan hệ lớp, SOLID","group":"SOLID","level":"mid","text":"SOLID liên hệ với đa hình, kế thừa và composition thế nào?","hintLabel":"Ý chính","hint":"Đa hình là cơ chế của OCP; LSP là phép thử cho kế thừa; composition + interface là nền của DIP.","refs":[8,5,6]},{"id":"05fe64bb2c","part":"D","partTitle":"Chất lượng và pattern","group":"Coupling, cohesion","level":"basic","text":"Coupling và cohesion là gì? Muốn mức nào?","hintLabel":"Ý chính","hint":"Coupling là mức module biết về nhau (muốn thấp); cohesion là mức thành phần trong module thuộc về nhau (muốn cao).","refs":[9]},{"id":"16188c3d63","part":"D","partTitle":"Chất lượng và pattern","group":"Coupling, cohesion","level":"mid","text":"Law of Demeter là gì? Cho ví dụ.","hintLabel":"Ý chính","hint":"Chỉ nói chuyện với bạn gần; tránh \u003ccode>a.getB().getC().doX()\u003c/code>, thay bằng method trên \u003ccode>a\u003c/code>. Giảm coupling với cấu trúc nội bộ.","refs":[9]},{"id":"cae85575e1","part":"D","partTitle":"Chất lượng và pattern","group":"Coupling, cohesion","level":"mid","text":"Tell, Don&#39;t Ask là gì?","hintLabel":"Ý chính","hint":"Bảo object làm việc thay vì lấy dữ liệu ra tự quyết, giữ logic cạnh dữ liệu.","refs":[2,9]},{"id":"48f1b51644","part":"D","partTitle":"Chất lượng và pattern","group":"Coupling, cohesion","level":"hard","text":"DRY có luôn đúng không?","hintLabel":"Ý chính","hint":"Không. Hai đoạn code giống nhau tình cờ nhưng đổi vì lý do khác nhau thì gộp lại sẽ tạo coupling sai. DRY nói về trùng \u003cstrong>tri thức\u003c/strong>, không phải trùng chữ.","refs":[9]},{"id":"23b284ef33","part":"D","partTitle":"Chất lượng và pattern","group":"Design pattern","level":"basic","text":"Design pattern là gì? Có mấy nhóm?","hintLabel":"Ý chính","hint":"Lời giải đã kiểm chứng cho bài toán thiết kế lặp lại, cho từ vựng chung. GoF: Creational, Structural, Behavioral.","refs":[10]},{"id":"33e08d9b35","part":"D","partTitle":"Chất lượng và pattern","group":"Design pattern","level":"mid","text":"Strategy là gì? Khác State thế nào?","hintLabel":"Ý chính","hint":"Strategy: client chọn thuật toán thay thế được. State: object tự đổi hành vi theo trạng thái nội bộ. Cấu trúc giống, ý định khác.","refs":[10]},{"id":"681edab52a","part":"D","partTitle":"Chất lượng và pattern","group":"Design pattern","level":"mid","text":"Decorator khác kế thừa chỗ nào?","hintLabel":"Ý chính","hint":"Thêm hành vi bằng cách bọc object cùng interface, ghép được lúc chạy, không bùng nổ lớp con.","refs":[10,6]},{"id":"150bed4e76","part":"D","partTitle":"Chất lượng và pattern","group":"Design pattern","level":"mid","text":"Observer dùng khi nào?","hintLabel":"Ý chính","hint":"Một nguồn phát sự kiện, nhiều bên nghe mà không biết nhau (event emitter, pub/sub). Lưu ý rò rỉ listener và thứ tự xử lý.","refs":[10]},{"id":"b3cb33e067","part":"D","partTitle":"Chất lượng và pattern","group":"Design pattern","level":"mid","text":"Factory và Builder khác nhau?","hintLabel":"Ý chính","hint":"Factory chọn và tạo đúng kiểu cụ thể sau interface. Builder dựng một object phức tạp từng bước với nhiều tùy chọn.","refs":[10]},{"id":"21780e1cfe","part":"D","partTitle":"Chất lượng và pattern","group":"Design pattern","level":"hard","text":"Vì sao Singleton bị xem là anti-pattern? Thay bằng gì?","hintLabel":"Ý chính","hint":"Là biến toàn cục trá hình, ẩn phụ thuộc, khó test và khó thay. Thay bằng một instance do DI container quản lý vòng đời.","refs":[10,12]},{"id":"88da7848fa","part":"D","partTitle":"Chất lượng và pattern","group":"Design pattern","level":"hard","text":"Adapter và Facade khác nhau?","hintLabel":"Ý chính","hint":"Adapter chuyển một interface sang interface khác mà client cần. Facade tạo cửa vào đơn giản cho cả hệ con, không nhất thiết đổi interface.","refs":[10]},{"id":"348dbdaef2","part":"E","partTitle":"TypeScript/JS, anti-pattern và phỏng vấn","group":"TypeScript và JavaScript","level":"mid","text":"JavaScript hướng đối tượng theo kiểu nào? \u003ccode>class\u003c/code> có thật sự là class không?","hintLabel":"Ý chính","hint":"Dựa trên prototype; \u003ccode>class\u003c/code> là cú pháp phủ lên prototype chain. Method nằm trên \u003ccode>prototype\u003c/code> và dùng chung giữa các instance.","refs":[11]},{"id":"6d19e0ca85","part":"E","partTitle":"TypeScript/JS, anti-pattern và phỏng vấn","group":"TypeScript và JavaScript","level":"mid","text":"Vì sao \u003ccode>this\u003c/code> bị mất khi truyền method làm callback? Cách sửa?","hintLabel":"Ý chính","hint":"\u003ccode>this\u003c/code> phụ thuộc cách gọi. Sửa: \u003ccode>.bind\u003c/code>, arrow function field, hoặc bọc \u003ccode>() =&gt; obj.method()\u003c/code>.","refs":[11]},{"id":"d52571c4e4","part":"E","partTitle":"TypeScript/JS, anti-pattern và phỏng vấn","group":"TypeScript và JavaScript","level":"mid","text":"\u003ccode>private\u003c/code> của TypeScript khác \u003ccode>#field\u003c/code> của JavaScript thế nào?","hintLabel":"Ý chính","hint":"\u003ccode>private\u003c/code> chỉ kiểm tra lúc biên dịch, vẫn truy cập được lúc chạy; \u003ccode>#\u003c/code> riêng tư thật lúc chạy.","refs":[11]},{"id":"b2db82c233","part":"E","partTitle":"TypeScript/JS, anti-pattern và phỏng vấn","group":"TypeScript và JavaScript","level":"hard","text":"Structural typing là gì? Hệ quả với đa hình trong TS?","hintLabel":"Ý chính","hint":"Khớp kiểu theo cấu trúc, không theo tên nên không cần \u003ccode>implements\u003c/code>. Linh hoạt, nhưng hai kiểu khác nghĩa cùng cấu trúc bị coi là một (dùng branded type).","refs":[11]},{"id":"6d5dd0f5ec","part":"E","partTitle":"TypeScript/JS, anti-pattern và phỏng vấn","group":"TypeScript và JavaScript","level":"hard","text":"\u003ccode>interface\u003c/code> ở TypeScript khác Java thế nào?","hintLabel":"Ý chính","hint":"TS interface bị xóa khi biên dịch, không tồn tại lúc chạy nên không \u003ccode>instanceof\u003c/code> được; cần kiểm tra thì dùng type guard hoặc class.","refs":[11,3]},{"id":"cd9c019ce9","part":"E","partTitle":"TypeScript/JS, anti-pattern và phỏng vấn","group":"Anti-pattern và so sánh","level":"mid","text":"Anemic domain model là gì? Vì sao bị phê phán?","hintLabel":"Ý chính","hint":"Class chỉ có dữ liệu, logic nằm ở service nên ai cũng phá được quy tắc. Chỗ dùng được: DTO. Tệ khi nghiệp vụ phức tạp rải rác.","refs":[12,2]},{"id":"3869733d4f","part":"E","partTitle":"TypeScript/JS, anti-pattern và phỏng vấn","group":"Anti-pattern và so sánh","level":"mid","text":"God class và cách sửa?","hintLabel":"Ý chính","hint":"Một class làm mọi thứ. Tách theo trách nhiệm (SRP), đẩy logic về đúng object.","refs":[12,8]},{"id":"843e0a21ce","part":"E","partTitle":"TypeScript/JS, anti-pattern và phỏng vấn","group":"Anti-pattern và so sánh","level":"mid","text":"Primitive obsession là gì?","hintLabel":"Ý chính","hint":"Dùng \u003ccode>string\u003c/code>/\u003ccode>number\u003c/code> thô cho khái niệm nghiệp vụ (email, tiền). Thay bằng value object tự kiểm tra hợp lệ.","refs":[12,1]},{"id":"47788a2c02","part":"E","partTitle":"TypeScript/JS, anti-pattern và phỏng vấn","group":"Anti-pattern và so sánh","level":"hard","text":"OOP so với lập trình hàm: khi nào chọn cái nào?","hintLabel":"Ý chính","hint":"OOP mạnh ở thực thể có vòng đời và ranh giới/plugin; FP mạnh ở biến đổi dữ liệu và đồng thời. Thực tế trộn cả hai: object cho ranh giới, hàm thuần cho tính toán.","refs":[12]},{"id":"1b0efd6436","part":"E","partTitle":"TypeScript/JS, anti-pattern và phỏng vấn","group":"Cách nói","level":"basic","text":"Tự giới thiệu: giải thích OOP trong 60 giây.","hintLabel":"Ý chính","hint":"Định nghĩa một câu → bốn trụ cột mỗi cái một ví dụ → một cảnh báo (kế thừa dùng dè dặt).","refs":[0,13]},{"id":"b10f6e0801","part":"E","partTitle":"TypeScript/JS, anti-pattern và phỏng vấn","group":"Cách nói","level":"hard","text":"Bạn từng thiết kế sai một class ra sao và sửa thế nào?","hintLabel":"Ý chính","hint":"Chọn một ví dụ thật: nêu dấu hiệu (khó test, sửa nhiều chỗ), nguyên tắc bị vi phạm, cách tách. Nói rõ đánh đổi, không lý tưởng hóa.","refs":[13,8]}],"slides":[{"cover":true,"html":"\u003ch1>OOP\u003c/h1>\n\u003cp>Bốn trụ cột, SOLID và cách thiết kế khi phỏng vấn.\u003c/p>\n\u003cp>Tài liệu lý thuyết tổng quát; code TypeScript là minh họa.\u003c/p>\n","notes":"\u003cp>Mở đầu: OOP là cách tổ chức object tự quản lý state và giao tiếp qua message, không chỉ là có class.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>OOP là gì\u003c/h2>\n\u003cp>Object gói \u003cstrong>state\u003c/strong> và \u003cstrong>hành vi\u003c/strong>, giao tiếp bằng message.\u003c/p>\n\u003cp>Class chỉ là công cụ.\u003c/p>\n","notes":"\u003cp>Cảnh báo anemic model: class chỉ có getter/setter vẫn là code thủ tục.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Bốn trụ cột\u003c/h2>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Trụ cột\u003c/th>\n\u003cth>Ý chính\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Encapsulation\u003c/td>\n\u003ctd>Giấu state, giữ invariant\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Abstraction\u003c/td>\n\u003ctd>Lộ hợp đồng, giấu cách làm\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Inheritance\u003c/td>\n\u003ctd>Lớp con là một lớp cha\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Polymorphism\u003c/td>\n\u003ctd>Cùng lời gọi, hành vi theo kiểu thật\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n","notes":"\u003cp>Ví dụ xuyên suốt là máy ATM và Order/PaymentMethod.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Đóng gói thật\u003c/h2>\n\u003cp>\u003ccode>order.ship()\u003c/code> thay vì \u003ccode>order.status = &#39;SHIPPED&#39;\u003c/code>.\u003c/p>\n\u003cp>Method theo nghiệp vụ, không phải setter.\u003c/p>\n","notes":"\u003cp>Tell, Don&#39;t Ask. Getter trả mảng nội bộ cho phép người ngoài push thẳng vào.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Interface và abstract class\u003c/h2>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>\u003c/th>\n\u003cth>Interface\u003c/th>\n\u003cth>Abstract class\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>State\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003ctd>Có\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Cài nhiều\u003c/td>\n\u003ctd>Có\u003c/td>\n\u003ctd>Không\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Dùng khi\u003c/td>\n\u003ctd>Hợp đồng\u003c/td>\n\u003ctd>Chia sẻ code, template\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n","notes":"\u003cp>Mặc định chọn interface.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Kế thừa: cẩn thận\u003c/h2>\n\u003cp>Chỉ khi lớp con \u003cstrong>thay được\u003c/strong> lớp cha ở mọi nơi.\u003c/p>\n\u003cp>\u003ccode>Square extends Rectangle\u003c/code> là phản ví dụ.\u003c/p>\n","notes":"\u003cp>Is-a đời thường không bằng is-a về hành vi. Fragile base class.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Đa hình\u003c/h2>\n\u003cp>Thêm kiểu mới, \u003cstrong>không sửa\u003c/strong> code gọi.\u003c/p>\n\u003cp>Thay chuỗi \u003ccode>switch (type)\u003c/code> bằng interface.\u003c/p>\n","notes":"\u003cp>Dynamic dispatch tra theo kiểu thật lúc chạy. Override khác overload.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Composition hơn inheritance\u003c/h2>\n\u003cp>Has-a và ủy quyền. Đổi hành vi được lúc chạy.\u003c/p>\n\u003cp>Strategy, Decorator, Dependency Injection.\u003c/p>\n","notes":"\u003cp>Vẫn kế thừa khi is-a thật và đúng Liskov.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Quan hệ giữa các lớp\u003c/h2>\n\u003cp>Dependency, association, aggregation, composition.\u003c/p>\n\u003cp>Hỏi: xóa cha thì phần còn tồn tại không?\u003c/p>\n","notes":"\u003cp>Order–OrderItem là composition; Team–Player là aggregation.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>SOLID\u003c/h2>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Chữ\u003c/th>\n\u003cth>Ý\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>S\u003c/td>\n\u003ctd>Một lý do thay đổi\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>O\u003c/td>\n\u003ctd>Mở mở rộng, đóng sửa\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>L\u003c/td>\n\u003ctd>Con thay được cha\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>I\u003c/td>\n\u003ctd>Interface nhỏ\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>D\u003c/td>\n\u003ctd>Phụ thuộc abstraction\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n","notes":"\u003cp>DIP là nguyên tắc, DI là kỹ thuật, IoC container là công cụ.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Coupling và cohesion\u003c/h2>\n\u003cp>\u003cstrong>Thấp\u003c/strong> coupling, \u003cstrong>cao\u003c/strong> cohesion.\u003c/p>\n\u003cp>Law of Demeter, Tell Don&#39;t Ask, DRY có điều kiện.\u003c/p>\n","notes":"\u003cp>DRY là trùng tri thức, không phải trùng chữ.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Design pattern\u003c/h2>\n\u003cp>Strategy · Decorator · Adapter · Observer · Factory · Builder.\u003c/p>\n\u003cp>Mỗi pattern: vấn đề, giải pháp, đánh đổi.\u003c/p>\n","notes":"\u003cp>Singleton thủ công là anti-pattern; dùng DI container.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>TypeScript và JavaScript\u003c/h2>\n\u003cp>Prototype chain. \u003ccode>this\u003c/code> phụ thuộc cách gọi.\u003c/p>\n\u003cp>\u003ccode>private\u003c/code> lúc biên dịch, \u003ccode>#\u003c/code> lúc chạy. Structural typing.\u003c/p>\n","notes":"\u003cp>Interface TS bị xóa lúc chạy.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Anti-pattern\u003c/h2>\n\u003cp>God class · Anemic model · Primitive obsession · Fragile base class.\u003c/p>\n\u003cp>OOP và FP bổ sung nhau.\u003c/p>\n","notes":"\u003cp>Chọn theo bài toán, không bênh vực một chiều.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Khi phỏng vấn\u003c/h2>\n\u003cp>Định nghĩa → đánh đổi → ví dụ → cảnh báo.\u003c/p>\n\u003cp>Luôn có một ví dụ vi phạm và cách sửa.\u003c/p>\n","notes":"\u003cp>Nhắc lại danh sách rà nhanh ở bài 13.\u003c/p>\n"}]}</script>
+<script>
+(() => {
+  // Mở nhầm file template (chưa có dữ liệu) thì báo rõ thay vì hỏng im lặng.
+  const raw = document.getElementById('data').textContent.trim();
+  if (!raw.startsWith('{')) {
+    document.querySelector('main').innerHTML =
+      '<div class="panel" style="padding:24px;margin-top:24px"><h2>Đây là file template, chưa có dữ liệu</h2>' +
+      '<p>Hãy mở <code>knowledge-base/index.html#oop</code> (file đã sinh). ' +
+      'Nếu chưa có, chạy <code>npm run docs:knowledge-base</code> ở thư mục gốc.</p></div>';
+    return;
+  }
+  const DATA = JSON.parse(raw);
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const el = (tag, attrs = {}, html) => {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') node.className = v;
+      else if (k === 'text') node.textContent = v;
+      else node.setAttribute(k, v);
+    }
+    if (html !== undefined) node.innerHTML = html;
+    return node;
+  };
+  const STATUS_LABEL = { done: 'Đã làm', theory: 'Lý thuyết', todo: 'Chưa học' };
+  const LEVEL_LABEL = { basic: 'Cơ bản', mid: 'Trung bình', hard: 'Nâng cao' };
+  const topicByN = new Map(DATA.topics.map((t) => [t.n, t]));
+
+  // ---------- storage (có thể bị chặn: luôn bọc try/catch) ----------
+  const store = {
+    get(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* bỏ qua */ } },
+  };
+  let marks = store.get('oop-practice-marks', {});
+
+  // ---------- theme ----------
+  const themeBtn = $('#theme-btn');
+  const THEMES = ['system', 'light', 'dark'];
+  const THEME_LABEL = { system: 'hệ thống', light: 'sáng', dark: 'tối' };
+  let theme = store.get('oop-theme', 'system');
+  function applyTheme() {
+    if (theme === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.textContent = 'Giao diện: ' + THEME_LABEL[theme];
+  }
+  themeBtn.addEventListener('click', () => {
+    theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    store.set('oop-theme', theme);
+    applyTheme();
+  });
+  applyTheme();
+
+  const generated = new Date(DATA.generatedAt);
+  $('#gen-date').textContent = 'cập nhật ' + generated.toLocaleDateString('vi-VN');
+  $('#footer').textContent = 'Sinh tự động từ documents/KNOWLEDGE.md và documents/INTERVIEW-QUESTIONS.md lúc ' +
+    generated.toLocaleString('vi-VN') + '. Sửa nội dung trong file markdown rồi chạy lại: npm run docs:knowledge';
+
+  // ================= OVERVIEW: meter =================
+  function renderMeter() {
+    const counts = { done: 0, theory: 0, todo: 0 };
+    DATA.topics.forEach((t) => counts[t.status]++);
+    const total = DATA.topics.length;
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    const review = DATA.questions.filter((q) => marks[q.id] === 'review').length;
+    const qTotal = DATA.questions.length;
+    const pct = (n, of) => (of ? (n / of) * 100 : 0) + '%';
+    $('#meter').innerHTML = `
+      <span class="eyebrow">Tiến độ</span>
+      <div class="meter-row">
+        <div class="label"><span>Chủ đề</span><b>${counts.done} đã làm · ${counts.theory} lý thuyết · ${counts.todo} chưa học</b></div>
+        <div class="bar"><i class="b-done" style="width:${pct(counts.done, total)}"></i><i class="b-theory" style="width:${pct(counts.theory, total)}"></i></div>
+      </div>
+      <div class="meter-row">
+        <div class="label"><span>Câu hỏi luyện</span><b>${known}/${qTotal} đã thuộc · ${review} cần ôn</b></div>
+        <div class="bar"><i class="b-known" style="width:${pct(known, qTotal)}"></i><i class="b-review" style="width:${pct(review, qTotal)}"></i></div>
+      </div>
+      <div class="legend"><a class="btn" href="#topic-0">Đọc bài đầu tiên</a><a class="btn primary" href="#practice">Luyện câu hỏi</a></div>`;
+  }
+
+  // ================= KNOWLEDGE =================
+  const LABELS = [
+    ['Câu hỏi phỏng vấn', 'questions'],
+    ['Bẫy phỏng vấn', 'trap'],
+    ['Ví dụ w-identity', 'incode'],
+    ['Kịch bản thiết kế', 'incode'],
+    ['Bẫy thực tế', 'trap'],
+    ['Bẫy cần nhớ', 'trap'],
+    ['Mẫu trả lời', 'sample'],
+    ['Trong code', 'incode'],
+    ['Tự trả lời', 'self'],
+    ['Tự viết', 'self'],
+  ];
+  function decorate(root) {
+    root.querySelectorAll('table').forEach((t) => {
+      const w = el('div', { class: 'table-wrap' });
+      t.replaceWith(w);
+      w.appendChild(t);
+    });
+    [...root.querySelectorAll(':scope > p')].forEach((p) => {
+      const strong = p.firstElementChild;
+      if (!strong || strong.tagName !== 'STRONG' || p.firstChild !== strong) return;
+      const hit = LABELS.find(([label]) => strong.textContent.startsWith(label));
+      if (!hit) return;
+      const box = el('div', { class: 'callout ' + hit[1] });
+      p.before(box);
+      const next = p.nextElementSibling;
+      box.appendChild(p);
+      if (p.textContent.trim().length > strong.textContent.trim().length + 2) return; // nội dung nằm ngay trong đoạn
+      if (next && /^(UL|OL|BLOCKQUOTE|PRE|DIV)$/.test(next.tagName)) box.appendChild(next);
+    });
+  }
+
+  const questionsByTopic = new Map();
+  DATA.questions.forEach((q) => q.refs.forEach((r) => questionsByTopic.set(r, (questionsByTopic.get(r) ?? 0) + 1)));
+
+  function renderToc(currentN) {
+    const filter = $('#toc-search').value.trim().toLowerCase();
+    const list = $('#toc-list');
+    list.innerHTML = '';
+    DATA.topics
+      .filter((t) => !filter || (t.n + '. ' + t.title).toLowerCase().includes(filter))
+      .forEach((t) => {
+        const li = el('li');
+        const a = el('a', { href: '#topic-' + t.n, title: STATUS_LABEL[t.status] });
+        if (t.n === currentN) a.setAttribute('aria-current', 'true');
+        a.innerHTML = `<span class="num">${String(t.n).padStart(2, '0')}</span><span></span><span class="dot ${t.status}"></span>`;
+        a.children[1].textContent = t.title;
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+    if (!list.children.length) list.appendChild(el('li', { class: 'empty', text: 'Không tìm thấy chủ đề phù hợp.' }));
+  }
+  function renderTopic(n) {
+    const idx = DATA.topics.findIndex((t) => t.n === n);
+    const t = DATA.topics[idx] ?? DATA.topics[0];
+    currentTopic = t.n;
+    const prev = DATA.topics[idx - 1];
+    const next = DATA.topics[idx + 1];
+    const qCount = questionsByTopic.get(t.n) ?? 0;
+    const art = $('#topic');
+    art.innerHTML = `
+      <div class="topic-head">
+        <span class="eyebrow">Chủ đề ${String(t.n).padStart(2, '0')} · ${t.step}</span>
+        <h1></h1>
+        <div class="topic-meta"><span class="chip ${t.status}">${STATUS_LABEL[t.status]}</span><span class="status-note"></span></div>
+      </div>
+      <div class="prose" id="prose">${t.html}</div>
+      ${qCount ? `<div class="panel practice-link"><span>Có <b>${qCount}</b> câu hỏi luyện tập liên quan tới chủ đề này.</span><a class="btn primary" href="#practice" data-topic="${t.n}">Luyện ngay</a></div>` : ''}
+      <div class="topic-foot">
+        ${prev ? `<a class="btn" href="#topic-${prev.n}">← ${prev.n}. </a>` : '<span></span>'}
+        ${next ? `<a class="btn" href="#topic-${next.n}">${next.n}. →</a>` : '<span></span>'}
+      </div>`;
+    $('h1', art).textContent = t.title;
+    $('.status-note', art).textContent = t.statusNote;
+    const foot = art.querySelectorAll('.topic-foot a');
+    if (prev) foot[0].textContent = '← ' + prev.n + '. ' + prev.title;
+    if (next) foot[foot.length - 1].textContent = next.n + '. ' + next.title + ' →';
+    decorate($('#prose'));
+    const link = art.querySelector('[data-topic]');
+    if (link) link.addEventListener('click', () => { practiceState.topic = t.n; practiceState.pos = 0; });
+    renderToc(t.n);
+  }
+  let currentTopic = 0;
+  $('#toc-search').addEventListener('input', () => renderToc(currentTopic));
+  $('#toc-toggle').addEventListener('click', () => {
+    const toc = $('#toc');
+    const collapsed = toc.classList.toggle('collapsed');
+    $('#toc-toggle').setAttribute('aria-expanded', String(!collapsed));
+  });
+  if (matchMedia('(max-width: 920px)').matches) $('#toc').classList.add('collapsed');
+
+  // ================= PRACTICE =================
+  const PARTS = [...new Map(DATA.questions.map((q) => [q.part, q.partTitle])).entries()];
+  const practiceState = { part: 'all', level: 'all', onlyReview: false, topic: null, order: DATA.questions.map((_, i) => i), pos: 0, revealed: false };
+
+  function filtered() {
+    return practiceState.order
+      .map((i) => DATA.questions[i])
+      .filter((q) => practiceState.part === 'all' || q.part === practiceState.part)
+      .filter((q) => practiceState.level === 'all' || q.level === practiceState.level)
+      .filter((q) => !practiceState.onlyReview || marks[q.id] !== 'known')
+      .filter((q) => practiceState.topic === null || q.refs.includes(practiceState.topic));
+  }
+  function pillGroup(label, options, key) {
+    const g = el('div', { class: 'fgroup', role: 'group', 'aria-label': label });
+    g.appendChild(el('span', { class: 'eyebrow', text: label }));
+    options.forEach(([value, text]) => {
+      const b = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState[key] === value) });
+      b.textContent = text;
+      b.addEventListener('click', () => { practiceState[key] = value; practiceState.pos = 0; practiceState.revealed = false; renderPractice(); });
+      g.appendChild(b);
+    });
+    return g;
+  }
+  function renderFilters() {
+    const f = $('#filters');
+    f.innerHTML = '';
+    f.appendChild(pillGroup('Phần', [['all', 'Tất cả'], ...PARTS.map(([id, title]) => [id, id + ' · ' + title])], 'part'));
+    f.appendChild(pillGroup('Mức', [['all', 'Tất cả'], ['basic', 'Cơ bản'], ['mid', 'Trung bình'], ['hard', 'Nâng cao']], 'level'));
+    const extra = el('div', { class: 'fgroup' });
+    const rb = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState.onlyReview) });
+    rb.textContent = 'Ẩn câu đã thuộc';
+    rb.addEventListener('click', () => { practiceState.onlyReview = !practiceState.onlyReview; practiceState.pos = 0; renderPractice(); });
+    extra.appendChild(rb);
+    if (practiceState.topic !== null) {
+      const t = topicByN.get(practiceState.topic);
+      const tb = el('button', { type: 'button', class: 'pill', 'aria-pressed': 'true', title: 'Bỏ lọc theo chủ đề' });
+      tb.textContent = 'Chủ đề ' + practiceState.topic + (t ? ' · ' + t.title : '') + '  ✕';
+      tb.addEventListener('click', () => { practiceState.topic = null; practiceState.pos = 0; renderPractice(); });
+      extra.appendChild(tb);
+    }
+    f.appendChild(extra);
+  }
+  function setMark(q, value) {
+    if (marks[q.id] === value) delete marks[q.id]; else marks[q.id] = value;
+    store.set('oop-practice-marks', marks);
+  }
+  function renderPractice() {
+    renderFilters();
+    const list = filtered();
+    if (practiceState.pos >= list.length) practiceState.pos = Math.max(0, list.length - 1);
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    $('#counter').textContent = list.length
+      ? `Câu ${practiceState.pos + 1}/${list.length} trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`
+      : `0 câu trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`;
+    const card = $('#card');
+    if (!list.length) {
+      card.className = 'panel empty';
+      card.innerHTML = 'Không còn câu nào khớp bộ lọc. Bỏ bớt bộ lọc hoặc tắt "Ẩn câu đã thuộc".';
+      return;
+    }
+    const q = list[practiceState.pos];
+    const mark = marks[q.id];
+    card.className = 'panel card';
+    card.innerHTML = `
+      <div class="card-meta">
+        <span class="eyebrow">Phần ${q.part}${q.group ? ' · ' + q.group : ''}</span>
+        ${q.level ? `<span class="chip ${q.level}">${LEVEL_LABEL[q.level]}</span>` : ''}
+        ${mark ? `<span class="mark ${mark}">${mark === 'known' ? '✓ đã thuộc' : '↺ cần ôn lại'}</span>` : ''}
+      </div>
+      <div class="card-q">${q.text}</div>
+      <div id="hint-area"></div>
+      <div class="card-actions">
+        <button class="btn" id="prev-btn" type="button" ${practiceState.pos === 0 ? 'disabled' : ''}>← Trước</button>
+        <button class="btn primary" id="reveal-btn" type="button">${practiceState.revealed ? 'Ẩn ý chính' : 'Hiện ý chính'}</button>
+        <span class="spacer"></span>
+        <button class="btn again" id="again-btn" type="button">Cần ôn lại</button>
+        <button class="btn good" id="known-btn" type="button">Đã thuộc</button>
+        <button class="btn" id="next-btn" type="button" ${practiceState.pos >= list.length - 1 ? 'disabled' : ''}>Sau →</button>
+      </div>`;
+    if (practiceState.revealed) {
+      const area = $('#hint-area');
+      const refs = q.refs.map((r) => topicByN.get(r)).filter(Boolean);
+      area.innerHTML = `
+        ${q.hint ? `<div class="hint"><span class="eyebrow">${q.hintLabel ?? 'Ý chính'}</span>${q.hint}</div>` : '<div class="hint"><span class="eyebrow">Gợi ý</span>Tự trả lời theo khung: định nghĩa → vì sao / đánh đổi → ví dụ từ dự án.</div>'}
+        ${refs.length ? `<div class="refs"><span class="eyebrow">Đọc lại</span>${refs.map((t) => `<a href="#topic-${t.n}">#${t.n} ${escapeHtml(t.title)}</a>`).join('')}</div>` : ''}`;
+    }
+    $('#prev-btn').addEventListener('click', () => move(-1));
+    $('#next-btn').addEventListener('click', () => move(1));
+    $('#reveal-btn').addEventListener('click', toggleReveal);
+    $('#again-btn').addEventListener('click', () => { setMark(q, 'review'); move(1, true); });
+    $('#known-btn').addEventListener('click', () => { setMark(q, 'known'); move(1, true); });
+  }
+  function move(delta, afterMark) {
+    const list = filtered();
+    const nextPos = practiceState.pos + delta;
+    if (nextPos >= 0 && nextPos < list.length) practiceState.pos = nextPos;
+    practiceState.revealed = false;
+    renderPractice();
+    if (afterMark) renderMeter();
+  }
+  function toggleReveal() { practiceState.revealed = !practiceState.revealed; renderPractice(); }
+  $('#shuffle-btn').addEventListener('click', () => {
+    const o = practiceState.order;
+    for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+    practiceState.pos = 0; practiceState.revealed = false; renderPractice();
+  });
+  const resetBtn = $('#reset-btn');
+  let resetArmed = false;
+  resetBtn.addEventListener('click', () => {
+    if (!resetArmed) { resetArmed = true; resetBtn.textContent = 'Bấm lần nữa để xoá'; setTimeout(() => { resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu'; }, 3000); return; }
+    marks = {}; store.set('oop-practice-marks', marks); resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu';
+    renderPractice(); renderMeter();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'practice' || e.target.closest('input, textarea')) return;
+    const list = filtered();
+    const q = list[practiceState.pos];
+    if (e.key === ' ') { e.preventDefault(); toggleReveal(); }
+    else if (e.key === 'ArrowRight') move(1);
+    else if (e.key === 'ArrowLeft') move(-1);
+    else if (e.key === '1' && q) { setMark(q, 'review'); move(1, true); }
+    else if (e.key === '2' && q) { setMark(q, 'known'); move(1, true); }
+  });
+
+  // ================= GLOSSARY =================
+  function renderGlossary() {
+    const filter = $('#gloss-search').value.trim().toLowerCase();
+    const box = $('#gloss');
+    box.innerHTML = '';
+    DATA.glossary
+      .filter((g) => !filter || (g.term + ' ' + g.def).toLowerCase().includes(filter))
+      .forEach((g) => box.appendChild(el('div', { class: 'panel term' }, `<b>${g.term}</b><span>${g.def}</span>`)));
+    if (!box.children.length) box.appendChild(el('p', { class: 'panel empty', text: 'Không tìm thấy thuật ngữ phù hợp.' }));
+  }
+  $('#gloss-search').addEventListener('input', renderGlossary);
+
+  // ================= SLIDES =================
+  let slideIdx = 0;
+  let showNotes = false;
+  /** Chèn lại sơ đồ của tab Tổng quan vào slide. Đổi id của marker trong SVG để không trùng. */
+  function embed(sourceId, suffix) {
+    const clone = document.getElementById(sourceId).cloneNode(true);
+    clone.removeAttribute('id');
+    clone.querySelectorAll('[id]').forEach((n) => { n.id = n.id + suffix; });
+    clone.querySelectorAll('[marker-start],[marker-end]').forEach((n) => {
+      ['marker-start', 'marker-end'].forEach((attr) => {
+        const v = n.getAttribute(attr);
+        if (v) n.setAttribute(attr, v.replace(/url\(#([^)]+)\)/, `url(#$1${suffix})`));
+      });
+    });
+    return clone;
+  }
+  const EMBEDS = { '{{architecture}}': 'arch-diagram', '{{planes}}': 'planes' };
+  function renderSlide() {
+    const total = DATA.slides.length;
+    slideIdx = Math.max(0, Math.min(slideIdx, total - 1));
+    const s = DATA.slides[slideIdx];
+    const slide = $('#slide');
+    slide.className = 'slide' + (s.cover ? ' cover' : '');
+    slide.innerHTML = s.html +
+      `<span class="slide-brand">OOP</span><span class="slide-no">${String(slideIdx + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}</span>`;
+    slide.querySelectorAll('p').forEach((p) => {
+      const id = EMBEDS[p.textContent.trim()];
+      if (id) p.replaceWith(embed(id, '-s' + slideIdx));
+    });
+    $('#slide-counter').textContent = `Slide ${slideIdx + 1}/${total}`;
+    $('#slide-progress').style.width = ((slideIdx + 1) / total) * 100 + '%';
+    $('#slide-prev').disabled = slideIdx === 0;
+    $('#slide-next').disabled = slideIdx === total - 1;
+    const notes = $('#slide-notes');
+    notes.hidden = !showNotes;
+    notes.innerHTML = '<span class="eyebrow">Ghi chú người nói</span>' + (s.notes || '<p>Không có ghi chú cho slide này.</p>');
+    $('#slide-notes-btn').setAttribute('aria-pressed', String(showNotes));
+  }
+  function slideGo(i) {
+    slideIdx = i;
+    renderSlide();
+    // Đổi slide không tạo thêm mục trong lịch sử (Back quay về tab trước, không lùi từng slide).
+    try { history.replaceState(null, '', '#slide-' + (slideIdx + 1)); } catch { /* bỏ qua */ }
+  }
+  function toggleFullscreen() {
+    const stage = $('#stage');
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else stage.requestFullscreen?.().catch(() => undefined);
+    } catch { /* trình xem không hỗ trợ toàn màn hình */ }
+  }
+  $('#slide-prev').addEventListener('click', () => slideGo(slideIdx - 1));
+  $('#slide-next').addEventListener('click', () => slideGo(slideIdx + 1));
+  $('#slide-full').addEventListener('click', toggleFullscreen);
+  $('#slide-notes-btn').addEventListener('click', () => { showNotes = !showNotes; renderSlide(); });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'slides' || e.target.closest('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+    const last = DATA.slides.length - 1;
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); slideGo(Math.min(slideIdx + 1, last)); }
+    else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); slideGo(Math.max(slideIdx - 1, 0)); }
+    else if (e.key === 'Home') slideGo(0);
+    else if (e.key === 'End') slideGo(last);
+    else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+    else if (e.key === 'n' || e.key === 'N') { showNotes = !showNotes; renderSlide(); }
+  });
+
+  function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+
+  // ================= ROUTING (#overview, #knowledge, #topic-N, #practice, #glossary) =================
+  // Không dựa vào sự kiện hashchange để chuyển view: một số trình xem (preview trong IDE, app desktop,
+  // file:// bị chặn điều hướng) không đổi hash khi bấm link. Bấm link nội bộ → gọi go() trực tiếp;
+  // cập nhật URL chỉ là phụ, lỗi thì bỏ qua.
+  let currentView = 'overview';
+  function go(hash, updateUrl = true) {
+    route(hash);
+    if (!updateUrl) return;
+    try {
+      if (location.hash !== '#' + hash) history.pushState(null, '', '#' + hash);
+    } catch { /* trình xem không cho đổi URL: view vẫn đã chuyển */ }
+  }
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    go(a.getAttribute('href').slice(1));
+  });
+  function route(hash) {
+    const topicMatch = /^topic-(\d+)$/.exec(hash);
+    const slideMatch = /^slide-(\d+)$/.exec(hash);
+    const view = topicMatch ? 'knowledge'
+      : slideMatch ? 'slides'
+      : ['overview', 'knowledge', 'practice', 'glossary', 'slides'].includes(hash) ? hash : 'overview';
+    currentView = view;
+    document.querySelectorAll('[data-view-panel]').forEach((p) => { p.hidden = p.dataset.viewPanel !== view; });
+    document.querySelectorAll('nav.tabs a').forEach((a) => {
+      if (a.dataset.view === view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    if (view === 'knowledge') renderTopic(topicMatch ? Number(topicMatch[1]) : DATA.topics[0].n);
+    if (view === 'practice') renderPractice();
+    if (view === 'glossary') renderGlossary();
+    if (view === 'overview') renderMeter();
+    if (view === 'slides') {
+      if (slideMatch) slideIdx = Number(slideMatch[1]) - 1;
+      renderSlide();
+    }
+    window.scrollTo(0, 0);
+  }
+  // Nút Back/Forward của trình duyệt, hoặc người dùng tự sửa hash.
+  const fromUrl = () => route(location.hash.slice(1));
+  window.addEventListener('hashchange', fromUrl);
+  window.addEventListener('popstate', fromUrl);
+
+  fromUrl();
+})();
+</script>
+</body>
+</html>

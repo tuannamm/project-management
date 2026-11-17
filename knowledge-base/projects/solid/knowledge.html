@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ tay SOLID</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Cùng hệ giao diện với sổ tay API Gateway và Service Registry.
+   Nội dung được sinh từ markdown; tiến độ ôn tập dùng khóa riêng solid-practice-marks. */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #e9edf2;
+  --ink: #17202b;
+  --muted: #5a6574;
+  --line: #d6dce4;
+  --accent: #c2410c;
+  --accent-soft: #fbe5d8;
+  --control: #4352c9;
+  --control-soft: #e3e6fb;
+  --data: #0d7d72;
+  --data-soft: #d6f0ec;
+  --ok: #2b7a3f;
+  --ok-soft: #dcf0e1;
+  --learn: #2559c7;
+  --learn-soft: #dfe8fb;
+  --todo: #6b7482;
+  --todo-soft: #e6e9ee;
+  --danger: #b4321f;
+  --danger-soft: #f9e0db;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+    --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+    --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+    --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --surface: #151c25; --surface-2: #1d2631; --ink: #e5e9ef; --muted: #98a3b3; --line: #2a3441;
+  --accent: #ff8f57; --accent-soft: #3a2418; --control: #9aa4ff; --control-soft: #23284a; --data: #45c9b7; --data-soft: #12322e;
+  --ok: #63c47f; --ok-soft: #15301d; --learn: #7eaaff; --learn-soft: #1a2846; --todo: #8c96a4; --todo-soft: #222b36;
+  --danger: #f2826c; --danger-soft: #3a1c17; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.65 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+[hidden] { display: none !important; }
+a { color: var(--learn); }
+code, pre, kbd { font-family: var(--font-mono); font-size: 0.86em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; margin: 0; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.eyebrow { font: 600 11px/1 var(--font-mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+
+/* ---------- Header ---------- */
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-block: 10px; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand b { font-weight: 800; font-size: 17px; letter-spacing: -0.01em; }
+.brand span { font: 500 12px var(--font-mono); color: var(--muted); }
+nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+nav.tabs a {
+  text-decoration: none; color: var(--muted); font-weight: 600; font-size: 14px;
+  padding: 6px 12px; border-radius: 999px;
+}
+nav.tabs a:hover { color: var(--ink); background: var(--surface-2); }
+nav.tabs a[aria-current="page"] { color: var(--surface); background: var(--ink); }
+.icon-btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px;
+  font: 600 12px var(--font-mono); padding: 6px 10px; cursor: pointer;
+}
+main { padding-block: 28px 64px; }
+
+/* ---------- Shared bits ---------- */
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--font-mono); padding: 4px 8px; border-radius: 999px; white-space: nowrap; }
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.done { color: var(--ok); background: var(--ok-soft); }
+.chip.theory { color: var(--learn); background: var(--learn-soft); }
+.chip.todo { color: var(--todo); background: var(--todo-soft); }
+.chip.basic { color: var(--ok); background: var(--ok-soft); }
+.chip.mid { color: #a16207; background: #fbefcf; }
+.chip.hard { color: var(--danger); background: var(--danger-soft); }
+:root[data-theme="dark"] .chip.mid { color: #e8c062; background: #3a2f14; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip.mid { color: #e8c062; background: #3a2f14; } }
+.status-code { font: 700 13px var(--font-mono); padding: 2px 7px; border-radius: 6px; background: var(--surface-2); }
+.status-code.s2 { color: var(--ok); background: var(--ok-soft); }
+.status-code.s4 { color: #a16207; background: #fbefcf; }
+.status-code.s5 { color: var(--danger); background: var(--danger-soft); }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font: 600 14px var(--font-body); padding: 8px 14px; border-radius: 8px; cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.btn.good { background: var(--ok); color: var(--surface); border-color: var(--ok); }
+.btn.again { color: var(--accent); border-color: var(--accent); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.section-head h2 { font-size: 21px; font-weight: 700; }
+.section-head p { margin: 0; color: var(--muted); max-width: 62ch; }
+section.block { margin-top: 44px; }
+
+/* ---------- Overview ---------- */
+.hero { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 32px; align-items: end; }
+.hero h1 { font-size: clamp(30px, 4.6vw, 46px); font-weight: 800; letter-spacing: -0.025em; margin-top: 10px; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero p.lead { font-size: 17px; color: var(--muted); max-width: 58ch; margin: 14px 0 0; }
+.meter { padding: 18px; display: grid; gap: 14px; }
+.meter-row { display: grid; gap: 6px; }
+.meter-row .label { display: flex; justify-content: space-between; font-size: 13.5px; }
+.meter-row .label b { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.bar { height: 10px; border-radius: 999px; background: var(--surface-2); display: flex; overflow: hidden; }
+.bar i { display: block; height: 100%; }
+.bar .b-done { background: var(--ok); } .bar .b-theory { background: var(--learn); } .bar .b-known { background: var(--ok); } .bar .b-review { background: var(--accent); }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.diagram { overflow-x: auto; padding: 16px; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.diagram .node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+.diagram .node.gw rect { fill: var(--accent-soft); stroke: var(--accent); }
+.diagram .node.svc rect { fill: var(--data-soft); stroke: var(--data); }
+.diagram .node.infra rect { fill: var(--control-soft); stroke: var(--control); }
+.diagram text { fill: var(--ink); font-family: var(--font-body); font-size: 14px; font-weight: 600; }
+.diagram text.small { fill: var(--muted); font: 500 11.5px var(--font-mono); }
+.diagram .edge { stroke: var(--ink); stroke-width: 1.6; fill: none; }
+.diagram .edge.tcp { stroke: var(--data); }
+.diagram .edge.dash { stroke: var(--control); stroke-dasharray: 5 5; }
+.diagram .edge.event { stroke: var(--muted); stroke-dasharray: 2 4; }
+.diagram marker path { fill: context-stroke; }
+.diagram .arrow-ink { fill: var(--ink); } .diagram .arrow-data { fill: var(--data); } .diagram .arrow-ctrl { fill: var(--control); } .diagram .arrow-muted { fill: var(--muted); }
+
+.planes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.plane { padding: 20px; border-top: 4px solid var(--control); }
+.plane.data { border-top-color: var(--data); }
+.plane h3 { font-size: 18px; margin-bottom: 4px; }
+.plane .when { font: 500 12.5px var(--font-mono); color: var(--muted); }
+.plane ol { margin: 14px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+.plane ol code { color: var(--muted); }
+.plane .rule { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 14px; color: var(--muted); }
+
+/* ---------- Knowledge ---------- */
+.kgrid { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 28px; align-items: start; }
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); max-height: calc(100vh - 100px); overflow-y: auto; padding: 10px; }
+.toc input { width: 100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 8px 10px; font: inherit; margin-bottom: 8px; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.toc a { display: grid; grid-template-columns: 26px minmax(0, 1fr) 10px; gap: 6px; align-items: center; text-decoration: none; color: var(--ink); padding: 6px 8px; border-radius: 6px; font-size: 13.5px; line-height: 1.35; }
+.toc a:hover { background: var(--surface-2); }
+.toc a[aria-current="true"] { background: var(--surface-2); font-weight: 600; }
+.toc .num { font: 600 11.5px var(--font-mono); color: var(--muted); }
+.toc .dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.done { background: var(--ok); } .dot.theory { background: var(--learn); } .dot.todo { background: transparent; box-shadow: inset 0 0 0 1.5px var(--todo); }
+.toc-toggle { display: none; }
+
+article.topic { min-width: 0; }
+.topic-head { display: grid; gap: 10px; padding-bottom: 18px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.topic-head h1 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; letter-spacing: -0.02em; }
+.topic-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13.5px; }
+.prose { max-width: 76ch; }
+.prose img { display: block; max-width: 100%; height: auto; margin: 16px auto; border-radius: 12px; }
+.prose p, .prose li { overflow-wrap: break-word; }
+.prose p { margin: 0 0 12px; }
+.prose ul, .prose ol { margin: 0 0 14px; padding-left: 22px; display: grid; gap: 4px; }
+.prose code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+.prose pre { background: var(--surface-2); padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: 0 0 16px; line-height: 1.5; }
+.prose pre code { background: none; padding: 0; }
+.prose blockquote { margin: 0 0 14px; padding: 10px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+.prose h3 { font-size: 17px; margin: 22px 0 10px; }
+.table-wrap { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 8px; }
+.prose table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.prose th, .prose td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.prose th { background: var(--surface-2); font-weight: 600; font-size: 13px; }
+.prose tr:last-child td { border-bottom: 0; }
+.callout { border-radius: var(--radius); padding: 14px 16px 2px; margin: 0 0 16px; border: 1px solid var(--line); background: var(--surface); }
+.callout > p:first-child { font-size: 12px; font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+.callout > p:first-child strong { font-weight: 700; }
+.callout.questions { border-color: var(--learn); background: var(--learn-soft); }
+.callout.questions > p:first-child { color: var(--learn); }
+.callout.trap { border-color: var(--accent); background: var(--accent-soft); }
+.callout.trap > p:first-child { color: var(--accent); }
+.callout.sample { border-color: var(--ok); background: var(--ok-soft); }
+.callout.sample > p:first-child { color: var(--ok); }
+.callout.incode { border-color: var(--control); background: var(--control-soft); }
+.callout.incode > p:first-child { color: var(--control); }
+.callout.self { border-style: dashed; background: transparent; }
+.callout.self blockquote { border: 0; padding: 0; font-style: italic; }
+.topic-foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--line); }
+.topic-foot a { text-decoration: none; }
+.practice-link { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px; margin-top: 22px; }
+
+/* ---------- Practice ---------- */
+.filters { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; margin-bottom: 16px; }
+.fgroup { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.fgroup .eyebrow { margin-right: 4px; }
+.pill { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 5px 11px; font: 600 13px var(--font-body); cursor: pointer; }
+.pill[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.card { padding: 26px; display: grid; gap: 18px; min-height: 320px; align-content: start; }
+.card-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13px; }
+.card-q { font-size: clamp(19px, 2.4vw, 24px); font-weight: 700; line-height: 1.35; letter-spacing: -0.01em; text-wrap: pretty; }
+.card-q strong { font-weight: 700; }
+.hint { border-left: 3px solid var(--ok); padding: 10px 14px; background: var(--ok-soft); border-radius: 0 8px 8px 0; }
+.hint .eyebrow { color: var(--ok); display: block; margin-bottom: 6px; }
+.refs { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13.5px; }
+.refs a { text-decoration: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; color: var(--ink); }
+.refs a:hover { border-color: var(--learn); color: var(--learn); }
+.card-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.card-actions .spacer { flex: 1; }
+.mark { font: 600 12px var(--font-mono); }
+.mark.known { color: var(--ok); } .mark.review { color: var(--accent); }
+.practice-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.counter { font: 600 13px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.kbd-help { font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); }
+.empty { padding: 40px 26px; text-align: center; color: var(--muted); }
+
+/* ---------- Glossary ---------- */
+.gloss-search { width: min(100%, 420px); border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 9px 12px; font: inherit; margin-bottom: 16px; }
+.gloss { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.term { padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.term b { font-weight: 700; }
+.term span { color: var(--muted); font-size: 14px; }
+.term code { background: var(--surface-2); padding: 1px 4px; border-radius: 4px; }
+
+footer { color: var(--muted); font-size: 12.5px; padding-block: 0 32px; }
+
+/* ---------- Slides ---------- */
+.slide-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.stage { display: grid; place-items: center; }
+.slide-frame {
+  width: min(100%, calc((100vh - 240px) * 16 / 9)); aspect-ratio: 16 / 9; max-width: 100%;
+  container-type: inline-size; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+}
+.stage:fullscreen { background: var(--bg); width: 100vw; height: 100vh; }
+.stage:fullscreen .slide-frame { width: min(100vw, calc(100vh * 16 / 9)); border-radius: 0; border: 0; }
+.slide {
+  height: 100%; overflow: auto; display: flex; flex-direction: column; justify-content: center; gap: 2.2cqw;
+  padding: 5cqw 7cqw 6cqw; font-size: 2.15cqw; line-height: 1.5; position: relative;
+  border-top: 0.6cqw solid var(--accent);
+}
+.slide > * { margin: 0; }
+.slide h1 { font-size: 6cqw; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+.slide h2 { font-size: 3.6cqw; font-weight: 800; letter-spacing: -0.02em; }
+.slide.cover { justify-content: flex-end; padding-bottom: 8cqw; background: linear-gradient(135deg, var(--accent-soft), transparent 60%); }
+.slide.cover h1 { color: var(--ink); max-width: 18ch; }
+.slide.cover p:first-of-type { font-size: 2.8cqw; color: var(--ink); max-width: 36ch; }
+.slide.cover p { color: var(--muted); }
+.slide ul, .slide ol { padding-left: 1.4em; display: grid; gap: 0.9cqw; }
+.slide strong { color: var(--accent); }
+.slide code { font-size: 0.85em; background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 0.3em; }
+.slide pre { background: var(--surface-2); border-radius: 1cqw; padding: 1.6cqw 2cqw; font-size: 1.6cqw; line-height: 1.45; overflow: auto; }
+.slide pre code { background: none; padding: 0; font-size: 1em; }
+.slide table { border-collapse: collapse; width: 100%; font-size: 1.85cqw; }
+.slide th, .slide td { text-align: left; vertical-align: top; padding: 1cqw 1.4cqw; border-bottom: 1px solid var(--line); }
+.slide th { color: var(--muted); font-weight: 600; font-size: 1.5cqw; text-transform: uppercase; letter-spacing: 0.06em; }
+.slide th:empty { padding: 0; border: 0; }
+.slide td strong { color: var(--ink); }
+.slide .slide-no { position: absolute; right: 3cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); }
+.slide .slide-brand { position: absolute; left: 7cqw; bottom: 2.4cqw; font: 600 1.3cqw var(--font-mono); color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.slide .diagram { padding: 0; border: 0; background: none; overflow: visible; }
+.slide .diagram svg { min-width: 0; max-height: 34cqw; }
+.slide .planes { gap: 2cqw; }
+.slide .plane { padding: 1.8cqw 2cqw; border-radius: 1cqw; }
+.slide .plane h3 { font-size: 2.1cqw; margin-bottom: 0; }
+.slide .plane .eyebrow { font-size: 1.15cqw; }
+.slide .plane .when, .slide .plane .rule { display: none; }
+.slide .plane ol { font-size: 1.55cqw; gap: 0.4cqw; margin-top: 1.2cqw; line-height: 1.4; }
+.slide .plane ol code { font-size: 0.78em; background: none; padding: 0; }
+.slide-progress { height: 3px; background: var(--surface-2); border-radius: 999px; margin-top: 12px; overflow: hidden; }
+.slide-progress i { display: block; height: 100%; background: var(--accent); }
+.slide-notes { margin-top: 14px; padding: 14px 18px; font-size: 15px; }
+.slide-notes p { margin: 0; }
+.slide-notes .eyebrow { display: block; margin-bottom: 6px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 920px) {
+  .hero, .planes { grid-template-columns: minmax(0, 1fr); }
+  .kgrid { grid-template-columns: minmax(0, 1fr); }
+  .toc { position: static; max-height: none; }
+  .toc-toggle { display: inline-flex; margin-bottom: 10px; }
+  .toc.collapsed ol, .toc.collapsed input { display: none; }
+}
+@media (max-width: 480px) {
+  .card { padding: 18px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pill, .btn, nav.tabs a { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+}
+
+/* ---------- Clean Architecture overview ---------- */
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.design-note { display: flex; align-items: center; gap: 12px; margin-top: 24px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+.design-note p { margin: 0; color: var(--muted); font-size: 13px; }
+.flow { display: grid; justify-items: center; gap: 8px; margin-top: 20px; }
+.flow span { width: 100%; text-align: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font: 500 13px var(--font-mono); overflow-wrap: anywhere; }
+.flow b { color: var(--muted); line-height: 1; }
+.flow .flow-core { color: var(--control); border-color: var(--control); background: var(--control-soft); }
+.data .flow-core { color: var(--data); border-color: var(--data); background: var(--data-soft); }
+.text-link { display: inline-block; color: var(--learn); font-size: 13px; font-weight: 600; margin-top: 14px; }
+.study-path { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.study-step { display: flex; flex-direction: column; padding: 22px; color: var(--ink); text-decoration: none; }
+.study-step:hover { border-color: var(--accent); }
+.study-step h3 { font-size: 18px; margin-top: 14px; }
+.study-step p { color: var(--muted); font-size: 14px; margin: 12px 0 18px; }
+.study-step .text-link { margin-top: auto; }
+.meter-row .label { flex-wrap: wrap; gap: 4px 10px; }
+button:disabled { opacity: 0.45; cursor: default; }
+.topic-foot .btn { max-width: 100%; overflow-wrap: anywhere; }
+@media (max-width: 920px) {
+  .study-path { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .brand { flex-wrap: wrap; gap: 4px 10px; }
+  nav.tabs { width: 100%; }
+  nav.tabs a { padding: 6px 9px; font-size: 13px; }
+  .design-note { align-items: flex-start; flex-direction: column; }
+  .gloss { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Sổ tay SOLID</b><span id="gen-date"></span></div>
+    <nav class="tabs" aria-label="Các phần">
+      <a href="#overview" data-view="overview">Tổng quan</a>
+      <a href="#knowledge" data-view="knowledge">Kiến thức</a>
+      <a href="#practice" data-view="practice">Luyện câu hỏi</a>
+      <a href="#glossary" data-view="glossary">Từ điển</a>
+      <a href="#slides" data-view="slides">Slide</a>
+    </nav>
+    <button class="icon-btn" id="theme-btn" type="button" title="Đổi giao diện sáng/tối">Giao diện: hệ thống</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ================= OVERVIEW ================= -->
+  <section id="view-overview" data-view-panel="overview">
+    <div class="hero">
+      <div>
+        <span class="eyebrow">SRP · OCP · LSP · ISP · DIP</span>
+        <h1>Thêm một tính năng mà phải sửa mười chỗ?<br><em>SOLID giúp nó chỉ còn một.</em></h1>
+        <p class="lead">Nắm năm nguyên tắc SOLID để ôn phỏng vấn: từng nguyên tắc kèm ví dụ vi phạm và cách sửa, bài refactor xuyên suốt, liên hệ với pattern và kiến trúc, NestJS, và khi nào không nên áp dụng.</p>
+        <div class="hero-actions"><a class="btn primary" href="#topic-0">Bắt đầu học →</a><a class="btn" href="#practice">Luyện phỏng vấn</a></div>
+      </div>
+      <div class="panel meter" id="meter" aria-live="polite"></div>
+    </div>
+    <div class="design-note"><span class="chip theory">Lý thuyết</span><p>Đây là tài liệu lý thuyết tổng quát, không mô tả code của dự án. Code TypeScript là minh họa, chưa chạy thử.</p></div>
+
+    <section class="block">
+      <div class="section-head"><h2>Trước và sau khi đảo phụ thuộc</h2><p>Nghiệp vụ không còn biết hạ tầng cụ thể: nó định nghĩa interface, hạ tầng cài đặt interface đó.</p></div>
+      <div class="planes" id="arch-diagram">
+        <div class="panel plane">
+          <span class="eyebrow">01 · Vi phạm</span><h3>Nghiệp vụ gọi thẳng hạ tầng</h3>
+          <div class="flow"><span>OrderService</span><b aria-hidden="true">↓ new</b><span class="flow-core">MySqlDatabase, SendGridMailer</span></div>
+          <div class="rule">Đổi DB phải sửa nghiệp vụ; test cần hạ tầng thật.</div>
+          <a class="text-link" href="#topic-5">Dependency Inversion →</a>
+        </div>
+        <div class="panel plane data">
+          <span class="eyebrow">02 · Sau khi sửa</span><h3>Cả hai phụ thuộc abstraction</h3>
+          <div class="flow"><span>OrderService</span><b aria-hidden="true">↓</b><span>OrderRepository, Notifier (interface)</span><b aria-hidden="true">↑ implements</b><span class="flow-core">MySqlOrderRepository, SendGridNotifier</span></div>
+          <div class="rule">Interface thuộc phía nghiệp vụ; test bằng bản giả trong bộ nhớ.</div>
+          <a class="text-link" href="#topic-6">Bài refactor xuyên suốt →</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="section-head"><h2>Lộ trình học và ôn tập</h2><p>Đọc hai chủ đề mỗi ngày, tự giải thích trong 60–90 giây rồi luyện câu hỏi liên quan.</p></div>
+      <div class="study-path" id="planes">
+        <a class="panel study-step" href="#topic-0"><span class="eyebrow">01 · Nền tảng</span><h3>Bức tranh chung</h3><p>SOLID trong 60 giây, rồi SRP và OCP.</p><span class="text-link">Đọc bài nền tảng →</span></a>
+        <a class="panel study-step" href="#topic-3"><span class="eyebrow">02 · Ba nguyên tắc còn lại</span><h3>LSP, ISP, DIP</h3><p>Hình vuông và hình chữ nhật, interface béo, DIP/DI/IoC.</p><span class="text-link">Vào LSP →</span></a>
+        <a class="panel study-step" href="#topic-6"><span class="eyebrow">03 · Thực hành</span><h3>Refactor, kiến trúc, phỏng vấn</h3><p>Refactor OrderService, NestJS, khi nào không áp dụng, khung trả lời 90 giây.</p><span class="text-link">Vào bài refactor →</span></a>
+      </div>
+    </section>
+  </section>
+
+  <!-- ================= KNOWLEDGE ================= -->
+  <section id="view-knowledge" data-view-panel="knowledge" hidden>
+    <div class="kgrid">
+      <aside class="panel toc" id="toc">
+        <button class="btn toc-toggle" id="toc-toggle" type="button" aria-expanded="false">Danh sách chủ đề</button>
+        <input id="toc-search" type="search" placeholder="Tìm chủ đề…" aria-label="Tìm chủ đề">
+        <ol id="toc-list"></ol>
+      </aside>
+      <article class="topic" id="topic"></article>
+    </div>
+  </section>
+
+  <!-- ================= PRACTICE ================= -->
+  <section id="view-practice" data-view-panel="practice" hidden>
+    <div class="section-head">
+      <h2>Luyện câu hỏi</h2>
+      <p>Nói thành tiếng câu trả lời trước, rồi mới mở ý chính để đối chiếu. Đánh dấu được lưu trong trình duyệt này.</p>
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="practice-top">
+      <span class="counter" id="counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="shuffle-btn" type="button">Xáo thứ tự</button>
+        <button class="btn" id="reset-btn" type="button">Xoá đánh dấu</button>
+      </div>
+    </div>
+    <div class="panel" id="card"></div>
+    <p class="kbd-help"><kbd>Space</kbd> mở ý chính · <kbd>←</kbd> <kbd>→</kbd> câu trước/sau · <kbd>1</kbd> cần ôn lại · <kbd>2</kbd> đã thuộc</p>
+  </section>
+
+  <!-- ================= GLOSSARY ================= -->
+  <section id="view-glossary" data-view-panel="glossary" hidden>
+    <div class="section-head">
+      <h2>Từ điển nhanh</h2>
+      <p>Thuật ngữ gặp trong dự án và trong phỏng vấn.</p>
+    </div>
+    <input class="gloss-search" id="gloss-search" type="search" placeholder="Tìm thuật ngữ…" aria-label="Tìm thuật ngữ">
+    <div class="gloss" id="gloss"></div>
+  </section>
+
+  <!-- ================= SLIDES ================= -->
+  <section id="view-slides" data-view-panel="slides" hidden>
+    <div class="slide-bar">
+      <span class="counter" id="slide-counter"></span>
+      <div class="fgroup">
+        <button class="btn" id="slide-prev" type="button">← Trước</button>
+        <button class="btn primary" id="slide-next" type="button">Sau →</button>
+        <button class="btn" id="slide-notes-btn" type="button" aria-pressed="false">Ghi chú người nói</button>
+        <button class="btn" id="slide-full" type="button">Toàn màn hình</button>
+      </div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="slide-frame">
+        <div class="slide" id="slide"></div>
+      </div>
+    </div>
+    <div class="slide-progress" aria-hidden="true"><i id="slide-progress"></i></div>
+    <div class="panel slide-notes" id="slide-notes" hidden></div>
+    <p class="kbd-help"><kbd>→</kbd> <kbd>Space</kbd> slide sau · <kbd>←</kbd> slide trước · <kbd>F</kbd> toàn màn hình · <kbd>N</kbd> ghi chú · <kbd>Home</kbd> <kbd>End</kbd> đầu/cuối. Nội dung sửa trong <code>documents/SLIDES.md</code>.</p>
+  </section>
+</main>
+<footer class="wrap" id="footer"></footer>
+
+<script id="data" type="application/json">{"generatedAt":"2026-11-16T08:54:02.123Z","topics":[{"n":0,"title":"SOLID trong 60 giây","status":"theory","statusNote":"","step":"Nền tảng","html":"\u003cp>\u003cstrong>SOLID\u003c/strong> là năm nguyên tắc thiết kế hướng đối tượng do Robert C. Martin (Uncle Bob) tổng hợp, chữ viết tắt do Michael Feathers đặt. Mục tiêu chung: code \u003cstrong>dễ đổi, dễ test, dễ hiểu\u003c/strong>, tức là một thay đổi nhỏ về yêu cầu chỉ chạm một chỗ nhỏ trong code.\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Chữ\u003c/th>\n\u003cth>Tên\u003c/th>\n\u003cth>Một câu\u003c/th>\n\u003cth>Dấu hiệu vi phạm\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>S\u003c/td>\n\u003ctd>Single Responsibility\u003c/td>\n\u003ctd>Một class chỉ có một lý do để thay đổi\u003c/td>\n\u003ctd>Class dài, sửa vì nhiều yêu cầu khác nhau\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>O\u003c/td>\n\u003ctd>Open/Closed\u003c/td>\n\u003ctd>Mở để mở rộng, đóng để sửa đổi\u003c/td>\n\u003ctd>Chuỗi \u003ccode>if/switch\u003c/code> theo kiểu phải sửa mỗi lần thêm trường hợp\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>L\u003c/td>\n\u003ctd>Liskov Substitution\u003c/td>\n\u003ctd>Lớp con thay được lớp cha mà chương trình vẫn đúng\u003c/td>\n\u003ctd>Override ném lỗi, hoặc kiểm tra kiểu trước khi gọi\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>I\u003c/td>\n\u003ctd>Interface Segregation\u003c/td>\n\u003ctd>Đừng ép client phụ thuộc method nó không dùng\u003c/td>\n\u003ctd>\u003ccode>throw new Error(&#39;not supported&#39;)\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>D\u003c/td>\n\u003ctd>Dependency Inversion\u003c/td>\n\u003ctd>Phụ thuộc abstraction, không phụ thuộc chi tiết\u003c/td>\n\u003ctd>\u003ccode>new\u003c/code> thẳng DB/SDK trong lớp nghiệp vụ\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Ví dụ đời thường: bếp trưởng nhà hàng\u003c/h3>\n\u003cp>Một người vừa nấu, vừa thu ngân, vừa nhập hàng, vừa lau bàn: ai nghỉ là cả quán đứng (vi phạm S). Mỗi lần thêm món lại phải đập bếp xây lại (vi phạm O). Đầu bếp phụ &quot;thay&quot; đầu bếp chính mà không biết nấu món chính (vi phạm L). Bắt thợ rửa bát đọc cả sổ thu chi (vi phạm I). Bếp chỉ chạy được với đúng một hãng gas (vi phạm D).\u003c/p>\n\u003ch3>Ví dụ xuyên suốt: xử lý đơn hàng\u003c/h3>\n\u003cp>Bài toán: cửa hàng online nhận đơn, tính tiền có khuyến mãi (VIP, Black Friday), cho khách trả bằng thẻ hoặc ví điện tử, lưu đơn xuống DB và gửi email xác nhận. Dưới đây là đoạn code xuất phát, viết &quot;một mạch&quot; trong một class; đọc nó ở đây là đủ, từng bài sau chỉ trích lại đúng phần liên quan kèm code.\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">class OrderService {\n  async place(order: Order, kind: string, paymentType: string) {\n    // (1) Tính tiền + khuyến mãi\n    let total = order.items.reduce((s, i) =&gt; s + i.price * i.qty, 0);\n    if (kind === &#39;vip&#39;) total *= 0.9;\n    else if (kind === &#39;blackfriday&#39;) total *= 0.7;\n\n    // (2) Thanh toán\n    if (paymentType === &#39;card&#39;) { await new StripeClient().charge(total); }\n    else if (paymentType === &#39;ewallet&#39;) { await new MomoClient().pay(total); }\n\n    // (3) Lưu DB và (4) gửi email\n    await new MySqlDatabase().insert(&#39;orders&#39;, { ...order, total });\n    await new SendGridMailer().send(order.email, &#39;Đã nhận đơn&#39;);\n  }\n}\n\u003c/code>\u003c/pre>\n\u003cp>\u003cstrong>Class này vi phạm gì, ở đâu:\u003c/strong>\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Chữ\u003c/th>\n\u003cth>Vi phạm trong đoạn code trên\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>S\u003c/td>\n\u003ctd>Một class lo cả bốn việc: tính tiền (1), thanh toán (2), lưu DB (3), gửi mail (4); bốn nhóm người khác nhau yêu cầu sửa nó\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>O\u003c/td>\n\u003ctd>Thêm khuyến mãi mới hay cổng thanh toán mới phải mở \u003ccode>place\u003c/code> ra thêm nhánh \u003ccode>else if\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>L\u003c/td>\n\u003ctd>Nếu sau này có \u003ccode>GiftOrderService extends OrderService\u003c/code> mà override \u003ccode>place\u003c/code> ném lỗi thì nơi gọi bị phá\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>I\u003c/td>\n\u003ctd>Nếu có interface thanh toán béo (\u003ccode>pay\u003c/code>, \u003ccode>refund\u003c/code>, \u003ccode>capture\u003c/code>...), cách trả nào cũng bị ép cài hết\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>D\u003c/td>\n\u003ctd>\u003ccode>new StripeClient()\u003c/code>, \u003ccode>new MySqlDatabase()\u003c/code>, \u003ccode>new SendGridMailer()\u003c/code> nằm ngay trong nghiệp vụ nên không test được nếu không có hạ tầng thật\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Thiết kế đích sau khi sửa\u003c/strong> (bài 6 làm từng bước, kèm code đầy đủ): \u003ccode>OrderService\u003c/code> chỉ nhận bốn thứ qua constructor là chính sách giảm giá, cách thanh toán, kho lưu đơn và bộ thông báo (đều là interface), rồi điều phối theo đúng thứ tự: giảm giá → thanh toán → lưu → thông báo. Thêm khuyến mãi hay cổng thanh toán mới chỉ thêm một class.\u003c/p>\n\u003ch3>SOLID là gì và không phải là gì\u003c/h3>\n\u003cul>\n\u003cli>Là \u003cstrong>kim chỉ nam\u003c/strong> để nhận ra thiết kế đang đau, không phải luật phải tuân thủ tuyệt đối.\u003c/li>\n\u003cli>Không phải mục tiêu cuối: mục tiêu là code dễ thay đổi. Áp dụng máy móc sinh ra over-engineering (bài 9).\u003c/li>\n\u003cli>Các nguyên tắc \u003cstrong>hỗ trợ lẫn nhau\u003c/strong>: DIP và OCP thường đi chung; ISP giúp LSP; SRP giúp mọi thứ khác.\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> đọc thuộc năm tên mà không cho được ví dụ vi phạm. Nhà tuyển dụng gần như luôn hỏi tiếp &quot;cho ví dụ code vi phạm và cách sửa&quot;.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> giải thích SOLID cho người chưa biết gì trong ba câu, dùng ví dụ bếp trưởng.\u003c/p>\n"},{"n":1,"title":"S — Single Responsibility Principle","status":"theory","statusNote":"","step":"Năm nguyên tắc","html":"\u003cp>\u003cstrong>Phát biểu:\u003c/strong> một module/class chỉ nên có \u003cstrong>một lý do để thay đổi\u003c/strong>. Cách hiểu của Uncle Bob (sau này): nó chỉ chịu trách nhiệm trước \u003cstrong>một actor\u003c/strong> (một nhóm người dùng/bên yêu cầu).\u003c/p>\n\u003cp>Điểm hay bị hiểu sai: SRP \u003cstrong>không\u003c/strong> nghĩa là &quot;một class một method&quot; hay &quot;làm một việc nhỏ xíu&quot;. Một class có nhiều method vẫn đúng SRP nếu tất cả cùng phục vụ một trách nhiệm.\u003c/p>\n\u003ch3>Vi phạm\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">class OrderService {\n  calculateTotal(order: Order): number { /* quy tắc giá: do bộ phận kinh doanh yêu cầu */ }\n  renderInvoicePdf(order: Order): Buffer { /* định dạng: do bộ phận kế toán yêu cầu */ }\n  save(order: Order): Promise&lt;void&gt; { /* SQL: do đội hạ tầng quyết định */ }\n  sendConfirmation(order: Order): Promise&lt;void&gt; { /* email: do bộ phận marketing */ }\n}\n\u003c/code>\u003c/pre>\n\u003cp>Bốn actor khác nhau cùng sửa một file: đổi định dạng PDF có thể vô tình làm hỏng \u003ccode>calculateTotal\u003c/code>, và xung đột merge liên tục.\u003c/p>\n\u003ch3>Sửa\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">class PriceCalculator { total(order: Order): Money { /* ... */ } }\nclass InvoiceRenderer { render(order: Order): Buffer { /* ... */ } }\nclass OrderRepository { save(order: Order): Promise&lt;void&gt; { /* ... */ } }\nclass ConfirmationMailer { send(order: Order): Promise&lt;void&gt; { /* ... */ } }\n\u003c/code>\u003c/pre>\n\u003ch3>Cách kiểm tra nhanh\u003c/h3>\n\u003cul>\n\u003cli>Mô tả class bằng một câu \u003cstrong>không có chữ &quot;và&quot;\u003c/strong>.\u003c/li>\n\u003cli>Hỏi: &quot;những ai/yêu cầu nào khiến tôi phải sửa file này?&quot; Nếu hơn một nhóm, tách.\u003c/li>\n\u003cli>Dấu hiệu khác: tên \u003ccode>Manager\u003c/code>, \u003ccode>Helper\u003c/code>, \u003ccode>Util\u003c/code>, \u003ccode>Processor\u003c/code>; import quá nhiều thứ không liên quan; test phải mock cả chục phụ thuộc.\u003c/li>\n\u003c/ul>\n\u003ch3>Mức độ: module, class và hàm\u003c/h3>\n\u003cp>SRP áp dụng ở mọi mức: hàm làm một việc, class một trách nhiệm, module một nhóm lý do thay đổi. Tách quá nhỏ sinh ra hàng chục class chỉ vài dòng, khó theo dõi luồng (bài 9).\u003c/p>\n\u003ch3>Cohesion\u003c/h3>\n\u003cp>SRP chính là \u003cstrong>cohesion cao\u003c/strong>: những thứ thay đổi cùng lý do thì ở cùng nhau; những thứ thay đổi khác lý do thì tách ra.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> &quot;SRP là mỗi class một method đúng không?&quot; Không: là một \u003cstrong>lý do để thay đổi\u003c/strong>. Bẫy ngược: tách tới mức một class một dòng, làm code rời rạc.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> lấy một class bạn từng viết, liệt kê các &quot;actor&quot; có thể yêu cầu sửa nó.\u003c/p>\n"},{"n":2,"title":"O — Open/Closed Principle","status":"theory","statusNote":"","step":"Năm nguyên tắc","html":"\u003cp>\u003cstrong>Phát biểu:\u003c/strong> thực thể phần mềm nên \u003cstrong>mở để mở rộng, đóng để sửa đổi\u003c/strong>. Thêm hành vi mới bằng cách \u003cstrong>thêm code mới\u003c/strong>, không sửa code cũ đã chạy và đã test.\u003c/p>\n\u003ch3>Vi phạm\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">class DiscountService {\n  apply(order: Order, kind: string): Money {\n    if (kind === &#39;vip&#39;) return order.total.multiply(0.9);\n    if (kind === &#39;coupon&#39;) return order.total.subtract(order.coupon!.value);\n    if (kind === &#39;blackfriday&#39;) return order.total.multiply(0.7);\n    return order.total;\n  }\n}\n\u003c/code>\u003c/pre>\n\u003cp>Mỗi chương trình khuyến mãi mới phải mở hàm này ra sửa, có thể làm hỏng các nhánh cũ, và phải test lại tất cả.\u003c/p>\n\u003ch3>Sửa bằng đa hình (Strategy)\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">interface DiscountPolicy {\n  apply(order: Order): Money;\n}\n\nclass VipDiscount implements DiscountPolicy {\n  apply(o: Order) { return o.total.multiply(0.9); }\n}\nclass CouponDiscount implements DiscountPolicy {\n  apply(o: Order) { return o.total.subtract(o.coupon!.value); }\n}\n\nclass DiscountService {\n  constructor(private readonly policies: DiscountPolicy[]) {}\n  apply(order: Order): Money {\n    return this.policies.reduce((total, p) =&gt; p.apply({ ...order, total }), order.total);\n  }\n}\n\u003c/code>\u003c/pre>\n\u003cp>Thêm khuyến mãi mới = thêm một class và đăng ký, \u003ccode>DiscountService\u003c/code> không đổi.\u003c/p>\n\u003ch3>Cơ chế đạt OCP\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Cơ chế\u003c/th>\n\u003cth>Ví dụ\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Đa hình / interface\u003c/td>\n\u003ctd>Strategy, State\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Composition + decorator\u003c/td>\n\u003ctd>Bọc thêm logging, cache, retry\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Plugin / registry\u003c/td>\n\u003ctd>Đăng ký handler theo kiểu\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Hàm bậc cao\u003c/td>\n\u003ctd>Truyền hàm xử lý như tham số\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Đóng &quot;ở đâu&quot;?\u003c/h3>\n\u003cp>Không có code nào đóng hoàn toàn với mọi thay đổi. Hãy \u003cstrong>đoán đúng trục thay đổi\u003c/strong> (thường là &quot;thêm loại mới&quot;) và đóng với nó. Đừng trừu tượng hóa trước khi có ít nhất hai–ba trường hợp thật (\u003cstrong>Rule of Three\u003c/strong>): trừu tượng sớm thường sai trục.\u003c/p>\n\u003ch3>Hai cách hiểu OCP\u003c/h3>\n\u003cul>\n\u003cli>\u003cstrong>Bertrand Meyer (gốc):\u003c/strong> dùng kế thừa để mở rộng class mà không sửa.\u003c/li>\n\u003cli>\u003cstrong>Uncle Bob (hiện đại):\u003c/strong> dùng interface và đa hình; tránh kế thừa cài đặt.\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nói &quot;OCP là không bao giờ sửa code cũ&quot;. Sai: sửa lỗi vẫn sửa; OCP nói về việc \u003cstrong>thêm tính năng\u003c/strong> không buộc sửa code cũ. Bẫy khác: trừu tượng hóa mọi \u003ccode>if\u003c/code> thành Strategy, gây over-engineering với hai nhánh ổn định.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> tìm một chuỗi \u003ccode>switch (type)\u003c/code> trong code bạn biết và vẽ cách thay bằng đa hình.\u003c/p>\n"},{"n":3,"title":"L — Liskov Substitution Principle","status":"theory","statusNote":"","step":"Năm nguyên tắc","html":"\u003cp>\u003cstrong>Phát biểu (Barbara Liskov, 1987):\u003c/strong> nếu \u003ccode>S\u003c/code> là kiểu con của \u003ccode>T\u003c/code> thì đối tượng \u003ccode>T\u003c/code> có thể được thay bằng đối tượng \u003ccode>S\u003c/code> mà \u003cstrong>chương trình vẫn đúng\u003c/strong>. Quan trọng là đúng về \u003cstrong>hành vi\u003c/strong>, không chỉ khớp chữ ký.\u003c/p>\n\u003ch3>Quy tắc hợp đồng (design by contract)\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Thành phần\u003c/th>\n\u003cth>Lớp con được phép\u003c/th>\n\u003cth>Lớp con không được\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Tiền điều kiện (đầu vào)\u003c/td>\n\u003ctd>Nới lỏng (chấp nhận nhiều hơn)\u003c/td>\n\u003ctd>Siết chặt (đòi nhiều hơn)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Hậu điều kiện (đầu ra)\u003c/td>\n\u003ctd>Mạnh hơn (đảm bảo nhiều hơn)\u003c/td>\n\u003ctd>Yếu hơn (hứa ít hơn)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Bất biến\u003c/td>\n\u003ctd>Giữ nguyên\u003c/td>\n\u003ctd>Phá bất biến của cha\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Ngoại lệ\u003c/td>\n\u003ctd>Ném kiểu con của ngoại lệ cha đã khai\u003c/td>\n\u003ctd>Ném ngoại lệ hoàn toàn mới\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Vi phạm kinh điển 1: hình vuông và hình chữ nhật\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">class Rectangle {\n  constructor(protected w: number, protected h: number) {}\n  setWidth(w: number) { this.w = w; }\n  setHeight(h: number) { this.h = h; }\n  area() { return this.w * this.h; }\n}\n\nclass Square extends Rectangle {\n  setWidth(w: number) { this.w = w; this.h = w; }   // phá giả định của cha\n  setHeight(h: number) { this.w = h; this.h = h; }\n}\n\nfunction resize(r: Rectangle) {\n  r.setWidth(5); r.setHeight(4);\n  console.log(r.area());   // mong 20; với Square ra 16\n}\n\u003c/code>\u003c/pre>\n\u003cp>Is-a trong toán học không phải is-a về hành vi. Sửa: dùng bất biến (\u003ccode>Shape\u003c/code> với \u003ccode>area()\u003c/code>), hoặc không cho đổi từng cạnh.\u003c/p>\n\u003ch3>Vi phạm kinh điển 2: chim cánh cụt\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">class Bird { fly(): void { /* bay */ } }\nclass Penguin extends Bird {\n  fly(): void { throw new Error(&#39;Chim cánh cụt không bay&#39;); }   // phá hợp đồng\n}\n\u003c/code>\u003c/pre>\n\u003cp>Code gọi \u003ccode>bird.fly()\u003c/code> bất ngờ nổ. Sửa: tách khả năng.\u003c/p>\n\u003cpre>\u003ccode class=\"language-ts\">interface Bird { eat(): void }\ninterface FlyingBird extends Bird { fly(): void }\nclass Sparrow implements FlyingBird { eat() {} fly() {} }\nclass Penguin implements Bird { eat() {} }\n\u003c/code>\u003c/pre>\n\u003ch3>Dấu hiệu vi phạm trong code thật\u003c/h3>\n\u003cul>\n\u003cli>Override method rồi \u003ccode>throw new Error(&#39;not supported&#39;)\u003c/code> hoặc để trống.\u003c/li>\n\u003cli>Code gọi phải kiểm tra \u003ccode>instanceof\u003c/code> / \u003ccode>if (x.type === ...)\u003c/code> trước khi dùng.\u003c/li>\n\u003cli>Lớp con siết điều kiện: cha nhận số âm, con từ chối.\u003c/li>\n\u003cli>Test của lớp cha không chạy được với lớp con.\u003c/li>\n\u003c/ul>\n\u003ch3>LSP và kế thừa\u003c/h3>\n\u003cp>LSP là \u003cstrong>phép thử\u003c/strong> cho mọi quan hệ kế thừa: nếu không thay thế được, đó không phải kế thừa đúng; chuyển sang composition (bài 6 của sổ tay OOP).\u003c/p>\n\u003ch3>LSP và kiểu dữ liệu\u003c/h3>\n\u003cp>Hệ thống kiểu còn \u003cstrong>hiệp biến / phản biến\u003c/strong> (covariance / contravariance): đầu ra của lớp con có thể cụ thể hơn, đầu vào có thể tổng quát hơn, khớp với quy tắc tiền và hậu điều kiện ở bảng trên.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nói &quot;LSP là con kế thừa cha thì được&quot;. LSP nói về \u003cstrong>thay thế được về hành vi\u003c/strong>, chữ ký hợp lệ chưa đủ. Ví dụ hình vuông là câu hỏi gần như bắt buộc.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> giải thích vì sao \u003ccode>Penguin extends Bird\u003c/code> là sai bằng một đoạn code gọi \u003ccode>bird.fly()\u003c/code>.\u003c/p>\n"},{"n":4,"title":"I — Interface Segregation Principle","status":"theory","statusNote":"","step":"Năm nguyên tắc","html":"\u003cp>\u003cstrong>Phát biểu:\u003c/strong> client không nên bị ép phụ thuộc vào method mà nó \u003cstrong>không dùng\u003c/strong>. Nhiều interface nhỏ, theo nhu cầu của client, tốt hơn một interface &quot;béo&quot; đa dụng.\u003c/p>\n\u003ch3>Vi phạm\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">interface Worker {\n  work(): void;\n  eat(): void;\n  sleep(): void;\n}\n\nclass Robot implements Worker {\n  work() { /* làm việc */ }\n  eat() { throw new Error(&#39;Robot không ăn&#39;); }    // bị ép cài thứ vô nghĩa\n  sleep() { throw new Error(&#39;Robot không ngủ&#39;); }\n}\n\u003c/code>\u003c/pre>\n\u003ch3>Sửa\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">interface Workable { work(): void }\ninterface Eatable { eat(): void }\ninterface Sleepable { sleep(): void }\n\nclass Human implements Workable, Eatable, Sleepable { work() {} eat() {} sleep() {} }\nclass Robot implements Workable { work() {} }\n\u003c/code>\u003c/pre>\n\u003ch3>Ví dụ thực tế: repository\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">// Béo: báo cáo chỉ cần đọc nhưng phụ thuộc cả ghi/xóa\ninterface UserRepository {\n  findById(id: string): Promise&lt;User | null&gt;;\n  findAll(): Promise&lt;User[]&gt;;\n  save(u: User): Promise&lt;void&gt;;\n  delete(id: string): Promise&lt;void&gt;;\n}\n\n// Tách theo vai trò\ninterface UserReader { findById(id: string): Promise&lt;User | null&gt;; findAll(): Promise&lt;User[]&gt; }\ninterface UserWriter { save(u: User): Promise&lt;void&gt;; delete(id: string): Promise&lt;void&gt; }\n\nclass ReportService { constructor(private readonly users: UserReader) {} }   // không thể xóa nhầm\n\u003c/code>\u003c/pre>\n\u003cp>Lợi ích: client chỉ biết điều nó cần, test chỉ mock vài method, thay đổi một method không buộc biên dịch lại mọi client, và \u003cstrong>an toàn hơn\u003c/strong> (báo cáo không có quyền ghi).\u003c/p>\n\u003ch3>Quan hệ với các nguyên tắc khác\u003c/h3>\n\u003cul>\n\u003cli>ISP bổ trợ \u003cstrong>LSP\u003c/strong>: interface béo ép lớp cài đặt viết method rỗng/ném lỗi, đó chính là vi phạm LSP.\u003c/li>\n\u003cli>ISP là \u003cstrong>SRP áp dụng cho interface\u003c/strong>: một interface nên phục vụ một nhóm client.\u003c/li>\n\u003cli>Trong TypeScript, kiểu con có thể dùng \u003ccode>Pick&lt;T, ...&gt;\u003c/code> hoặc interface nhỏ và để cấu trúc (structural typing) tự khớp.\u003c/li>\n\u003c/ul>\n\u003ch3>Đừng cực đoan\u003c/h3>\n\u003cp>Mỗi method một interface thì quá mức. Gom theo \u003cstrong>vai trò client\u003c/strong> (reader, writer), không theo từng hàm.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> nói &quot;ISP là chia interface cho nhỏ&quot;. Phải nói theo \u003cstrong>client\u003c/strong>: nhỏ \u003cstrong>theo nhu cầu người dùng\u003c/strong>. Dấu hiệu nhận biết là method rỗng hoặc ném \u003ccode>not supported\u003c/code>.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> tìm một interface &quot;béo&quot; trong code và đề xuất cách tách theo vai trò.\u003c/p>\n"},{"n":5,"title":"D — Dependency Inversion Principle","status":"theory","statusNote":"","step":"Năm nguyên tắc","html":"\u003cp>\u003cstrong>Phát biểu:\u003c/strong>\u003c/p>\n\u003col>\n\u003cli>Module cấp cao \u003cstrong>không\u003c/strong> phụ thuộc module cấp thấp; \u003cstrong>cả hai phụ thuộc abstraction\u003c/strong>.\u003c/li>\n\u003cli>Abstraction \u003cstrong>không\u003c/strong> phụ thuộc chi tiết; \u003cstrong>chi tiết phụ thuộc abstraction\u003c/strong>.\u003c/li>\n\u003c/ol>\n\u003cp>&quot;Đảo ngược&quot; nghĩa là: thay vì nghiệp vụ (cấp cao) gọi thẳng hạ tầng (cấp thấp), \u003cstrong>nghiệp vụ định nghĩa interface nó cần\u003c/strong>, hạ tầng cài đặt interface đó. Mũi tên phụ thuộc của mã nguồn đổi chiều.\u003c/p>\n\u003ch3>Vi phạm\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">class OrderService {\n  private db = new MySqlDatabase();          // biết cụ thể MySQL\n  private mailer = new SendGridMailer();     // biết cụ thể SendGrid\n\n  async place(order: Order) {\n    await this.db.insert(&#39;orders&#39;, order);\n    await this.mailer.send(order.customerEmail, &#39;Đã nhận đơn&#39;);\n  }\n}\n\u003c/code>\u003c/pre>\n\u003cp>Muốn đổi sang PostgreSQL phải sửa nghiệp vụ; muốn test phải có MySQL thật và gửi mail thật.\u003c/p>\n\u003ch3>Sửa\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">// Nghiệp vụ sở hữu các interface (cổng, port)\ninterface OrderRepository { save(o: Order): Promise&lt;void&gt; }\ninterface Notifier { orderPlaced(o: Order): Promise&lt;void&gt; }\n\nclass OrderService {\n  constructor(\n    private readonly orders: OrderRepository,\n    private readonly notifier: Notifier,\n  ) {}\n  async place(order: Order) {\n    await this.orders.save(order);\n    await this.notifier.orderPlaced(order);\n  }\n}\n\n// Hạ tầng cài đặt (adapter)\nclass MySqlOrderRepository implements OrderRepository { /* ... */ }\nclass SendGridNotifier implements Notifier { /* ... */ }\n\n// Test: thay bằng bản giả trong bộ nhớ\nclass InMemoryOrderRepository implements OrderRepository {\n  items: Order[] = [];\n  async save(o: Order) { this.items.push(o); }\n}\n\u003c/code>\u003c/pre>\n\u003ch3>Ba khái niệm hay bị lẫn\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Khái niệm\u003c/th>\n\u003cth>Bản chất\u003c/th>\n\u003cth>Ví dụ\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>\u003cstrong>DIP\u003c/strong>\u003c/td>\n\u003ctd>Nguyên tắc thiết kế: phụ thuộc abstraction\u003c/td>\n\u003ctd>\u003ccode>OrderService\u003c/code> phụ thuộc \u003ccode>OrderRepository\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>Dependency Injection (DI)\u003c/strong>\u003c/td>\n\u003ctd>Kỹ thuật: truyền phụ thuộc từ ngoài vào (constructor, setter)\u003c/td>\n\u003ctd>\u003ccode>new OrderService(repo, notifier)\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>\u003cstrong>IoC container\u003c/strong>\u003c/td>\n\u003ctd>Công cụ: tự tạo và lắp các object\u003c/td>\n\u003ctd>NestJS, Spring, InversifyJS\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>DI \u003cstrong>không bằng\u003c/strong> DIP: bạn có thể inject một lớp cụ thể (vẫn vi phạm DIP) hoặc đạt DIP mà tự lắp bằng tay không cần container.\u003c/p>\n\u003ch3>Interface thuộc về ai?\u003c/h3>\n\u003cp>Điểm tinh tế nhất của DIP: interface nên nằm ở \u003cstrong>phía module cấp cao\u003c/strong> (nghiệp vụ), phản ánh nhu cầu của nó (\u003ccode>Notifier.orderPlaced\u003c/code>), chứ không phải phản ánh API của thư viện (\u003ccode>SendGridClient.send\u003c/code>). Đây là nền của Hexagonal / Clean Architecture.\u003c/p>\n\u003ch3>Ba cách inject\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Cách\u003c/th>\n\u003cth>Khi dùng\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Constructor injection\u003c/td>\n\u003ctd>Mặc định: phụ thuộc bắt buộc, object luôn hợp lệ\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Setter / property injection\u003c/td>\n\u003ctd>Phụ thuộc tùy chọn (hiếm)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Method (parameter) injection\u003c/td>\n\u003ctd>Phụ thuộc chỉ dùng trong một lời gọi\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Composition root\u003c/h3>\n\u003cp>Chỉ \u003cstrong>một nơi\u003c/strong> (điểm vào ứng dụng, module gốc) biết lớp cụ thể nào được dùng và lắp chúng lại. Phần còn lại của code chỉ thấy interface.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> lẫn DIP, DI và IoC; hoặc nói &quot;DIP là dùng interface&quot;. Phải nêu thêm \u003cstrong>chiều phụ thuộc bị đảo\u003c/strong> và \u003cstrong>ai sở hữu interface\u003c/strong>. Bẫy khác: tạo interface cho mọi class chỉ có một cài đặt không bao giờ đổi.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> vẽ mũi tên phụ thuộc trước và sau khi áp dụng DIP cho \u003ccode>OrderService\u003c/code> và MySQL.\u003c/p>\n"},{"n":6,"title":"Refactor xuyên suốt: từ một class vi phạm cả năm","status":"theory","statusNote":"","step":"Thực hành","html":"\u003cp>Bắt đầu từ một class &quot;làm tất cả&quot; rồi áp dụng từng nguyên tắc.\u003c/p>\n\u003ch3>Bước 0: code xuất phát\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">class OrderService {\n  async place(order: Order, kind: string, paymentType: string) {\n    // tính tiền + khuyến mãi (nhiều nhánh)\n    let total = order.items.reduce((s, i) =&gt; s + i.price * i.qty, 0);\n    if (kind === &#39;vip&#39;) total *= 0.9;\n    else if (kind === &#39;blackfriday&#39;) total *= 0.7;\n\n    // thanh toán (nhiều nhánh)\n    if (paymentType === &#39;card&#39;) { await new StripeClient().charge(total); }\n    else if (paymentType === &#39;ewallet&#39;) { await new MomoClient().pay(total); }\n\n    // lưu + gửi mail, gắn chặt hạ tầng\n    await new MySqlDatabase().insert(&#39;orders&#39;, { ...order, total });\n    await new SendGridMailer().send(order.email, &#39;Đã nhận đơn&#39;);\n  }\n}\n\u003c/code>\u003c/pre>\n\u003ch3>Chẩn đoán\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Nguyên tắc\u003c/th>\n\u003cth>Vi phạm ở đâu\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>S\u003c/td>\n\u003ctd>Một class tính tiền, thanh toán, lưu, gửi mail\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>O\u003c/td>\n\u003ctd>Thêm khuyến mãi hoặc cách trả tiền mới phải sửa \u003ccode>place\u003c/code>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>L\u003c/td>\n\u003ctd>(chưa có kế thừa, nhưng nếu thêm \u003ccode>GiftOrderService extends OrderService\u003c/code> ném lỗi thì sẽ vi phạm)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>I\u003c/td>\n\u003ctd>Nếu có \u003ccode>interface Payment\u003c/code> béo gồm cả \u003ccode>refund\u003c/code>, \u003ccode>capture\u003c/code>, \u003ccode>void\u003c/code>, mọi cách trả phải cài hết\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>D\u003c/td>\n\u003ctd>\u003ccode>new StripeClient()\u003c/code>, \u003ccode>new MySqlDatabase()\u003c/code> ngay trong nghiệp vụ\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Bước 1: tách trách nhiệm (S)\u003c/h3>\n\u003cp>Tách \u003ccode>PriceCalculator\u003c/code>, \u003ccode>PaymentProcessor\u003c/code>, \u003ccode>OrderRepository\u003c/code>, \u003ccode>Notifier\u003c/code>; \u003ccode>OrderService\u003c/code> chỉ điều phối.\u003c/p>\n\u003ch3>Bước 2: đóng với &quot;thêm loại mới&quot; (O)\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">interface DiscountPolicy { apply(total: Money, order: Order): Money }\ninterface PaymentMethod { pay(amount: Money): Promise&lt;void&gt; }\n\u003c/code>\u003c/pre>\n\u003cp>Mỗi khuyến mãi và mỗi cách trả tiền là một class riêng.\u003c/p>\n\u003ch3>Bước 3: giữ hợp đồng khi có biến thể (L)\u003c/h3>\n\u003cp>Mọi \u003ccode>PaymentMethod\u003c/code> phải thực sự thanh toán hoặc báo lỗi theo cùng quy ước (cùng kiểu kết quả); không có cài đặt nào ném lỗi &quot;không hỗ trợ&quot; với thao tác mà \u003ccode>OrderService\u003c/code> gọi.\u003c/p>\n\u003ch3>Bước 4: interface nhỏ theo client (I)\u003c/h3>\n\u003cp>\u003ccode>OrderService\u003c/code> chỉ cần \u003ccode>pay\u003c/code>; việc hoàn tiền thuộc \u003ccode>RefundService\u003c/code> nên dùng interface \u003ccode>Refundable\u003c/code> riêng, không ép mọi cách trả cài \u003ccode>refund\u003c/code>.\u003c/p>\n\u003ch3>Bước 5: đảo phụ thuộc (D)\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">class OrderService {\n  constructor(\n    private readonly discount: DiscountPolicy,\n    private readonly payment: PaymentMethod,\n    private readonly orders: OrderRepository,\n    private readonly notifier: Notifier,\n  ) {}\n\n  async place(order: Order): Promise&lt;void&gt; {\n    const total = this.discount.apply(order.total(), order);\n    await this.payment.pay(total);\n    await this.orders.save(order.withTotal(total));\n    await this.notifier.orderPlaced(order);\n  }\n}\n\u003c/code>\u003c/pre>\n\u003ch3>Kết quả\u003c/h3>\n\u003cul>\n\u003cli>Thêm khuyến mãi mới hoặc cổng thanh toán mới: thêm class, không sửa \u003ccode>OrderService\u003c/code>.\u003c/li>\n\u003cli>Test \u003ccode>OrderService\u003c/code> bằng bản giả trong bộ nhớ, không cần Stripe hay MySQL.\u003c/li>\n\u003cli>Đổi nhà cung cấp mail: sửa một adapter.\u003c/li>\n\u003c/ul>\n\u003ch3>Cái giá phải trả\u003c/h3>\n\u003cp>Số file tăng lên nhiều, phải nối dây ở composition root, người mới phải đọc nhiều chỗ để hiểu luồng. Hợp lý khi hệ thống đủ lớn và hay đổi; thừa khi đó chỉ là script nhỏ (bài 9).\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> chọn một service bạn viết và đi qua năm bước chẩn đoán trên.\u003c/p>\n"},{"n":7,"title":"SOLID, design pattern và kiến trúc","status":"theory","statusNote":"","step":"Thực hành","html":"\u003ch3>Pattern chính là SOLID đóng gói sẵn\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Pattern\u003c/th>\n\u003cth>Nguyên tắc nó thể hiện\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Strategy, State\u003c/td>\n\u003ctd>OCP: thêm biến thể không sửa nơi dùng\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Decorator\u003c/td>\n\u003ctd>OCP, SRP: thêm hành vi bằng cách bọc\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Adapter\u003c/td>\n\u003ctd>DIP: nghiệp vụ phụ thuộc interface của mình, adapter che API ngoài\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Factory\u003c/td>\n\u003ctd>DIP: nơi dùng không \u003ccode>new\u003c/code> thẳng lớp cụ thể\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Template Method\u003c/td>\n\u003ctd>OCP: khung cố định, bước biến thiên\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Repository\u003c/td>\n\u003ctd>DIP + SRP: che truy cập dữ liệu sau interface\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Observer\u003c/td>\n\u003ctd>OCP: thêm người nghe không sửa nguồn phát\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>SOLID ở mức kiến trúc\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Nguyên tắc\u003c/th>\n\u003cth>Bản mở rộng ở mức module/kiến trúc\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>SRP\u003c/td>\n\u003ctd>Common Closure Principle: gom thứ đổi cùng lý do vào một package\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>OCP\u003c/td>\n\u003ctd>Plugin architecture, hook, middleware\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>LSP\u003c/td>\n\u003ctd>Mọi cài đặt của cùng một API/contract phải hành xử nhất quán (microservice cùng schema)\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>ISP\u003c/td>\n\u003ctd>Common Reuse Principle: đừng ép phụ thuộc cả package để dùng một phần\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>DIP\u003c/td>\n\u003ctd>\u003cstrong>Dependency Rule\u003c/strong> của Clean Architecture: phụ thuộc chỉ hướng vào trong, về phía domain\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>Hexagonal (Ports and Adapters) và Clean Architecture về cơ bản là \u003cstrong>DIP áp dụng cho cả ứng dụng\u003c/strong>: lõi nghiệp vụ định nghĩa port, hạ tầng là adapter.\u003c/p>\n\u003ch3>SOLID so với các nguyên tắc khác\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Nguyên tắc\u003c/th>\n\u003cth>Khác SOLID chỗ nào\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>DRY\u003c/td>\n\u003ctd>Nói về trùng tri thức; SOLID nói về cấu trúc phụ thuộc\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>KISS, YAGNI\u003c/td>\n\u003ctd>Là \u003cstrong>đối trọng\u003c/strong>: kìm lại việc trừu tượng hóa quá sớm\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Law of Demeter\u003c/td>\n\u003ctd>Giảm coupling, bổ trợ DIP\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Composition over inheritance\u003c/td>\n\u003ctd>Giúp đạt OCP, LSP mà ít rủi ro\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> coi SOLID chỉ là chuyện của class. Ứng viên giỏi liên hệ được tới pattern (Strategy là OCP) và kiến trúc (Clean Architecture là DIP ở quy mô lớn).\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> Strategy và Adapter lần lượt thể hiện nguyên tắc nào? Giải thích bằng một câu mỗi pattern.\u003c/p>\n"},{"n":8,"title":"SOLID trong TypeScript và NestJS","status":"theory","statusNote":"","step":"Thực hành","html":"\u003ch3>Điểm riêng của TypeScript\u003c/h3>\n\u003cul>\n\u003cli>\u003cstrong>Interface bị xóa lúc chạy.\u003c/strong> Với DI container cần &quot;token&quot; lúc chạy, dùng \u003ccode>abstract class\u003c/code> hoặc \u003ccode>Symbol\u003c/code>/string làm token.\u003c/li>\n\u003cli>\u003cstrong>Structural typing\u003c/strong> giúp ISP và test: object literal có đủ method là dùng được, không cần \u003ccode>implements\u003c/code>.\u003c/li>\n\u003cli>\u003ccode>readonly\u003c/code>, \u003ccode>private\u003c/code>, union type giúp giữ bất biến (hỗ trợ LSP).\u003c/li>\n\u003cli>Hàm là công dân hạng nhất: nhiều khi truyền một hàm (\u003ccode>type DiscountPolicy = (o: Order) =&gt; Money\u003c/code>) gọn hơn cả một class, vẫn đạt OCP.\u003c/li>\n\u003c/ul>\n\u003cpre>\u003ccode class=\"language-ts\">type DiscountPolicy = (total: Money, order: Order) =&gt; Money;\nconst vip: DiscountPolicy = (t) =&gt; t.multiply(0.9);\nconst policies: DiscountPolicy[] = [vip];\n\u003c/code>\u003c/pre>\n\u003ch3>NestJS: DI sẵn có\u003c/h3>\n\u003cpre>\u003ccode class=\"language-ts\">// Token lúc chạy vì interface bị xóa\nexport const ORDER_REPOSITORY = Symbol(&#39;ORDER_REPOSITORY&#39;);\n\nexport interface OrderRepository { save(o: Order): Promise&lt;void&gt; }\n\n@Injectable()\nexport class PlaceOrderUseCase {\n  constructor(@Inject(ORDER_REPOSITORY) private readonly orders: OrderRepository) {}\n  execute(o: Order) { return this.orders.save(o); }\n}\n\n@Module({\n  providers: [\n    PlaceOrderUseCase,\n    { provide: ORDER_REPOSITORY, useClass: MongoOrderRepository },\n  ],\n})\nexport class OrdersModule {}\n\u003c/code>\u003c/pre>\n\u003cp>Đổi sang kho khác chỉ sửa dòng \u003ccode>useClass\u003c/code>; module \u003ccode>OrdersModule\u003c/code> là \u003cstrong>composition root\u003c/strong> của phần này. Khi test, thay bằng \u003ccode>useValue: new InMemoryOrderRepository()\u003c/code>.\u003c/p>\n\u003ch3>Nhận diện vi phạm trong NestJS thường gặp\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Dấu hiệu\u003c/th>\n\u003cth>Nguyên tắc\u003c/th>\n\u003cth>Hướng sửa\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Controller chứa nghiệp vụ và truy vấn DB\u003c/td>\n\u003ctd>S\u003c/td>\n\u003ctd>Tách use case/service, repository\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Service import trực tiếp \u003ccode>mongoose.Model\u003c/code> hay SDK\u003c/td>\n\u003ctd>D\u003c/td>\n\u003ctd>Port + adapter\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Một \u003ccode>UserService\u003c/code> hàng nghìn dòng\u003c/td>\n\u003ctd>S\u003c/td>\n\u003ctd>Tách theo use case\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Guard/Pipe cài đặt cứng theo từng kiểu\u003c/td>\n\u003ctd>O\u003c/td>\n\u003ctd>Đăng ký policy qua provider\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Interface repo gồm mọi thao tác, service chỉ đọc\u003c/td>\n\u003ctd>I\u003c/td>\n\u003ctd>Tách reader/writer\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> quên rằng interface TS không tồn tại lúc chạy nên không thể inject bằng interface trực tiếp; phải dùng token. Đây là câu hỏi thực tế khi dùng NestJS.\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> vì sao \u003ccode>@Inject(ORDER_REPOSITORY)\u003c/code> cần \u003ccode>Symbol\u003c/code> mà không dùng thẳng \u003ccode>OrderRepository\u003c/code>?\u003c/p>\n"},{"n":9,"title":"Khi nào không áp dụng: đánh đổi và over-engineering","status":"theory","statusNote":"","step":"Thực hành","html":"\u003cp>SOLID giải quyết \u003cstrong>sự đau khi thay đổi\u003c/strong>. Nếu không có thay đổi hay đau, áp dụng chỉ thêm chi phí.\u003c/p>\n\u003ch3>Dấu hiệu áp dụng quá tay\u003c/h3>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Dấu hiệu\u003c/th>\n\u003cth>Hậu quả\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>Interface chỉ có một cài đặt, không bao giờ đổi, không cần mock\u003c/td>\n\u003ctd>Thêm lớp gián tiếp vô ích\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Một class một dòng, hàng chục file nhỏ\u003c/td>\n\u003ctd>Khó lần theo luồng, &quot;ravioli code&quot;\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Factory của factory của strategy\u003c/td>\n\u003ctd>Người đọc không hiểu luồng chạy\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Trừu tượng hóa trước khi có trường hợp thứ hai\u003c/td>\n\u003ctd>Sai trục thay đổi, sửa còn khó hơn\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n\u003ch3>Chi phí của gián tiếp\u003c/h3>\n\u003cp>Mỗi lớp trừu tượng thêm: một file, một chỗ phải nối dây, một bước nhảy khi đọc code, và một chỗ có thể sai. Chỉ đáng khi lợi ích (dễ đổi, dễ test) vượt chi phí.\u003c/p>\n\u003ch3>Quy tắc thực dụng\u003c/h3>\n\u003cul>\n\u003cli>\u003cstrong>Rule of Three:\u003c/strong> lần một viết thẳng, lần hai chép và để ý, lần ba mới rút trừu tượng.\u003c/li>\n\u003cli>\u003cstrong>YAGNI:\u003c/strong> đừng cài thứ chưa cần.\u003c/li>\n\u003cli>Áp dụng mạnh ở \u003cstrong>ranh giới dễ đổi\u003c/strong> (hạ tầng, dịch vụ ngoài, quy tắc nghiệp vụ hay thay đổi); giữ đơn giản ở phần ổn định.\u003c/li>\n\u003cli>Script ngắn, prototype, code dùng một lần: ưu tiên đơn giản.\u003c/li>\n\u003cli>Dùng nỗi đau làm tín hiệu: khó test, sửa một chỗ vỡ nhiều chỗ, merge xung đột liên tục.\u003c/li>\n\u003c/ul>\n\u003ch3>Phê bình SOLID thường gặp\u003c/h3>\n\u003cul>\n\u003cli>Mơ hồ: &quot;một lý do thay đổi&quot; tùy cách hiểu.\u003c/li>\n\u003cli>Sinh ra nhiều lớp gián tiếp nếu áp dụng máy móc.\u003c/li>\n\u003cli>Một số nguyên tắc (LSP, ISP) gắn với kế thừa kiểu Java, ít tác dụng trong phong cách hàm (FP).\u003c/li>\n\u003cli>Không thay thế được hiểu biết về nghiệp vụ: tách sai ranh giới còn tệ hơn không tách.\u003c/li>\n\u003c/ul>\n\u003ch3>Cân bằng SOLID và đơn giản\u003c/h3>\n\u003cp>Hỏi trước khi trừu tượng hóa: \u003cstrong>&quot;Điều gì sẽ thay đổi, và bao lâu một lần?&quot;\u003c/strong> Nếu không trả lời được, hãy giữ nguyên.\u003c/p>\n\u003cp>\u003cstrong>Bẫy phỏng vấn:\u003c/strong> bênh SOLID một chiều là dấu hiệu thiếu kinh nghiệm. Câu trả lời trưởng thành nêu được lợi ích \u003cstrong>và\u003c/strong> lúc nên dừng (Rule of Three, YAGNI).\u003c/p>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> kể một lần bạn thấy trừu tượng hóa quá sớm gây hại, và bạn sẽ làm khác đi thế nào.\u003c/p>\n"},{"n":10,"title":"Cách nói khi phỏng vấn","status":"theory","statusNote":"","step":"Thực hành","html":"\u003ch3>Khung trả lời 90 giây cho mỗi nguyên tắc\u003c/h3>\n\u003col>\n\u003cli>\u003cstrong>Phát biểu\u003c/strong> một câu.\u003c/li>\n\u003cli>\u003cstrong>Vi phạm:\u003c/strong> ví dụ code ngắn hoặc dấu hiệu.\u003c/li>\n\u003cli>\u003cstrong>Sửa:\u003c/strong> cách tách/đa hình/đảo phụ thuộc.\u003c/li>\n\u003cli>\u003cstrong>Đánh đổi:\u003c/strong> cái giá hoặc lúc không nên áp dụng.\u003c/li>\n\u003c/ol>\n\u003ch3>Mẫu trả lời\u003c/h3>\n\u003cp>\u003cstrong>Mẫu trả lời: &quot;SOLID là gì?&quot;\u003c/strong>\u003c/p>\n\u003cblockquote>\n\u003cp>Là năm nguyên tắc để code dễ đổi. S: mỗi class một lý do thay đổi. O: thêm tính năng bằng code mới, không sửa code cũ, thường nhờ đa hình. L: lớp con phải thay được lớp cha mà chương trình vẫn đúng. I: interface nhỏ theo nhu cầu client. D: nghiệp vụ phụ thuộc interface, hạ tầng cài đặt interface đó. Tôi dùng chúng như câu hỏi kiểm tra thiết kế, không phải luật cứng.\u003c/p>\n\u003c/blockquote>\n\u003cp>\u003cstrong>Mẫu trả lời: &quot;Cho ví dụ bạn áp dụng DIP.&quot;\u003c/strong>\u003c/p>\n\u003cblockquote>\n\u003cp>Service đặt hàng ban đầu \u003ccode>new\u003c/code> thẳng MySQL và SendGrid nên test phải có hạ tầng thật. Tôi cho nghiệp vụ định nghĩa \u003ccode>OrderRepository\u003c/code> và \u003ccode>Notifier\u003c/code>, hạ tầng cài đặt chúng, và nối dây ở module gốc. Kết quả: test bằng bản giả trong bộ nhớ, đổi nhà cung cấp chỉ sửa một adapter. Cái giá là thêm vài interface và file nối dây.\u003c/p>\n\u003c/blockquote>\n\u003cp>\u003cstrong>Mẫu trả lời: &quot;SOLID có luôn đúng không?&quot;\u003c/strong>\u003c/p>\n\u003cblockquote>\n\u003cp>Không. Nó giải quyết đau khi thay đổi; nếu phần đó ổn định thì trừu tượng hóa chỉ thêm gián tiếp. Tôi áp dụng ở ranh giới dễ đổi như hạ tầng và quy tắc nghiệp vụ hay thay, và theo Rule of Three: chỉ rút trừu tượng khi có trường hợp thứ ba.\u003c/p>\n\u003c/blockquote>\n\u003ch3>Câu hỏi quay ngược nên chuẩn bị\u003c/h3>\n\u003cul>\n\u003cli>&quot;Cho ví dụ code vi phạm từng nguyên tắc và cách sửa?&quot;\u003c/li>\n\u003cli>&quot;SRP khác &#39;một class một method&#39; chỗ nào?&quot;\u003c/li>\n\u003cli>&quot;\u003ccode>Square extends Rectangle\u003c/code> sai ở đâu?&quot;\u003c/li>\n\u003cli>&quot;DIP khác DI và IoC thế nào?&quot;\u003c/li>\n\u003cli>&quot;Nguyên tắc nào bạn thấy khó áp dụng nhất, vì sao?&quot;\u003c/li>\n\u003cli>&quot;Khi nào bạn \u003cstrong>không\u003c/strong> áp dụng SOLID?&quot;\u003c/li>\n\u003c/ul>\n\u003ch3>Danh sách rà nhanh\u003c/h3>\n\u003cul>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Nêu năm nguyên tắc kèm một dấu hiệu vi phạm mỗi cái.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Giải thích SRP theo &quot;lý do thay đổi/actor&quot;.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Refactor \u003ccode>switch\u003c/code> thành Strategy và nói được OCP đạt bằng cách nào.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Kể ví dụ hình vuông và chim cánh cụt, nêu quy tắc tiền/hậu điều kiện.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Tách một interface béo theo vai trò client.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Phân biệt DIP, DI, IoC; nói interface thuộc về phía cấp cao.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Liên hệ SOLID với Strategy, Adapter, Clean Architecture.\u003c/li>\n\u003cli>\u003cinput disabled=\"\" type=\"checkbox\"> Nêu lúc không nên áp dụng và Rule of Three.\u003c/li>\n\u003c/ul>\n\u003cp>\u003cstrong>Tự trả lời:\u003c/strong> tự nói trước gương &quot;SOLID là gì và khi nào tôi không dùng nó&quot; trong 60 giây.\u003c/p>\n"}],"glossary":[{"term":"SOLID","def":"Năm nguyên tắc: SRP, OCP, LSP, ISP, DIP"},{"term":"SRP","def":"Một class có một lý do để thay đổi"},{"term":"Actor","def":"Nhóm người dùng/bên yêu cầu chịu trách nhiệm thay đổi một phần code"},{"term":"OCP","def":"Mở để mở rộng, đóng để sửa đổi"},{"term":"LSP","def":"Lớp con thay được lớp cha mà chương trình vẫn đúng"},{"term":"ISP","def":"Đừng ép client phụ thuộc method nó không dùng"},{"term":"DIP","def":"Phụ thuộc abstraction, không phụ thuộc chi tiết"},{"term":"Dependency Injection","def":"Truyền phụ thuộc từ ngoài vào, thường qua constructor"},{"term":"IoC container","def":"Công cụ tự tạo và lắp object (NestJS, Spring)"},{"term":"Composition root","def":"Nơi duy nhất lắp các lớp cụ thể lại với nhau"},{"term":"Port","def":"Interface do nghiệp vụ định nghĩa cho thứ nó cần"},{"term":"Adapter","def":"Cài đặt port bằng công nghệ cụ thể (DB, SDK)"},{"term":"Tiền điều kiện","def":"Điều phải đúng trước khi gọi method"},{"term":"Hậu điều kiện","def":"Điều method đảm bảo sau khi chạy"},{"term":"Bất biến (invariant)","def":"Điều luôn đúng với một object hợp lệ"},{"term":"Design by contract","def":"Mô tả hành vi bằng tiền điều kiện, hậu điều kiện, bất biến"},{"term":"Covariance","def":"Kiểu trả về của lớp con có thể cụ thể hơn"},{"term":"Contravariance","def":"Kiểu tham số của lớp con có thể tổng quát hơn"},{"term":"Strategy","def":"Pattern đóng gói thuật toán hoán đổi được, hiện thực OCP"},{"term":"Decorator","def":"Pattern thêm hành vi bằng cách bọc cùng interface"},{"term":"Rule of Three","def":"Rút trừu tượng khi có trường hợp thứ ba"},{"term":"YAGNI","def":"Đừng cài thứ chưa cần"},{"term":"Over-engineering","def":"Thiết kế phức tạp hơn nhu cầu thật"},{"term":"Dependency Rule","def":"Phụ thuộc mã nguồn chỉ hướng vào trong, về phía domain"}],"intro":"\u003cp>Sổ tay riêng về SOLID để ôn phỏng vấn: từng nguyên tắc (SRP, OCP, LSP, ISP, DIP) kèm ví dụ vi phạm và cách sửa, một bài refactor xuyên suốt, quan hệ với design pattern và kiến trúc, áp dụng trong TypeScript/NestJS, và khi nào \u003cstrong>không\u003c/strong> nên áp dụng. Code TypeScript là minh họa, \u003cstrong>chưa chạy thử\u003c/strong>; đây là tài liệu lý thuyết tổng quát, không mô tả code của dự án.\u003c/p>\n\u003cp>Học theo thứ tự 0–10. Mỗi ngày đọc hai chủ đề, tự nói câu trả lời trong 60–90 giây theo khung: định nghĩa → dấu hiệu vi phạm → cách sửa và đánh đổi. Trạng thái 📖 là tài liệu lý thuyết, không khẳng định bạn đã học thuộc.\u003c/p>\n","questions":[{"id":"98481cb002","part":"A","partTitle":"Tổng quan và SRP","group":"Tổng quan","level":"basic","text":"SOLID là gì? Mục đích của nó?","hintLabel":"Ý chính","hint":"Năm nguyên tắc thiết kế OOP (SRP, OCP, LSP, ISP, DIP) để code dễ đổi, dễ test, dễ hiểu. Là kim chỉ nam nhận ra thiết kế đau, không phải luật tuyệt đối.","refs":[0]},{"id":"a7510860cb","part":"A","partTitle":"Tổng quan và SRP","group":"Tổng quan","level":"mid","text":"Năm nguyên tắc này liên hệ với nhau thế nào?","hintLabel":"Ý chính","hint":"Hỗ trợ lẫn nhau: DIP đi cùng OCP; ISP giúp tránh vi phạm LSP; SRP giúp mọi nguyên tắc khác dễ áp dụng.","refs":[0,4]},{"id":"311b910209","part":"A","partTitle":"Tổng quan và SRP","group":"Single Responsibility","level":"basic","text":"SRP là gì?","hintLabel":"Ý chính","hint":"Một class chỉ có một lý do để thay đổi, tức chịu trách nhiệm trước một actor.","refs":[1]},{"id":"67e13f67e1","part":"A","partTitle":"Tổng quan và SRP","group":"Single Responsibility","level":"mid","text":"SRP có phải &quot;một class một method&quot; không?","hintLabel":"Ý chính","hint":"Không. Nhiều method vẫn đúng SRP nếu cùng một trách nhiệm. Tách quá nhỏ gây rời rạc, khó theo dõi.","refs":[1]},{"id":"975bf3f07c","part":"A","partTitle":"Tổng quan và SRP","group":"Single Responsibility","level":"mid","text":"Làm sao nhận ra một class vi phạm SRP?","hintLabel":"Ý chính","hint":"Mô tả cần chữ &quot;và&quot;; nhiều nhóm người có lý do sửa nó; tên \u003ccode>Manager/Helper/Util\u003c/code>; import quá nhiều thứ không liên quan; test phải mock cả chục phụ thuộc.","refs":[1]},{"id":"3a9d4c1c59","part":"A","partTitle":"Tổng quan và SRP","group":"Single Responsibility","level":"hard","text":"SRP liên quan đến cohesion thế nào?","hintLabel":"Ý chính","hint":"SRP chính là cohesion cao: thứ đổi cùng lý do ở cùng nhau, thứ đổi khác lý do tách ra.","refs":[1]},{"id":"bfa7bf5b53","part":"B","partTitle":"Open/Closed và Liskov","group":"Open/Closed","level":"basic","text":"OCP là gì?","hintLabel":"Ý chính","hint":"Mở để mở rộng, đóng để sửa đổi: thêm hành vi bằng code mới, không sửa code cũ đã chạy.","refs":[2]},{"id":"5f8a25a59a","part":"B","partTitle":"Open/Closed và Liskov","group":"Open/Closed","level":"mid","text":"Làm sao refactor chuỗi \u003ccode>switch (type)\u003c/code> theo OCP?","hintLabel":"Ý chính","hint":"Mỗi case thành một lớp cài chung interface (Strategy), nơi dùng chỉ biết interface; thêm trường hợp = thêm class.","refs":[2]},{"id":"fad65958ed","part":"B","partTitle":"Open/Closed và Liskov","group":"Open/Closed","level":"mid","text":"OCP có nghĩa là không bao giờ được sửa code cũ không?","hintLabel":"Ý chính","hint":"Không. Sửa lỗi vẫn sửa; OCP nói về thêm tính năng không buộc sửa code cũ.","refs":[2]},{"id":"eea227abc0","part":"B","partTitle":"Open/Closed và Liskov","group":"Open/Closed","level":"hard","text":"Làm sao biết đóng với thay đổi nào?","hintLabel":"Ý chính","hint":"Đoán trục thay đổi (thường là &quot;thêm loại mới&quot;); dùng Rule of Three, đừng trừu tượng hóa trước khi có hai–ba trường hợp thật vì dễ chọn sai trục.","refs":[2,9]},{"id":"f8bc3b92a7","part":"B","partTitle":"Open/Closed và Liskov","group":"Liskov Substitution","level":"mid","text":"LSP là gì?","hintLabel":"Ý chính","hint":"Lớp con thay được lớp cha mà chương trình vẫn đúng về hành vi, không chỉ khớp chữ ký.","refs":[3]},{"id":"7c25d59011","part":"B","partTitle":"Open/Closed và Liskov","group":"Liskov Substitution","level":"hard","text":"Vì sao \u003ccode>Square extends Rectangle\u003c/code> vi phạm LSP?","hintLabel":"Ý chính","hint":"Rectangle cho đổi width/height độc lập; Square đổi cả hai, nên \u003ccode>setWidth(5); setHeight(4)\u003c/code> ra 16 thay vì 20. Is-a toán học không bằng is-a về hành vi.","refs":[3]},{"id":"119e1bfee2","part":"B","partTitle":"Open/Closed và Liskov","group":"Liskov Substitution","level":"mid","text":"\u003ccode>Penguin extends Bird\u003c/code> có \u003ccode>fly()\u003c/code> ném lỗi sai ở đâu? Sửa thế nào?","hintLabel":"Ý chính","hint":"Phá hợp đồng của \u003ccode>Bird.fly()\u003c/code>. Tách \u003ccode>Bird\u003c/code> và \u003ccode>FlyingBird\u003c/code> (hoặc dùng composition) để chỉ loài bay được mới có \u003ccode>fly()\u003c/code>.","refs":[3]},{"id":"da021198ab","part":"B","partTitle":"Open/Closed và Liskov","group":"Liskov Substitution","level":"hard","text":"Nêu các quy tắc hợp đồng mà lớp con phải tuân theo.","hintLabel":"Ý chính","hint":"Không siết tiền điều kiện, không làm yếu hậu điều kiện, giữ bất biến, không ném ngoại lệ lạ. Khớp với covariance (đầu ra) và contravariance (đầu vào).","refs":[3]},{"id":"6c1c0bbcb9","part":"B","partTitle":"Open/Closed và Liskov","group":"Liskov Substitution","level":"mid","text":"Dấu hiệu vi phạm LSP trong code thật?","hintLabel":"Ý chính","hint":"Override rồi \u003ccode>throw new Error(&#39;not supported&#39;)\u003c/code> hoặc để trống; nơi gọi phải \u003ccode>instanceof\u003c/code> trước khi dùng; test của lớp cha không chạy được với lớp con.","refs":[3]},{"id":"691546f903","part":"C","partTitle":"Interface Segregation và Dependency Inversion","group":"Interface Segregation","level":"basic","text":"ISP là gì?","hintLabel":"Ý chính","hint":"Client không bị ép phụ thuộc method nó không dùng; nhiều interface nhỏ theo client tốt hơn một interface béo.","refs":[4]},{"id":"2f0b909e61","part":"C","partTitle":"Interface Segregation và Dependency Inversion","group":"Interface Segregation","level":"mid","text":"Cho ví dụ tách một interface béo.","hintLabel":"Ý chính","hint":"\u003ccode>UserRepository\u003c/code> gồm đọc và ghi, \u003ccode>ReportService\u003c/code> chỉ cần đọc: tách \u003ccode>UserReader\u003c/code>/\u003ccode>UserWriter\u003c/code>. Báo cáo không thể xóa nhầm, test chỉ mock vài method.","refs":[4]},{"id":"2aa62d45f4","part":"C","partTitle":"Interface Segregation và Dependency Inversion","group":"Interface Segregation","level":"hard","text":"ISP liên quan LSP và SRP thế nào?","hintLabel":"Ý chính","hint":"Interface béo ép method rỗng/ném lỗi, đó là vi phạm LSP. ISP là SRP áp cho interface. Nhưng đừng cực đoan: gom theo vai trò client, không phải mỗi method một interface.","refs":[4,3]},{"id":"cf758904a5","part":"C","partTitle":"Interface Segregation và Dependency Inversion","group":"Dependency Inversion","level":"mid","text":"DIP là gì?","hintLabel":"Ý chính","hint":"Module cấp cao và cấp thấp cùng phụ thuộc abstraction; chi tiết phụ thuộc abstraction. Nghiệp vụ định nghĩa interface, hạ tầng cài đặt.","refs":[5]},{"id":"a9023d07f3","part":"C","partTitle":"Interface Segregation và Dependency Inversion","group":"Dependency Inversion","level":"hard","text":"DIP, Dependency Injection và IoC container khác nhau thế nào?","hintLabel":"Ý chính","hint":"DIP là nguyên tắc; DI là kỹ thuật truyền phụ thuộc từ ngoài; IoC container là công cụ tự lắp. Inject một lớp cụ thể vẫn vi phạm DIP; có thể đạt DIP không cần container.","refs":[5]},{"id":"146f3ee088","part":"C","partTitle":"Interface Segregation và Dependency Inversion","group":"Dependency Inversion","level":"hard","text":"Interface của DIP nên nằm ở phía nào?","hintLabel":"Ý chính","hint":"Phía module cấp cao, mô tả nhu cầu của nghiệp vụ (\u003ccode>Notifier.orderPlaced\u003c/code>), không phản ánh API thư viện. Đó là nền của Hexagonal/Clean Architecture.","refs":[5,7]},{"id":"03c12a8ff5","part":"C","partTitle":"Interface Segregation và Dependency Inversion","group":"Dependency Inversion","level":"mid","text":"Constructor injection khác setter injection khi nào chọn?","hintLabel":"Ý chính","hint":"Constructor là mặc định cho phụ thuộc bắt buộc, object luôn hợp lệ. Setter cho phụ thuộc tùy chọn; method injection cho phụ thuộc chỉ dùng trong một lời gọi.","refs":[5]},{"id":"6030eb51cf","part":"C","partTitle":"Interface Segregation và Dependency Inversion","group":"Dependency Inversion","level":"mid","text":"Composition root là gì?","hintLabel":"Ý chính","hint":"Một nơi duy nhất (điểm vào/module gốc) biết lớp cụ thể và lắp chúng; phần còn lại chỉ thấy interface.","refs":[5,8]},{"id":"e6dd7c22d9","part":"D","partTitle":"Thực hành và kiến trúc","group":"Refactor và pattern","level":"mid","text":"Mô tả cách refactor một \u003ccode>OrderService\u003c/code> &quot;làm tất cả&quot;.","hintLabel":"Ý chính","hint":"Chẩn đoán từng nguyên tắc, tách trách nhiệm (S), Strategy cho khuyến mãi/thanh toán (O), giữ hợp đồng biến thể (L), interface nhỏ (I), inject interface (D). Nêu cái giá: nhiều file, phải nối dây.","refs":[6]},{"id":"1ce1ad626c","part":"D","partTitle":"Thực hành và kiến trúc","group":"Refactor và pattern","level":"mid","text":"Strategy và Adapter thể hiện nguyên tắc SOLID nào?","hintLabel":"Ý chính","hint":"Strategy: OCP. Adapter: DIP (nghiệp vụ phụ thuộc interface của mình, adapter che API ngoài). Decorator: OCP/SRP.","refs":[7]},{"id":"3576073b6e","part":"D","partTitle":"Thực hành và kiến trúc","group":"Refactor và pattern","level":"hard","text":"Clean Architecture/Hexagonal liên quan SOLID thế nào?","hintLabel":"Ý chính","hint":"Chúng là DIP ở quy mô ứng dụng: Dependency Rule cho phụ thuộc chỉ hướng vào domain; lõi định nghĩa port, hạ tầng là adapter.","refs":[7]},{"id":"e20306a07e","part":"D","partTitle":"Thực hành và kiến trúc","group":"Refactor và pattern","level":"mid","text":"SOLID khác DRY, KISS, YAGNI chỗ nào?","hintLabel":"Ý chính","hint":"DRY nói về trùng tri thức. KISS/YAGNI là đối trọng, kìm trừu tượng hóa sớm. SOLID nói về cấu trúc phụ thuộc.","refs":[7,9]},{"id":"97a6da8a4d","part":"D","partTitle":"Thực hành và kiến trúc","group":"TypeScript và NestJS","level":"mid","text":"Vì sao inject interface trong NestJS cần token?","hintLabel":"Ý chính","hint":"Interface TypeScript bị xóa lúc chạy nên không dùng được làm khóa; dùng \u003ccode>Symbol\u003c/code>, string hoặc abstract class làm token, rồi \u003ccode>@Inject(TOKEN)\u003c/code>.","refs":[8]},{"id":"b1df2c3078","part":"D","partTitle":"Thực hành và kiến trúc","group":"TypeScript và NestJS","level":"mid","text":"Đổi kho dữ liệu hoặc thay bằng bản giả khi test trong NestJS thế nào?","hintLabel":"Ý chính","hint":"Đổi \u003ccode>useClass\u003c/code> trong \u003ccode>providers\u003c/code> của module (composition root); test dùng \u003ccode>useValue\u003c/code> với bản in-memory.","refs":[8]},{"id":"e3e3c9e80c","part":"D","partTitle":"Thực hành và kiến trúc","group":"TypeScript và NestJS","level":"hard","text":"Nhận diện vi phạm SOLID thường gặp trong một dự án NestJS.","hintLabel":"Ý chính","hint":"Controller chứa nghiệp vụ và truy vấn DB (S); service import thẳng \u003ccode>mongoose.Model\u003c/code>/SDK (D); interface repo béo (I); \u003ccode>UserService\u003c/code> hàng nghìn dòng (S).","refs":[8]},{"id":"0a6ee3cab4","part":"E","partTitle":"Đánh đổi và phỏng vấn","group":"Đánh đổi","level":"mid","text":"Khi nào không nên áp dụng SOLID?","hintLabel":"Ý chính","hint":"Script ngắn, prototype, phần ổn định; interface chỉ một cài đặt không bao giờ đổi. SOLID giải quyết đau khi thay đổi, không có đau thì chỉ thêm chi phí.","refs":[9]},{"id":"b4fe35c3fd","part":"E","partTitle":"Đánh đổi và phỏng vấn","group":"Đánh đổi","level":"hard","text":"Over-engineering do SOLID trông như thế nào?","hintLabel":"Ý chính","hint":"Hàng chục class vài dòng, factory của factory, trừu tượng hóa trước trường hợp thứ hai. Hậu quả: khó theo dõi luồng, sai trục thay đổi.","refs":[9]},{"id":"2c921c7a38","part":"E","partTitle":"Đánh đổi và phỏng vấn","group":"Đánh đổi","level":"hard","text":"Rule of Three là gì? Liên quan YAGNI thế nào?","hintLabel":"Ý chính","hint":"Lần một viết thẳng, lần hai để ý, lần ba mới rút trừu tượng. YAGNI: đừng cài thứ chưa cần.","refs":[9,2]},{"id":"1bff7e758d","part":"E","partTitle":"Đánh đổi và phỏng vấn","group":"Đánh đổi","level":"hard","text":"Bạn phê bình SOLID ở điểm nào?","hintLabel":"Ý chính","hint":"Mơ hồ (&quot;một lý do thay đổi&quot; tùy cách hiểu), dễ sinh gián tiếp nếu máy móc, LSP/ISP gắn với kế thừa kiểu Java, không thay được hiểu biết nghiệp vụ.","refs":[9]},{"id":"f5440e1cde","part":"E","partTitle":"Đánh đổi và phỏng vấn","group":"Cách nói","level":"basic","text":"Giải thích SOLID trong 60 giây.","hintLabel":"Ý chính","hint":"Mỗi chữ một câu và một dấu hiệu vi phạm, rồi nói đây là kim chỉ nam chứ không phải luật.","refs":[0,10]},{"id":"eb6ed4a738","part":"E","partTitle":"Đánh đổi và phỏng vấn","group":"Cách nói","level":"hard","text":"Kể một lần bạn áp dụng một nguyên tắc SOLID và kết quả.","hintLabel":"Ý chính","hint":"Chọn ví dụ thật: dấu hiệu đau (khó test, sửa vỡ nhiều chỗ), nguyên tắc dùng, thay đổi cụ thể, kết quả đo được và cái giá phải trả.","refs":[10,6]},{"id":"3017e4f1c6","part":"E","partTitle":"Đánh đổi và phỏng vấn","group":"Cách nói","level":"hard","text":"Nguyên tắc nào khó áp dụng nhất, vì sao?","hintLabel":"Ý chính","hint":"Thường LSP (đòi hiểu hợp đồng hành vi, khó thấy bằng mắt) hoặc OCP (phải đoán đúng trục thay đổi). Nêu cách bạn kiểm tra: test hợp đồng chung, Rule of Three.","refs":[10,3]}],"slides":[{"cover":true,"html":"\u003ch1>SOLID\u003c/h1>\n\u003cp>Năm nguyên tắc để code dễ đổi.\u003c/p>\n\u003cp>Tài liệu lý thuyết tổng quát; code TypeScript là minh họa.\u003c/p>\n","notes":"\u003cp>Mở đầu: SOLID là kim chỉ nam nhận ra thiết kế đau, không phải luật tuyệt đối.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Vì sao cần SOLID\u003c/h2>\n\u003cp>Yêu cầu thay đổi nhỏ, code phải sửa một chỗ nhỏ.\u003c/p>\n\u003cp>Dấu hiệu đau: khó test, sửa một chỗ vỡ nhiều chỗ.\u003c/p>\n","notes":"\u003cp>Ví dụ bếp trưởng vừa nấu, vừa thu ngân, vừa nhập hàng.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Năm nguyên tắc\u003c/h2>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>Chữ\u003c/th>\n\u003cth>Ý\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\u003ctr>\n\u003ctd>S\u003c/td>\n\u003ctd>Một lý do thay đổi\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>O\u003c/td>\n\u003ctd>Mở mở rộng, đóng sửa\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>L\u003c/td>\n\u003ctd>Con thay được cha\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>I\u003c/td>\n\u003ctd>Interface nhỏ theo client\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>D\u003c/td>\n\u003ctd>Phụ thuộc abstraction\u003c/td>\n\u003c/tr>\n\u003c/tbody>\u003c/table>\n","notes":"\u003cp>Mỗi chữ cần một ví dụ vi phạm và cách sửa.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>S — Single Responsibility\u003c/h2>\n\u003cp>Một class, một \u003cstrong>actor\u003c/strong> yêu cầu thay đổi.\u003c/p>\n\u003cp>Không phải &quot;một class một method&quot;.\u003c/p>\n","notes":"\u003cp>Mô tả class không có chữ &quot;và&quot;. Tách PriceCalculator, InvoiceRenderer, OrderRepository.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>O — Open/Closed\u003c/h2>\n\u003cp>Thêm tính năng bằng code \u003cstrong>mới\u003c/strong>, không sửa code cũ.\u003c/p>\n\u003cp>Thay \u003ccode>switch (type)\u003c/code> bằng Strategy.\u003c/p>\n","notes":"\u003cp>Đoán đúng trục thay đổi; Rule of Three trước khi trừu tượng hóa.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>L — Liskov Substitution\u003c/h2>\n\u003cp>Con thay được cha mà chương trình vẫn đúng.\u003c/p>\n\u003cp>Phản ví dụ: \u003ccode>Square extends Rectangle\u003c/code>, \u003ccode>Penguin.fly()\u003c/code>.\u003c/p>\n","notes":"\u003cp>Không siết tiền điều kiện, không làm yếu hậu điều kiện, giữ bất biến.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>I — Interface Segregation\u003c/h2>\n\u003cp>Đừng ép client cài method nó không dùng.\u003c/p>\n\u003cp>\u003ccode>UserReader\u003c/code> và \u003ccode>UserWriter\u003c/code> thay cho \u003ccode>UserRepository\u003c/code> béo.\u003c/p>\n","notes":"\u003cp>Dấu hiệu: throw not supported. Gom theo vai trò client, không phải từng method.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>D — Dependency Inversion\u003c/h2>\n\u003cp>Nghiệp vụ \u003cstrong>định nghĩa\u003c/strong> interface, hạ tầng \u003cstrong>cài đặt\u003c/strong>.\u003c/p>\n\u003cp>DIP là nguyên tắc, DI là kỹ thuật, IoC là công cụ.\u003c/p>\n","notes":"\u003cp>Interface nằm ở phía cấp cao. Composition root lắp mọi thứ.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Refactor OrderService\u003c/h2>\n\u003cp>Tách trách nhiệm → Strategy → giữ hợp đồng → interface nhỏ → inject.\u003c/p>\n\u003cp>Kết quả: thêm cổng thanh toán không sửa nghiệp vụ.\u003c/p>\n","notes":"\u003cp>Nhắc cái giá: nhiều file, phải nối dây ở composition root.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>SOLID và kiến trúc\u003c/h2>\n\u003cp>Strategy là OCP. Adapter là DIP.\u003c/p>\n\u003cp>Clean Architecture là DIP ở quy mô ứng dụng.\u003c/p>\n","notes":"\u003cp>Dependency Rule: phụ thuộc chỉ hướng vào domain.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>NestJS\u003c/h2>\n\u003cp>Interface bị xóa lúc chạy, dùng \u003cstrong>token\u003c/strong>.\u003c/p>\n\u003cp>\u003ccode>useClass\u003c/code> đổi cài đặt, \u003ccode>useValue\u003c/code> cho test.\u003c/p>\n","notes":"\u003cp>Module là composition root của phần đó.\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Khi không dùng\u003c/h2>\n\u003cp>Script ngắn, phần ổn định, interface một cài đặt.\u003c/p>\n\u003cp>Rule of Three. YAGNI.\u003c/p>\n","notes":"\u003cp>Hỏi: điều gì sẽ thay đổi, và bao lâu một lần?\u003c/p>\n"},{"cover":false,"html":"\u003ch2>Khi phỏng vấn\u003c/h2>\n\u003cp>Phát biểu → vi phạm → sửa → đánh đổi.\u003c/p>\n\u003cp>Luôn có một ví dụ code và nói được lúc không áp dụng.\u003c/p>\n","notes":"\u003cp>Nhắc lại danh sách rà nhanh ở bài 10.\u003c/p>\n"}]}</script>
+<script>
+(() => {
+  // Mở nhầm file template (chưa có dữ liệu) thì báo rõ thay vì hỏng im lặng.
+  const raw = document.getElementById('data').textContent.trim();
+  if (!raw.startsWith('{')) {
+    document.querySelector('main').innerHTML =
+      '<div class="panel" style="padding:24px;margin-top:24px"><h2>Đây là file template, chưa có dữ liệu</h2>' +
+      '<p>Hãy mở <code>knowledge-base/index.html#solid</code> (file đã sinh). ' +
+      'Nếu chưa có, chạy <code>npm run docs:knowledge-base</code> ở thư mục gốc.</p></div>';
+    return;
+  }
+  const DATA = JSON.parse(raw);
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const el = (tag, attrs = {}, html) => {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') node.className = v;
+      else if (k === 'text') node.textContent = v;
+      else node.setAttribute(k, v);
+    }
+    if (html !== undefined) node.innerHTML = html;
+    return node;
+  };
+  const STATUS_LABEL = { done: 'Đã làm', theory: 'Lý thuyết', todo: 'Chưa học' };
+  const LEVEL_LABEL = { basic: 'Cơ bản', mid: 'Trung bình', hard: 'Nâng cao' };
+  const topicByN = new Map(DATA.topics.map((t) => [t.n, t]));
+
+  // ---------- storage (có thể bị chặn: luôn bọc try/catch) ----------
+  const store = {
+    get(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* bỏ qua */ } },
+  };
+  let marks = store.get('solid-practice-marks', {});
+
+  // ---------- theme ----------
+  const themeBtn = $('#theme-btn');
+  const THEMES = ['system', 'light', 'dark'];
+  const THEME_LABEL = { system: 'hệ thống', light: 'sáng', dark: 'tối' };
+  let theme = store.get('solid-theme', 'system');
+  function applyTheme() {
+    if (theme === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.textContent = 'Giao diện: ' + THEME_LABEL[theme];
+  }
+  themeBtn.addEventListener('click', () => {
+    theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    store.set('solid-theme', theme);
+    applyTheme();
+  });
+  applyTheme();
+
+  const generated = new Date(DATA.generatedAt);
+  $('#gen-date').textContent = 'cập nhật ' + generated.toLocaleDateString('vi-VN');
+  $('#footer').textContent = 'Sinh tự động từ documents/KNOWLEDGE.md và documents/INTERVIEW-QUESTIONS.md lúc ' +
+    generated.toLocaleString('vi-VN') + '. Sửa nội dung trong file markdown rồi chạy lại: npm run docs:knowledge';
+
+  // ================= OVERVIEW: meter =================
+  function renderMeter() {
+    const counts = { done: 0, theory: 0, todo: 0 };
+    DATA.topics.forEach((t) => counts[t.status]++);
+    const total = DATA.topics.length;
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    const review = DATA.questions.filter((q) => marks[q.id] === 'review').length;
+    const qTotal = DATA.questions.length;
+    const pct = (n, of) => (of ? (n / of) * 100 : 0) + '%';
+    $('#meter').innerHTML = `
+      <span class="eyebrow">Tiến độ</span>
+      <div class="meter-row">
+        <div class="label"><span>Chủ đề</span><b>${counts.done} đã làm · ${counts.theory} lý thuyết · ${counts.todo} chưa học</b></div>
+        <div class="bar"><i class="b-done" style="width:${pct(counts.done, total)}"></i><i class="b-theory" style="width:${pct(counts.theory, total)}"></i></div>
+      </div>
+      <div class="meter-row">
+        <div class="label"><span>Câu hỏi luyện</span><b>${known}/${qTotal} đã thuộc · ${review} cần ôn</b></div>
+        <div class="bar"><i class="b-known" style="width:${pct(known, qTotal)}"></i><i class="b-review" style="width:${pct(review, qTotal)}"></i></div>
+      </div>
+      <div class="legend"><a class="btn" href="#topic-0">Đọc bài đầu tiên</a><a class="btn primary" href="#practice">Luyện câu hỏi</a></div>`;
+  }
+
+  // ================= KNOWLEDGE =================
+  const LABELS = [
+    ['Câu hỏi phỏng vấn', 'questions'],
+    ['Bẫy phỏng vấn', 'trap'],
+    ['Ví dụ w-identity', 'incode'],
+    ['Kịch bản thiết kế', 'incode'],
+    ['Bẫy thực tế', 'trap'],
+    ['Bẫy cần nhớ', 'trap'],
+    ['Mẫu trả lời', 'sample'],
+    ['Trong code', 'incode'],
+    ['Tự trả lời', 'self'],
+    ['Tự viết', 'self'],
+  ];
+  function decorate(root) {
+    root.querySelectorAll('table').forEach((t) => {
+      const w = el('div', { class: 'table-wrap' });
+      t.replaceWith(w);
+      w.appendChild(t);
+    });
+    [...root.querySelectorAll(':scope > p')].forEach((p) => {
+      const strong = p.firstElementChild;
+      if (!strong || strong.tagName !== 'STRONG' || p.firstChild !== strong) return;
+      const hit = LABELS.find(([label]) => strong.textContent.startsWith(label));
+      if (!hit) return;
+      const box = el('div', { class: 'callout ' + hit[1] });
+      p.before(box);
+      const next = p.nextElementSibling;
+      box.appendChild(p);
+      if (p.textContent.trim().length > strong.textContent.trim().length + 2) return; // nội dung nằm ngay trong đoạn
+      if (next && /^(UL|OL|BLOCKQUOTE|PRE|DIV)$/.test(next.tagName)) box.appendChild(next);
+    });
+  }
+
+  const questionsByTopic = new Map();
+  DATA.questions.forEach((q) => q.refs.forEach((r) => questionsByTopic.set(r, (questionsByTopic.get(r) ?? 0) + 1)));
+
+  function renderToc(currentN) {
+    const filter = $('#toc-search').value.trim().toLowerCase();
+    const list = $('#toc-list');
+    list.innerHTML = '';
+    DATA.topics
+      .filter((t) => !filter || (t.n + '. ' + t.title).toLowerCase().includes(filter))
+      .forEach((t) => {
+        const li = el('li');
+        const a = el('a', { href: '#topic-' + t.n, title: STATUS_LABEL[t.status] });
+        if (t.n === currentN) a.setAttribute('aria-current', 'true');
+        a.innerHTML = `<span class="num">${String(t.n).padStart(2, '0')}</span><span></span><span class="dot ${t.status}"></span>`;
+        a.children[1].textContent = t.title;
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+    if (!list.children.length) list.appendChild(el('li', { class: 'empty', text: 'Không tìm thấy chủ đề phù hợp.' }));
+  }
+  function renderTopic(n) {
+    const idx = DATA.topics.findIndex((t) => t.n === n);
+    const t = DATA.topics[idx] ?? DATA.topics[0];
+    currentTopic = t.n;
+    const prev = DATA.topics[idx - 1];
+    const next = DATA.topics[idx + 1];
+    const qCount = questionsByTopic.get(t.n) ?? 0;
+    const art = $('#topic');
+    art.innerHTML = `
+      <div class="topic-head">
+        <span class="eyebrow">Chủ đề ${String(t.n).padStart(2, '0')} · ${t.step}</span>
+        <h1></h1>
+        <div class="topic-meta"><span class="chip ${t.status}">${STATUS_LABEL[t.status]}</span><span class="status-note"></span></div>
+      </div>
+      <div class="prose" id="prose">${t.html}</div>
+      ${qCount ? `<div class="panel practice-link"><span>Có <b>${qCount}</b> câu hỏi luyện tập liên quan tới chủ đề này.</span><a class="btn primary" href="#practice" data-topic="${t.n}">Luyện ngay</a></div>` : ''}
+      <div class="topic-foot">
+        ${prev ? `<a class="btn" href="#topic-${prev.n}">← ${prev.n}. </a>` : '<span></span>'}
+        ${next ? `<a class="btn" href="#topic-${next.n}">${next.n}. →</a>` : '<span></span>'}
+      </div>`;
+    $('h1', art).textContent = t.title;
+    $('.status-note', art).textContent = t.statusNote;
+    const foot = art.querySelectorAll('.topic-foot a');
+    if (prev) foot[0].textContent = '← ' + prev.n + '. ' + prev.title;
+    if (next) foot[foot.length - 1].textContent = next.n + '. ' + next.title + ' →';
+    decorate($('#prose'));
+    const link = art.querySelector('[data-topic]');
+    if (link) link.addEventListener('click', () => { practiceState.topic = t.n; practiceState.pos = 0; });
+    renderToc(t.n);
+  }
+  let currentTopic = 0;
+  $('#toc-search').addEventListener('input', () => renderToc(currentTopic));
+  $('#toc-toggle').addEventListener('click', () => {
+    const toc = $('#toc');
+    const collapsed = toc.classList.toggle('collapsed');
+    $('#toc-toggle').setAttribute('aria-expanded', String(!collapsed));
+  });
+  if (matchMedia('(max-width: 920px)').matches) $('#toc').classList.add('collapsed');
+
+  // ================= PRACTICE =================
+  const PARTS = [...new Map(DATA.questions.map((q) => [q.part, q.partTitle])).entries()];
+  const practiceState = { part: 'all', level: 'all', onlyReview: false, topic: null, order: DATA.questions.map((_, i) => i), pos: 0, revealed: false };
+
+  function filtered() {
+    return practiceState.order
+      .map((i) => DATA.questions[i])
+      .filter((q) => practiceState.part === 'all' || q.part === practiceState.part)
+      .filter((q) => practiceState.level === 'all' || q.level === practiceState.level)
+      .filter((q) => !practiceState.onlyReview || marks[q.id] !== 'known')
+      .filter((q) => practiceState.topic === null || q.refs.includes(practiceState.topic));
+  }
+  function pillGroup(label, options, key) {
+    const g = el('div', { class: 'fgroup', role: 'group', 'aria-label': label });
+    g.appendChild(el('span', { class: 'eyebrow', text: label }));
+    options.forEach(([value, text]) => {
+      const b = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState[key] === value) });
+      b.textContent = text;
+      b.addEventListener('click', () => { practiceState[key] = value; practiceState.pos = 0; practiceState.revealed = false; renderPractice(); });
+      g.appendChild(b);
+    });
+    return g;
+  }
+  function renderFilters() {
+    const f = $('#filters');
+    f.innerHTML = '';
+    f.appendChild(pillGroup('Phần', [['all', 'Tất cả'], ...PARTS.map(([id, title]) => [id, id + ' · ' + title])], 'part'));
+    f.appendChild(pillGroup('Mức', [['all', 'Tất cả'], ['basic', 'Cơ bản'], ['mid', 'Trung bình'], ['hard', 'Nâng cao']], 'level'));
+    const extra = el('div', { class: 'fgroup' });
+    const rb = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(practiceState.onlyReview) });
+    rb.textContent = 'Ẩn câu đã thuộc';
+    rb.addEventListener('click', () => { practiceState.onlyReview = !practiceState.onlyReview; practiceState.pos = 0; renderPractice(); });
+    extra.appendChild(rb);
+    if (practiceState.topic !== null) {
+      const t = topicByN.get(practiceState.topic);
+      const tb = el('button', { type: 'button', class: 'pill', 'aria-pressed': 'true', title: 'Bỏ lọc theo chủ đề' });
+      tb.textContent = 'Chủ đề ' + practiceState.topic + (t ? ' · ' + t.title : '') + '  ✕';
+      tb.addEventListener('click', () => { practiceState.topic = null; practiceState.pos = 0; renderPractice(); });
+      extra.appendChild(tb);
+    }
+    f.appendChild(extra);
+  }
+  function setMark(q, value) {
+    if (marks[q.id] === value) delete marks[q.id]; else marks[q.id] = value;
+    store.set('solid-practice-marks', marks);
+  }
+  function renderPractice() {
+    renderFilters();
+    const list = filtered();
+    if (practiceState.pos >= list.length) practiceState.pos = Math.max(0, list.length - 1);
+    const known = DATA.questions.filter((q) => marks[q.id] === 'known').length;
+    $('#counter').textContent = list.length
+      ? `Câu ${practiceState.pos + 1}/${list.length} trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`
+      : `0 câu trong bộ lọc · ${known}/${DATA.questions.length} đã thuộc`;
+    const card = $('#card');
+    if (!list.length) {
+      card.className = 'panel empty';
+      card.innerHTML = 'Không còn câu nào khớp bộ lọc. Bỏ bớt bộ lọc hoặc tắt "Ẩn câu đã thuộc".';
+      return;
+    }
+    const q = list[practiceState.pos];
+    const mark = marks[q.id];
+    card.className = 'panel card';
+    card.innerHTML = `
+      <div class="card-meta">
+        <span class="eyebrow">Phần ${q.part}${q.group ? ' · ' + q.group : ''}</span>
+        ${q.level ? `<span class="chip ${q.level}">${LEVEL_LABEL[q.level]}</span>` : ''}
+        ${mark ? `<span class="mark ${mark}">${mark === 'known' ? '✓ đã thuộc' : '↺ cần ôn lại'}</span>` : ''}
+      </div>
+      <div class="card-q">${q.text}</div>
+      <div id="hint-area"></div>
+      <div class="card-actions">
+        <button class="btn" id="prev-btn" type="button" ${practiceState.pos === 0 ? 'disabled' : ''}>← Trước</button>
+        <button class="btn primary" id="reveal-btn" type="button">${practiceState.revealed ? 'Ẩn ý chính' : 'Hiện ý chính'}</button>
+        <span class="spacer"></span>
+        <button class="btn again" id="again-btn" type="button">Cần ôn lại</button>
+        <button class="btn good" id="known-btn" type="button">Đã thuộc</button>
+        <button class="btn" id="next-btn" type="button" ${practiceState.pos >= list.length - 1 ? 'disabled' : ''}>Sau →</button>
+      </div>`;
+    if (practiceState.revealed) {
+      const area = $('#hint-area');
+      const refs = q.refs.map((r) => topicByN.get(r)).filter(Boolean);
+      area.innerHTML = `
+        ${q.hint ? `<div class="hint"><span class="eyebrow">${q.hintLabel ?? 'Ý chính'}</span>${q.hint}</div>` : '<div class="hint"><span class="eyebrow">Gợi ý</span>Tự trả lời theo khung: định nghĩa → vì sao / đánh đổi → ví dụ từ dự án.</div>'}
+        ${refs.length ? `<div class="refs"><span class="eyebrow">Đọc lại</span>${refs.map((t) => `<a href="#topic-${t.n}">#${t.n} ${escapeHtml(t.title)}</a>`).join('')}</div>` : ''}`;
+    }
+    $('#prev-btn').addEventListener('click', () => move(-1));
+    $('#next-btn').addEventListener('click', () => move(1));
+    $('#reveal-btn').addEventListener('click', toggleReveal);
+    $('#again-btn').addEventListener('click', () => { setMark(q, 'review'); move(1, true); });
+    $('#known-btn').addEventListener('click', () => { setMark(q, 'known'); move(1, true); });
+  }
+  function move(delta, afterMark) {
+    const list = filtered();
+    const nextPos = practiceState.pos + delta;
+    if (nextPos >= 0 && nextPos < list.length) practiceState.pos = nextPos;
+    practiceState.revealed = false;
+    renderPractice();
+    if (afterMark) renderMeter();
+  }
+  function toggleReveal() { practiceState.revealed = !practiceState.revealed; renderPractice(); }
+  $('#shuffle-btn').addEventListener('click', () => {
+    const o = practiceState.order;
+    for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+    practiceState.pos = 0; practiceState.revealed = false; renderPractice();
+  });
+  const resetBtn = $('#reset-btn');
+  let resetArmed = false;
+  resetBtn.addEventListener('click', () => {
+    if (!resetArmed) { resetArmed = true; resetBtn.textContent = 'Bấm lần nữa để xoá'; setTimeout(() => { resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu'; }, 3000); return; }
+    marks = {}; store.set('solid-practice-marks', marks); resetArmed = false; resetBtn.textContent = 'Xoá đánh dấu';
+    renderPractice(); renderMeter();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'practice' || e.target.closest('input, textarea')) return;
+    const list = filtered();
+    const q = list[practiceState.pos];
+    if (e.key === ' ') { e.preventDefault(); toggleReveal(); }
+    else if (e.key === 'ArrowRight') move(1);
+    else if (e.key === 'ArrowLeft') move(-1);
+    else if (e.key === '1' && q) { setMark(q, 'review'); move(1, true); }
+    else if (e.key === '2' && q) { setMark(q, 'known'); move(1, true); }
+  });
+
+  // ================= GLOSSARY =================
+  function renderGlossary() {
+    const filter = $('#gloss-search').value.trim().toLowerCase();
+    const box = $('#gloss');
+    box.innerHTML = '';
+    DATA.glossary
+      .filter((g) => !filter || (g.term + ' ' + g.def).toLowerCase().includes(filter))
+      .forEach((g) => box.appendChild(el('div', { class: 'panel term' }, `<b>${g.term}</b><span>${g.def}</span>`)));
+    if (!box.children.length) box.appendChild(el('p', { class: 'panel empty', text: 'Không tìm thấy thuật ngữ phù hợp.' }));
+  }
+  $('#gloss-search').addEventListener('input', renderGlossary);
+
+  // ================= SLIDES =================
+  let slideIdx = 0;
+  let showNotes = false;
+  /** Chèn lại sơ đồ của tab Tổng quan vào slide. Đổi id của marker trong SVG để không trùng. */
+  function embed(sourceId, suffix) {
+    const clone = document.getElementById(sourceId).cloneNode(true);
+    clone.removeAttribute('id');
+    clone.querySelectorAll('[id]').forEach((n) => { n.id = n.id + suffix; });
+    clone.querySelectorAll('[marker-start],[marker-end]').forEach((n) => {
+      ['marker-start', 'marker-end'].forEach((attr) => {
+        const v = n.getAttribute(attr);
+        if (v) n.setAttribute(attr, v.replace(/url\(#([^)]+)\)/, `url(#$1${suffix})`));
+      });
+    });
+    return clone;
+  }
+  const EMBEDS = { '{{architecture}}': 'arch-diagram', '{{planes}}': 'planes' };
+  function renderSlide() {
+    const total = DATA.slides.length;
+    slideIdx = Math.max(0, Math.min(slideIdx, total - 1));
+    const s = DATA.slides[slideIdx];
+    const slide = $('#slide');
+    slide.className = 'slide' + (s.cover ? ' cover' : '');
+    slide.innerHTML = s.html +
+      `<span class="slide-brand">SOLID</span><span class="slide-no">${String(slideIdx + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}</span>`;
+    slide.querySelectorAll('p').forEach((p) => {
+      const id = EMBEDS[p.textContent.trim()];
+      if (id) p.replaceWith(embed(id, '-s' + slideIdx));
+    });
+    $('#slide-counter').textContent = `Slide ${slideIdx + 1}/${total}`;
+    $('#slide-progress').style.width = ((slideIdx + 1) / total) * 100 + '%';
+    $('#slide-prev').disabled = slideIdx === 0;
+    $('#slide-next').disabled = slideIdx === total - 1;
+    const notes = $('#slide-notes');
+    notes.hidden = !showNotes;
+    notes.innerHTML = '<span class="eyebrow">Ghi chú người nói</span>' + (s.notes || '<p>Không có ghi chú cho slide này.</p>');
+    $('#slide-notes-btn').setAttribute('aria-pressed', String(showNotes));
+  }
+  function slideGo(i) {
+    slideIdx = i;
+    renderSlide();
+    // Đổi slide không tạo thêm mục trong lịch sử (Back quay về tab trước, không lùi từng slide).
+    try { history.replaceState(null, '', '#slide-' + (slideIdx + 1)); } catch { /* bỏ qua */ }
+  }
+  function toggleFullscreen() {
+    const stage = $('#stage');
+    try {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else stage.requestFullscreen?.().catch(() => undefined);
+    } catch { /* trình xem không hỗ trợ toàn màn hình */ }
+  }
+  $('#slide-prev').addEventListener('click', () => slideGo(slideIdx - 1));
+  $('#slide-next').addEventListener('click', () => slideGo(slideIdx + 1));
+  $('#slide-full').addEventListener('click', toggleFullscreen);
+  $('#slide-notes-btn').addEventListener('click', () => { showNotes = !showNotes; renderSlide(); });
+  document.addEventListener('keydown', (e) => {
+    if (currentView !== 'slides' || e.target.closest('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+    const last = DATA.slides.length - 1;
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); slideGo(Math.min(slideIdx + 1, last)); }
+    else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); slideGo(Math.max(slideIdx - 1, 0)); }
+    else if (e.key === 'Home') slideGo(0);
+    else if (e.key === 'End') slideGo(last);
+    else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+    else if (e.key === 'n' || e.key === 'N') { showNotes = !showNotes; renderSlide(); }
+  });
+
+  function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
+
+  // ================= ROUTING (#overview, #knowledge, #topic-N, #practice, #glossary) =================
+  // Không dựa vào sự kiện hashchange để chuyển view: một số trình xem (preview trong IDE, app desktop,
+  // file:// bị chặn điều hướng) không đổi hash khi bấm link. Bấm link nội bộ → gọi go() trực tiếp;
+  // cập nhật URL chỉ là phụ, lỗi thì bỏ qua.
+  let currentView = 'overview';
+  function go(hash, updateUrl = true) {
+    route(hash);
+    if (!updateUrl) return;
+    try {
+      if (location.hash !== '#' + hash) history.pushState(null, '', '#' + hash);
+    } catch { /* trình xem không cho đổi URL: view vẫn đã chuyển */ }
+  }
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    go(a.getAttribute('href').slice(1));
+  });
+  function route(hash) {
+    const topicMatch = /^topic-(\d+)$/.exec(hash);
+    const slideMatch = /^slide-(\d+)$/.exec(hash);
+    const view = topicMatch ? 'knowledge'
+      : slideMatch ? 'slides'
+      : ['overview', 'knowledge', 'practice', 'glossary', 'slides'].includes(hash) ? hash : 'overview';
+    currentView = view;
+    document.querySelectorAll('[data-view-panel]').forEach((p) => { p.hidden = p.dataset.viewPanel !== view; });
+    document.querySelectorAll('nav.tabs a').forEach((a) => {
+      if (a.dataset.view === view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    if (view === 'knowledge') renderTopic(topicMatch ? Number(topicMatch[1]) : DATA.topics[0].n);
+    if (view === 'practice') renderPractice();
+    if (view === 'glossary') renderGlossary();
+    if (view === 'overview') renderMeter();
+    if (view === 'slides') {
+      if (slideMatch) slideIdx = Number(slideMatch[1]) - 1;
+      renderSlide();
+    }
+    window.scrollTo(0, 0);
+  }
+  // Nút Back/Forward của trình duyệt, hoặc người dùng tự sửa hash.
+  const fromUrl = () => route(location.hash.slice(1));
+  window.addEventListener('hashchange', fromUrl);
+  window.addEventListener('popstate', fromUrl);
+
+  fromUrl();
+})();
+</script>
+</body>
+</html>
